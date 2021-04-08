@@ -1,0 +1,28 @@
+{
+  "name": "hyper-express",
+  "version": "1.0.0",
+  "description": "An extremely fast webserver inspired by Express based on uWebSockets.js",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/kartikk221/hyper-express.git"
+  },
+  "keywords": [
+    "uws",
+    "express",
+    "fast",
+    "session"
+  ],
+  "author": "Kartik Kumar",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kartikk221/hyper-express/issues"
+  },
+  "homepage": "https://github.com/kartikk221/hyper-express#readme",
+  "dependencies": {
+    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v18.14.0"
+  }
+}
