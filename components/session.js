@@ -5,7 +5,6 @@ module.exports = class Session {
     #session_engine = {};
     #cookie_options = {};
     #methods = {};
-    #expiry_ts = 0;
     #ready = false;
     #parsed = false;
     #from_database = false;
@@ -26,13 +25,8 @@ module.exports = class Session {
         return this.#methods.id();
     }
 
-    _verify_id(id) {
-        return typeof id == 'string' && id.length == this.#session_engine.example_id.length;
-    }
-
-    set_id(id) {
-        if (!this._verify_id(id)) throw new Error('HyperExpress: Session id too weak');
-        this.#id = id;
+    async roll() {
+        this.#id = await this.generate_id();
         this.#parsed = true;
         return true;
     }
@@ -53,7 +47,6 @@ module.exports = class Session {
         // Parse signed cookie and cache for future access operations
         if (this.#parsed === true) return this.#id;
         this.#id = this.#request.unsign_cookie(this.#cookie_options.name, this.#cookie_options.secret) || '';
-        if (!this._verify_id(this.#id)) this.#id = '';
         this.#parsed = true;
         return this.#id;
     }
@@ -70,8 +63,33 @@ module.exports = class Session {
         return this;
     }
 
+    setAll(value) {
+        if (typeof value !== 'object') throw new Error('HyperExpress: setAll(object) only takes in a Javascript object');
+        this.#data = value;
+        this.#persist = true;
+        return this;
+    }
+
     get(key) {
         return this.#data[key];
+    }
+
+    getAll() {
+        return this.#data;
+    }
+
+    delete(key) {
+        if (this.#data[key]) {
+            delete this.#data[key];
+            this.#persist = true;
+        }
+        return this;
+    }
+
+    deleteAll() {
+        this.#data = {};
+        this.#persist = true;
+        return this;
     }
 
     _get_expiry_ts() {
@@ -83,6 +101,7 @@ module.exports = class Session {
         this.#id = this.id();
         if (this.#id.length == 0) {
             this.#id = await this.#methods.id();
+            this.#ready = true;
             return; // Do not pull since no existing session was found
         }
 
@@ -90,8 +109,7 @@ module.exports = class Session {
         let response = await this.#methods.read(this.#id);
         if (typeof response == 'object') {
             this.#from_database = true;
-            this.#data = response.data || {};
-            this.#expiry_ts = response.expiry_ts || 0;
+            this.#data = response;
         } else {
             this.#from_database = false;
         }
@@ -123,14 +141,16 @@ module.exports = class Session {
         if (this.#destroyed === true) {
             response.delete_cookie(this.#cookie_options.name);
         } else {
-            response.cookie(this.#cookie_options.name, this.#id, this.duration(), this.#session_engine.cookie);
+            response.cookie(this.#cookie_options.name, this.#id, this.duration(), this.#session_engine.get_cookie_options());
         }
 
         // Persist or touch session
         if (this.#persist === true) {
-            this.#methods.write(this.#id, JSON.stringify(this.#data)).catch((error) => response.throw_error(error));
+            this.#methods
+                .write(this.#id, JSON.stringify(this.#data), this._get_expiry_ts(), this.#from_database)
+                .catch((error) => response.throw_error(error));
         } else if (this.#session_engine.require_manual_touch !== true) {
-            this.#methods.touch(true).catch((error) => response.throw_error(error));
+            this.touch(true).catch((error) => response.throw_error(error));
         }
     }
 };

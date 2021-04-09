@@ -1,9 +1,9 @@
 const UID = require('uid-safe');
+const OPERATORS = require('../operators.js');
 
 module.exports = class SessionEngine {
     duration_msecs = 1000 * 60 * 30; // Default 30 minute expiry
     require_manual_touch = false;
-    example_id = '';
     #cookie_options = {
         name: 'he_sess',
         domain: '',
@@ -22,13 +22,11 @@ module.exports = class SessionEngine {
         cleanup: () => this._not_setup_method('Session Cleanup'),
     };
 
-    constructor(c) {
-        let reference = this;
-        if (c.cookie && typeof c.cookie == 'object') this._fill_object(this.#cookie_options, c.cookie);
-        if (c.duration_msecs) this.duration_msecs = c.duration_msecs;
-        if (c.cookie.secret == null) throw new Error('HyperExpress: A random cookie secret must be specified for session signatures.');
-        this.require_manual_touch = c.require_manual_touch === true;
-        this.#methods.id().then((id) => (reference.example_id = id));
+    constructor({ cookie = this.#cookie_options, duration_msecs = this.duration_msecs, require_manual_touch = this.require_manual_touch }) {
+        if (cookie && typeof cookie == 'object') OPERATORS.fill_object(this.#cookie_options, cookie);
+        if (duration_msecs) this.duration_msecs = duration_msecs;
+        if (cookie.secret == null) throw new Error('HyperExpress: A random cookie secret must be specified for session signatures.');
+        this.require_manual_touch = require_manual_touch === true;
     }
 
     handle(type, handler) {
@@ -52,17 +50,5 @@ module.exports = class SessionEngine {
 
     _not_setup_method(action) {
         throw new Error('HyperExpress: SessionEngine ' + action + ' not handled. Use .handle(event, handler) to handle this method.');
-    }
-
-    _fill_object(original, target) {
-        let reference = this;
-        Object.keys(target).forEach((key) => {
-            if (typeof target[key] == 'object') {
-                if (original[key] == undefined) original[key] = {};
-                reference._fill_object(target[key], original[key]);
-            } else {
-                original[key] = target[key];
-            }
-        });
     }
 };

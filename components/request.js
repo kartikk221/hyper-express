@@ -10,10 +10,12 @@ module.exports = class Request {
     path;
     query;
     url;
-    session = {};
+    session = null;
     headers = {};
     url_parameters = {};
+    #cookies = null;
     #body = null;
+    #query_parameters = null;
 
     constructor(uws_request, uws_response, url_parameters_key, session_engine) {
         // Parse common data
@@ -45,33 +47,33 @@ module.exports = class Request {
     }
 
     query_parameters() {
-        if (this._query_parameters) return this._query_parameters;
-        this._query_parameters = querystring.parse(this.query || '');
-        return this._query_parameters;
+        if (this.#query_parameters !== null) return this.#query_parameters;
+        this.#query_parameters = querystring.parse(this.query || '');
+        return this.#query_parameters;
     }
 
     get_query_parameter(key) {
         return this.query_parameters()[key];
     }
 
-    cookies(decode = true) {
-        if (this._cookies) return this._cookies;
-        this._cookies = cookie.parse(this.headers.cookie || '', {
+    cookies(decode = false) {
+        if (this.#cookies !== null) return this.#cookies;
+        this.#cookies = cookie.parse(this.headers.cookie || '', {
             decode: decode,
         });
-        return this._cookies;
+        return this.#cookies;
     }
 
-    get_cookie(key, decode = true) {
+    get_cookie(key, decode = false) {
         return this.cookies(decode)[key];
     }
 
     unsign_cookie(name, secret) {
-        let value = this.get_cookie(name);
-        console.log('UNSIGN - GOT VALUE', value);
+        // Retrieve cookie value
+        let value = this.get_cookie(name, false);
         if (value) {
+            // Attempt to unsing cookie - do not return anything on unsign fail
             let unsinged = signature.unsign(value, secret);
-            console.log('UNSIGNED - GOT RESULT', unsinged);
             if (unsinged !== false) return unsinged;
         }
     }
@@ -79,6 +81,9 @@ module.exports = class Request {
     text() {
         let reference = this;
         return new Promise((resolve, reject) => {
+            // Return empty for non content-length header requests
+            if (!this.headers['content-length']) return resolve('');
+
             // Check cache first
             if (reference.#body !== null) return resolve(reference.#body);
 

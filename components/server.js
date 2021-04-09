@@ -2,8 +2,6 @@ const uWebSockets = require('uWebSockets.js');
 const OPERATORS = require('../operators.js');
 const Request = require('./request.js');
 const Response = require('./response.js');
-const SessionEngine = require('./session_engine.js');
-const WebsocketRoute = require('./websocket.js');
 const ROUTER_METHODS = ['any', 'connect', 'del', 'get', 'head', 'options', 'patch', 'post', 'put', 'trace'];
 
 module.exports = class HyperExpress {
@@ -14,7 +12,7 @@ module.exports = class HyperExpress {
     #middlewares = [];
     #ws_compressors = {};
     #routes = {
-        websocket: {},
+        WS: {},
     };
     #error_handler = (request, response, error) => {
         response.send('HyperExpress: Uncaught Exception Occured');
@@ -89,10 +87,23 @@ module.exports = class HyperExpress {
         this.#session_engine = instance;
     }
 
-    ws(pattern, options) {
+    ws(pattern, websocket_route) {
+        if (
+            typeof websocket_route !== 'object' ||
+            websocket_route.constructor == undefined ||
+            websocket_route.constructor.name !== 'WebsocketRoute'
+        )
+            throw new Error(
+                'HyperExpress: .ws(websocket_route) -> websocket_route must be a new HyperExpress.WebsocketRoute(options) instance'
+            );
+
         if (this.#routes['WS'][pattern])
             throw new Error('HyperExpress: You cannot create the same websocket route again at route ' + pattern);
-        this.#routes['WS'][pattern] = new WebsocketRoute(pattern, options, this);
+
+        // Store and initiate websocket route
+        this.#routes['WS'][pattern] = websocket_route;
+        websocket_route.initiate(pattern, this);
+
         return this.#routes['WS'][pattern];
     }
 
@@ -120,7 +131,7 @@ module.exports = class HyperExpress {
     _chain_middlewares(request, response, final, position = 0) {
         if (this.#middlewares[position])
             setImmediate(
-                (r) => r.#middlewares[position](request, response, () => ref._chain_middlewares(request, response, final, position + 1)),
+                (r) => r.#middlewares[position](request, response, () => r._chain_middlewares(request, response, final, position + 1)),
                 this
             );
         final();
@@ -163,8 +174,8 @@ module.exports = class HyperExpress {
 
     _chain_middlewares(request, response, final, position = 0) {
         if (this.#middlewares[position]) {
-            setImmediate(
-                (r) => r.#middlewares[position](request, response, () => ref._chain_middlewares(request, response, final, position + 1)),
+            return setImmediate(
+                (r) => r.#middlewares[position](request, response, () => r._chain_middlewares(request, response, final, position + 1)),
                 this
             );
         }

@@ -70,7 +70,10 @@ module.exports = class Response {
         }
 
         // Sign cookie if a secret is provided
-        if (typeof options.secret == 'string') value = SIGNATURE.sign(value, options.secret);
+        if (typeof options.secret == 'string') {
+            value = SIGNATURE.sign(value, options.secret);
+            options.encode = false;
+        }
 
         let header = COOKIE.serialize(name, value, options);
         this.header('set-cookie', header);
@@ -109,7 +112,7 @@ module.exports = class Response {
     send(body = '') {
         if (this.completed === false) {
             // Trigger session closure if session engine is present
-            if (this.#request.session.ready && this.#request.session.ready()) this.#request.session.perform_sess_closure(this);
+            if (this.#request.session !== null && this.#request.session.ready()) this.#request.session.perform_sess_closure(this);
             this.completed = true;
             return this.#uws_response.end(body);
         }
