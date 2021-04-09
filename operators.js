@@ -8,36 +8,6 @@ OPERATORS.stringify_error = (error) => {
     }
 };
 
-OPERATORS.translate_duration_to_ms = (string) => {
-    let value = 0;
-    if (typeof string == 'string' && string.indexOf(' ') > -1) {
-        string = string.toLowerCase().split(' ');
-        let amount = +string[0];
-        let tag = string[1];
-        if (!isNaN(amount)) {
-            let exact = typeof string[2] == 'string' && string[2].indexOf('strict') > -1;
-
-            if (tag.indexOf('millisecond') > -1) {
-                amount *= 1;
-            } else if (tag.indexOf('second') > -1) {
-                amount *= 1000;
-            } else if (tag.indexOf('minute') > -1) {
-                amount *= 1000 * 60;
-            } else if (tag.indexOf('hour') > -1) {
-                amount *= 1000 * 60 * 60;
-            } else if (tag.indexOf('day') > -1) {
-                amount *= 1000 * 60 * 60 * 24;
-            } else if (tag.indexOf('week') > -1) {
-                amount *= 1000 * 60 * 60 * 24 * 7;
-            }
-
-            value = exact ? amount : Date.now() + amount;
-        }
-    }
-
-    return value;
-};
-
 OPERATORS.parse_url_parameters_key = (pattern) => {
     let result = null;
 
@@ -56,6 +26,19 @@ OPERATORS.parse_url_parameters_key = (pattern) => {
     }
 
     return result;
+};
+
+OPERATORS.fill_object = (original, target) => {
+    let reference = this;
+    Object.keys(target).forEach((key) => {
+        if (typeof target[key] == 'object') {
+            if (original[key] == undefined) original[key] = {};
+            reference._fill_object(target[key], original[key]);
+        } else {
+            original[key] = target[key];
+        }
+    });
+    return original;
 };
 
 module.exports = OPERATORS;
