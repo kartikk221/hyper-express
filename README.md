@@ -1,4 +1,4 @@
-# HyperExpress: A high performance Node.js webserver
+# HyperExpress: High Performance Node.js Webserver
 ## Powered on uWebsockets.js
 
 HyperExpress aims to bring various an ExpressJS like API to uWebsockets.js while maintaining high performance and simple to use API.
