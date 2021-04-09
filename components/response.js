@@ -11,6 +11,7 @@ module.exports = class Response {
     completed = false;
     #error_handler;
     #socket = null;
+    #status_change_available = true;
 
     constructor(request, uws_response, session_engine, error_handler, socket_context) {
         // Establish core variables for response
@@ -32,16 +33,22 @@ module.exports = class Response {
 
     header(key, value) {
         if (this.completed === false) this.#uws_response.writeHeader(key, value);
+        this.#status_change_available = false;
         return this;
     }
 
     status(code) {
+        if (this.#status_change_available === false)
+            throw new Error(
+                'HyperExpress: .status() and .redirect() method must be called before calling any headers/cookies/send methods.'
+            );
         if (this.completed === false) this.#uws_response.writeStatus(code + ' ' + (HTTP_STATUS_CODES[code] || 'UNKNOWN'));
         return this;
     }
 
     type(type) {
         if (this.completed === false) this.header('content-type', MIME_TYPES[type.toLowerCase()] || 'text/plain');
+        this.#status_change_available = false;
         return this;
     }
 
@@ -52,7 +59,6 @@ module.exports = class Response {
         options = {
             secure: true,
             sameSite: 'none',
-            httpOnly: true,
             path: '/',
         }
     ) {
@@ -68,12 +74,12 @@ module.exports = class Response {
 
         let header = COOKIE.serialize(name, value, options);
         this.header('set-cookie', header);
+        this.#status_change_available = false;
         return this;
     }
 
     delete_cookie(name) {
-        return this.cookie(name, '', {
-            expiry: 0,
+        return this.cookie(name, '', null, {
             maxAge: 0,
         });
     }

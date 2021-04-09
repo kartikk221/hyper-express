@@ -13,6 +13,7 @@ module.exports = class Request {
     session = {};
     headers = {};
     url_parameters = {};
+    #body = null;
 
     constructor(uws_request, uws_response, url_parameters_key, session_engine) {
         // Parse common data
@@ -20,8 +21,8 @@ module.exports = class Request {
         this.uws_request = uws_request;
         this.uws_response = uws_response;
         this.method = uws_request.getMethod().toUpperCase();
-        this.path = request.getUrl();
-        this.query = request.getQuery();
+        this.path = uws_request.getUrl();
+        this.query = uws_request.getQuery();
         this.url = this.path + (this.query ? '?' + this.query : '');
 
         // Pre-Parse headers
@@ -67,51 +68,37 @@ module.exports = class Request {
 
     unsign_cookie(name, secret) {
         let value = this.get_cookie(name);
+        console.log('UNSIGN - GOT VALUE', value);
         if (value) {
             let unsinged = signature.unsign(value, secret);
+            console.log('UNSIGNED - GOT RESULT', unsinged);
             if (unsinged !== false) return unsinged;
         }
     }
 
-    body(json = false) {
-        let ref = this;
+    text() {
+        let reference = this;
         return new Promise((resolve, reject) => {
-            if (ref._body) {
-                if (json === true) {
-                    let json_body = {};
-                    try {
-                        json_body = JSON.parse(ref._body);
-                    } catch (error) {
-                        return reject(error);
-                    }
-                    return resolve(json_body);
-                }
-                return resolve(ref._body);
-            }
+            // Check cache first
+            if (reference.#body !== null) return resolve(reference.#body);
 
-            /* Define empty buffer and store body chunks */
+            // Define empty buffer and store chunks
             let buffer;
-            ref.uws_response.onData((chunk, is_last) => {
+            reference.uws_response.onData((chunk, is_last) => {
                 chunk = Buffer.from(chunk);
-                /* Process stored buffer chunks on last */
                 if (is_last) {
                     let body;
                     if (buffer) {
                         body = Buffer.concat([buffer, chunk]);
+                        body = body.toString();
+                    } else if (chunk) {
+                        body = chunk.toString();
                     } else {
-                        body = chunk;
+                        body = '';
                     }
 
-                    /* Cache string version of body */
-                    ref._body = body.toString();
-                    if (json === true) {
-                        try {
-                            body = JSON.parse(body);
-                        } catch (error) {
-                            return reject(error);
-                        }
-                    }
-
+                    // Cache & return body
+                    reference.#body = body;
                     return resolve(body);
                 } else if (buffer) {
                     buffer = Buffer.concat([buffer, chunk]);
@@ -122,7 +109,22 @@ module.exports = class Request {
         });
     }
 
-    json() {
-        return this.body(true);
+    async json(default_value = {}) {
+        let body = this.#body || (await this.text());
+
+        // Will throw purposely on invalid json
+        if (default_value == null) return JSON.parse(body);
+
+        // Return default value for empty body
+        if (body == '') return default_value;
+
+        // Return default value on invalid json
+        try {
+            body = JSON.parse(body);
+        } catch (error) {
+            return default_value;
+        }
+
+        return body;
     }
 };

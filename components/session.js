@@ -33,7 +33,7 @@ module.exports = class Session {
     set_id(id) {
         if (!this._verify_id(id)) throw new Error('HyperExpress: Session id too weak');
         this.#id = id;
-        this.#parsed_id = true;
+        this.#parsed = true;
         return true;
     }
 

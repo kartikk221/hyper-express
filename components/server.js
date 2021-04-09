@@ -11,9 +11,11 @@ module.exports = class HyperExpress {
     #listen_socket = null;
     #not_found_handler = null;
     #session_engine = null;
-    #routes = {};
-    #ws_compressors = {};
     #middlewares = [];
+    #ws_compressors = {};
+    #routes = {
+        websocket: {},
+    };
     #error_handler = (request, response, error) => {
         response.send('HyperExpress: Uncaught Exception Occured');
         throw new Error(error);
@@ -38,18 +40,18 @@ module.exports = class HyperExpress {
         let reference = this;
         ROUTER_METHODS.forEach((method) => {
             reference[method] = (pattern, handler) => reference._create_route(method, pattern, handler);
-            reference.#routes[method] = {};
+            reference.#routes[method.toUpperCase()] = {};
         });
 
         // Expose uWS websocket compressors
         this.#ws_compressors = {
-            DISABLED: this.#uWS.DISABLED,
-            SHARED: this.#uWS.SHARED_COMPRESSOR,
+            DISABLED: uWebSockets.DISABLED,
+            SHARED: uWebSockets.SHARED_COMPRESSOR,
             DEDICATED: {},
         };
 
         [3, 4, 8, 16, 32, 64, 128, 256].forEach(
-            (amount) => (reference[amount + 'KB'] = reference.#uWS['DEDICATED_COMPRESSOR_' + amount + 'KB'])
+            (amount) => (reference.#ws_compressors['DEDICATED'][amount + 'KB'] = uWebSockets['DEDICATED_COMPRESSOR_' + amount + 'KB'])
         );
     }
 
@@ -88,16 +90,18 @@ module.exports = class HyperExpress {
     }
 
     ws(pattern, options) {
-        if (this.#websocket_routes[pattern])
+        if (this.#routes['WS'][pattern])
             throw new Error('HyperExpress: You cannot create the same websocket route again at route ' + pattern);
-        this.#routes['websocket'][pattern] = new WebsocketRoute(pattern, options, this);
-        return this.#routes['websocket'][pattern];
+        this.#routes['WS'][pattern] = new WebsocketRoute(pattern, options, this);
+        return this.#routes['WS'][pattern];
     }
 
-    ws_compressors() {}
+    ws_compressors() {
+        return this.#ws_compressors;
+    }
 
     routes() {
-        return this.#websocket_routes;
+        return this.#routes;
     }
 
     get_error_handler() {
@@ -137,11 +141,11 @@ module.exports = class HyperExpress {
         let wrapped_response = new Response(wrapped_request, response, session_engine, error_handler, uws_context);
 
         // Pre-fetch body if content-length is specified
-        if (req.headers['content-length']) {
+        if (wrapped_request.headers['content-length']) {
             try {
-                await req.body();
+                await wrapped_request.text();
             } catch (error) {
-                return error_handler(req, res, error);
+                return error_handler(wrapped_request, wrapped_response, error);
             }
         }
 

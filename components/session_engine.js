@@ -24,7 +24,7 @@ module.exports = class SessionEngine {
 
     constructor(c) {
         let reference = this;
-        if (c.cookie && typeof c.cookie == 'object') this.#cookie_options = c.cookie;
+        if (c.cookie && typeof c.cookie == 'object') this._fill_object(this.#cookie_options, c.cookie);
         if (c.duration_msecs) this.duration_msecs = c.duration_msecs;
         if (c.cookie.secret == null) throw new Error('HyperExpress: A random cookie secret must be specified for session signatures.');
         this.require_manual_touch = c.require_manual_touch === true;
@@ -52,5 +52,17 @@ module.exports = class SessionEngine {
 
     _not_setup_method(action) {
         throw new Error('HyperExpress: SessionEngine ' + action + ' not handled. Use .handle(event, handler) to handle this method.');
+    }
+
+    _fill_object(original, target) {
+        let reference = this;
+        Object.keys(target).forEach((key) => {
+            if (typeof target[key] == 'object') {
+                if (original[key] == undefined) original[key] = {};
+                reference._fill_object(target[key], original[key]);
+            } else {
+                original[key] = target[key];
+            }
+        });
     }
 };
