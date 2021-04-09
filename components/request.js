@@ -7,12 +7,12 @@ module.exports = class Request {
     uws_request;
     uws_response;
     method;
+    url;
     path;
     query;
-    url;
     session = null;
     headers = {};
-    url_parameters = {};
+    path_parameters = {};
     #cookies = null;
     #body = null;
     #query_parameters = null;
@@ -32,7 +32,7 @@ module.exports = class Request {
 
         // Pre-Parse url parameters
         if (url_parameters_key !== null)
-            url_parameters_key.forEach((key) => (reference.url_parameters[key[0]] = uws_request.getParameter(key[1])));
+            url_parameters_key.forEach((key) => (reference.path_parameters[key[0]] = uws_request.getParameter(key[1])));
 
         // Bind session if established
         if (session_engine) this.session = new Session(this, session_engine);
