@@ -1,19 +1,21 @@
 const HTTP_STATUS_CODES = require('../http_status_codes.json');
 const MIME_TYPES = require('../mime_types.json');
 const OPERATORS = require('../operators.js');
+const COOKIE = require('cookie');
+const SIGNATURE = require('cookie-signature');
 
 module.exports = class Response {
-    #sess_config;
+    #session_engine;
     #request;
     #uws_response;
     completed = false;
     #error_handler;
     #socket = null;
 
-    constructor(request, uws_response, sess_config, error_handler, socket_context) {
+    constructor(request, uws_response, session_engine, error_handler, socket_context) {
         // Establish core variables for response
         let reference = this;
-        this.#sess_config = sess_config;
+        this.#session_engine = session_engine;
         this.#request = request;
         this.#uws_response = uws_response;
         this.#error_handler = error_handler;
@@ -29,7 +31,7 @@ module.exports = class Response {
     }
 
     header(key, value) {
-        this.#uws_response.writeHeader(key, value);
+        if (this.completed === false) this.#uws_response.writeHeader(key, value);
         return this;
     }
 
@@ -43,35 +45,37 @@ module.exports = class Response {
         return this;
     }
 
-    set_cookie(name, value, expiry = '0 milliseconds strict', options = null) {
-        if (options == null)
-            options = {
-                secure: true,
-                sameSite: true,
-                path: '/',
-            };
-
-        let header = `${name}=${value}`;
-        let expiry_msecs = OPERATORS.translate_duration_to_ms(expiry);
-        if (options.domain) header += `; Domain=${options.domain}`;
-        if (options.path) header += `; Path=${options.path}`;
-        header += `; Expires=${new Date(expiry_msecs).toUTCString()}`;
-        if (options.maxAge || expiry_msecs == 0) header += `; Max-Age=${expiry_msecs == 0 ? 0 : options.maxAge}`;
-        if (typeof options.sameSite == 'string') {
-            header += `; SameSite=${options.sameSite}`;
-        } else if (options.sameSite === true) {
-            header += `; SameSite=Strict`;
-        } else {
-            header += `; SameSite=None`;
+    cookie(
+        name,
+        value,
+        expiry,
+        options = {
+            secure: true,
+            sameSite: 'none',
+            httpOnly: true,
+            path: '/',
         }
-        if (options.httpOnly === true) header += `; HttpOnly`;
-        if (options.secure === true) header += `; Secure`;
+    ) {
+        // Convert expiry to valid expires Date object
+        if (typeof expiry == 'number') {
+            options.expires = new Date(Date.now() + expiry);
+        } else {
+            delete options.expires;
+        }
+
+        // Sign cookie if a secret is provided
+        if (typeof options.secret == 'string') value = SIGNATURE.sign(value, options.secret);
+
+        let header = COOKIE.serialize(name, value, options);
         this.header('set-cookie', header);
         return this;
     }
 
     delete_cookie(name) {
-        return this.set_cookie(name, '');
+        return this.cookie(name, '', {
+            expiry: 0,
+            maxAge: 0,
+        });
     }
 
     upgrade(user_data = {}) {
@@ -87,9 +91,10 @@ module.exports = class Response {
                 );
             }
 
-            let sec_websocket_key = this.#request.headers['sec-websocket-key'] || '';
-            let sec_websocket_protocol = this.#request.headers['sec-websocket-protocol'] || '';
-            let sec_websocket_extensions = this.#request.headers['sec-websocket-extensions'] || '';
+            let ws_headers = this.#request.ws_headers();
+            let sec_websocket_key = ws_headers.sec_websocket_key;
+            let sec_websocket_protocol = ws_headers.sec_websocket_protocol;
+            let sec_websocket_extensions = ws_headers.sec_websocket_extensions;
             user_data.url = this.#request.path;
             return this.#uws_response.upgrade(user_data, sec_websocket_key, sec_websocket_protocol, sec_websocket_extensions, this.#socket);
         }
@@ -97,33 +102,9 @@ module.exports = class Response {
 
     send(body = '') {
         if (this.completed === false) {
+            // Trigger session closure if session engine is present
+            if (this.#request.session.ready && this.#request.session.ready()) this.#request.session.perform_sess_closure(this);
             this.completed = true;
-
-            // Pre-handle session cookie and persist/touch operations
-            if (this.#request.session && this.#request.session.id.length > 0) {
-                // Set proper cookie header according to session status
-                if (this.#request.session.destroyed === true) {
-                    this.delete_cookie(this.#sess_config.cookie.name);
-                } else {
-                    this.set_cookie(
-                        this.#sess_config.cookie.name,
-                        this.#request.session.id,
-                        this.#request.session.expiry + ' milliseconds strict',
-                        this.#sess_config.cookie
-                    );
-                }
-
-                // Persist or Touch session
-                let ref = this;
-                if (this.#request.session.persist === true) {
-                    this.#sess_config
-                        .session_write(this.#request.session, Date.now() + this.#sess_config.session_expiry_msecs)
-                        .catch((error) => ref.error_handler(ref.req, ref, error));
-                } else if (this.#sess_config.require_manual_touch !== true) {
-                    this.#request.session.touch(true).catch((error) => ref.error_handler(ref.req, ref, error));
-                }
-            }
-
             return this.#uws_response.end(body);
         }
     }

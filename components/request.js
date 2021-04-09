@@ -1,4 +1,7 @@
 const Session = require('./session.js');
+const cookie = require('cookie');
+const querystring = require('query-string');
+const signature = require('cookie-signature');
 
 module.exports = class Request {
     uws_request;
@@ -7,11 +10,11 @@ module.exports = class Request {
     path;
     query;
     url;
-    session;
+    session = {};
     headers = {};
     url_parameters = {};
 
-    constructor(uws_request, uws_response, url_parameters_key, session_engine_config) {
+    constructor(uws_request, uws_response, url_parameters_key, session_engine) {
         // Parse common data
         let reference = this;
         this.uws_request = uws_request;
@@ -29,17 +32,20 @@ module.exports = class Request {
             url_parameters_key.forEach((key) => (reference.url_parameters[key[0]] = uws_request.getParameter(key[1])));
 
         // Bind session if established
-        if (session_engine_config) this.session = new Session(this, session_engine_config);
+        if (session_engine) this.session = new Session(this, session_engine);
+    }
+
+    ws_headers() {
+        return {
+            sec_websocket_key: this.headers['sec-websocket-key'] || '',
+            sec_websocket_protocol: this.headers['sec-websocket-protocol'] || '',
+            sec_websocket_extensions: this.headers['sec-websocket-extensions'] || '',
+        };
     }
 
     query_parameters() {
         if (this._query_parameters) return this._query_parameters;
-        let ref = this;
-        this._query_parameters = {};
-        this.query.split('&').forEach((chunk) => {
-            chunk = chunk.split('=');
-            if (chunk.length == 2) ref._query_parameters[chunk[0]] = decodeURIComponent(chunk[1]);
-        });
+        this._query_parameters = querystring.parse(this.query || '');
         return this._query_parameters;
     }
 
@@ -47,20 +53,24 @@ module.exports = class Request {
         return this.query_parameters()[key];
     }
 
-    cookies() {
+    cookies(decode = true) {
         if (this._cookies) return this._cookies;
-        let ref = this;
-        this._cookies = {};
-        if (this.headers.cookie)
-            this.headers.cookie.split('; ').forEach((chunk) => {
-                chunk = chunk.split('=');
-                if (chunk.length == 2) ref._cookies[chunk[0]] = chunk[1];
-            });
+        this._cookies = cookie.parse(this.headers.cookie || '', {
+            decode: decode,
+        });
         return this._cookies;
     }
 
-    get_cookie(key) {
-        return this.cookies()[key];
+    get_cookie(key, decode = true) {
+        return this.cookies(decode)[key];
+    }
+
+    unsign_cookie(name, secret) {
+        let value = this.get_cookie(name);
+        if (value) {
+            let unsinged = signature.unsign(value, secret);
+            if (unsinged !== false) return unsinged;
+        }
     }
 
     body(json = false) {

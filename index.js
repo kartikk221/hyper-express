@@ -1,5 +1,6 @@
-const uWebSockets = require('uWebSockets.js');
-const Request = require('./components/request.js');
-const Response = require('./components/response.js');
-const Session = require('./components/session.js');
-const OPERATORS = require('./operators.js');
+const Server = require('./components/server.js');
+const SessionEngine = require('./components/session_engine.js');
+module.exports = {
+    Server: Server,
+    SessionEngine: SessionEngine,
+};

@@ -23,6 +23,10 @@
   },
   "homepage": "https://github.com/kartikk221/hyper-express#readme",
   "dependencies": {
-    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v18.14.0"
+    "cookie": "^0.4.1",
+    "cookie-signature": "^1.1.0",
+    "query-string": "^7.0.0",
+    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v18.14.0",
+    "uid-safe": "^2.1.5"
   }
 }

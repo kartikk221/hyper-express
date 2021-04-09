@@ -3,12 +3,16 @@ const OPERATORS = require('../operators.js');
 const Request = require('./request.js');
 const Response = require('./response.js');
 const SessionEngine = require('./session_engine.js');
+const WebsocketRoute = require('./websocket.js');
 const ROUTER_METHODS = ['any', 'connect', 'del', 'get', 'head', 'options', 'patch', 'post', 'put', 'trace'];
 
 module.exports = class HyperExpress {
     #uWS = null;
+    #listen_socket = null;
     #not_found_handler = null;
     #session_engine = null;
+    #routes = {};
+    #ws_compressors = {};
     #middlewares = [];
     #error_handler = (request, response, error) => {
         response.send('HyperExpress: Uncaught Exception Occured');
@@ -32,15 +36,37 @@ module.exports = class HyperExpress {
 
         // Bind route instances
         let reference = this;
-        ROUTER_METHODS.forEach((method) => (reference[method] = (pattern, handler) => reference._create_route(method, pattern, handler)));
+        ROUTER_METHODS.forEach((method) => {
+            reference[method] = (pattern, handler) => reference._create_route(method, pattern, handler);
+            reference.#routes[method] = {};
+        });
+
+        // Expose uWS websocket compressors
+        this.#ws_compressors = {
+            DISABLED: this.#uWS.DISABLED,
+            SHARED: this.#uWS.SHARED_COMPRESSOR,
+            DEDICATED: {},
+        };
+
+        [3, 4, 8, 16, 32, 64, 128, 256].forEach(
+            (amount) => (reference[amount + 'KB'] = reference.#uWS['DEDICATED_COMPRESSOR_' + amount + 'KB'])
+        );
     }
 
-    raw() {
+    uWS() {
         return this.#uWS;
     }
 
     listen(port, callback = () => {}) {
-        this.#uWS.listen(port, callback);
+        let reference = this;
+        this.#uWS.listen(port, (listen_socket) => {
+            reference.#listen_socket = listen_socket;
+            callback();
+        });
+    }
+
+    close() {
+        this.#uWS.us_listen_socket_close(this.#listen_socket);
     }
 
     setErrorHandler(handler) {
@@ -55,8 +81,23 @@ module.exports = class HyperExpress {
         if (should_bind) this.any('/*', (request, response) => this.#not_found_handler(request, response));
     }
 
-    setSessionEngine(configuration) {
-        if (this.#session_engine === null) this.#session_engine = new SessionEngine(configuration);
+    setSessionEngine(instance = {}) {
+        if (instance.constructor && instance.constructor.name !== 'SessionEngine')
+            throw new Error('HyperExpress: setSessionEngine only accepts a HyperExpress.SessionEngine instance');
+        this.#session_engine = instance;
+    }
+
+    ws(pattern, options) {
+        if (this.#websocket_routes[pattern])
+            throw new Error('HyperExpress: You cannot create the same websocket route again at route ' + pattern);
+        this.#routes['websocket'][pattern] = new WebsocketRoute(pattern, options, this);
+        return this.#routes['websocket'][pattern];
+    }
+
+    ws_compressors() {}
+
+    routes() {
+        return this.#websocket_routes;
     }
 
     get_error_handler() {
@@ -73,26 +114,27 @@ module.exports = class HyperExpress {
     }
 
     _chain_middlewares(request, response, final, position = 0) {
-        if (this.#middlewares[position]) {
+        if (this.#middlewares[position])
             setImmediate(
                 (r) => r.#middlewares[position](request, response, () => ref._chain_middlewares(request, response, final, position + 1)),
                 this
             );
-        }
         final();
     }
 
     _create_route(method, pattern, handler) {
+        if (this.#routes[method.toUpperCase()][pattern]) throw new Error('HyperExpress: You cannot create duplicate routes.');
         let url_parameters_key = OPERATORS.parse_url_parameters_key(pattern);
-        this.#uWS[method.toLowerCase()](pattern, (response, request) =>
+        let route = this.#uWS[method.toLowerCase()](pattern, (response, request) =>
             this._wrap_request(request, response, url_parameters_key, handler, this.get_error_handler(), this.#session_engine, this)
         );
+        this.#routes[method.toUpperCase()][pattern] = route;
     }
 
-    async _wrap_request(request, response, url_parameters_key, handler, error_handler, session_engine_config, master_context, uws_context) {
+    async _wrap_request(request, response, url_parameters_key, handler, error_handler, session_engine, master_context, uws_context) {
         // Wrap uWS request and response objects
-        let wrapped_request = new Request(request, response, url_parameters_key, session_engine_config);
-        let wrapped_response = new Response(wrapped_request, response, session_engine_config, error_handler, uws_context);
+        let wrapped_request = new Request(request, response, url_parameters_key, session_engine);
+        let wrapped_response = new Response(wrapped_request, response, session_engine, error_handler, uws_context);
 
         // Pre-fetch body if content-length is specified
         if (req.headers['content-length']) {
