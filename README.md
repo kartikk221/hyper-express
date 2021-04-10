@@ -50,7 +50,7 @@ Webserver.listen(80, () => console.log('Webserver is active on port 80'));
 #### Server Methods
 | Method              | Parameters | Explanation                                |
 | -------------------|-| ------------------------------------------------------ |
-| `any(pattern, handler)` | `pattern`: `String`, `handler`:`function`| This method is used to create an any HTTP method route. Supported methods: `get(), post(), del(), head(), connect(), options(), patch(), put(), trace()`|
+| `any(pattern, handler)` | `pattern`: `String`<br /> `handler`:`function`| This method is used to create an any HTTP method route. <br />Supported methods: `get(), post(), del(), head(), connect(), options(), patch(), put(), trace()`|
 
 ## Request
 Below is a breakdown of all available methods for the `request` object available through the route handler and websocket upgrade event handler.
