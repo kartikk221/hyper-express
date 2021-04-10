@@ -33,6 +33,25 @@ Webserver.get('/', (request, response) => {
 Webserver.listen(80);
 ```
 
+## Server
+Below is a breakdown of proper utilization for the `Server` object in order to create a webserver.
+
+#### Example: Create server instance
+```js
+const HyperExpress = require('hyper-express');
+const Webserver = new HyperExpress();
+
+// Do some stuff like binding routes or handlers
+
+// Activate webserver by calling .listen(port, callback);
+Webserver.listen(80, () => console.log('Webserver is active on port 80'));
+```
+
+#### Server Methods
+| Method              | Parameters | Explanation                                |
+| -------------------|-| ------------------------------------------------------ |
+| `any(pattern, handler)` | `pattern`: `String`, `handler`:`function`| This method is used to create an any HTTP method route. Supported methods: `get(), post(), del(), head(), connect(), options(), patch(), put(), trace()`|
+
 ## Request
 Below is a breakdown of all available methods for the `request` object available through the route handler and websocket upgrade event handler.
 
@@ -48,7 +67,7 @@ Webserver.post('/api/v1/delete_user/:id', async (request, response) => {
 });
 ```
 
-#### Properties
+#### Request Properties
 | Property             | Type | Explanation                                     |
 | -------------------|-| ------------------------------------------------------ |
 | `method` | `String`  | This property contains the request HTTP method in uppercase.|
@@ -61,7 +80,7 @@ Webserver.post('/api/v1/delete_user/:id', async (request, response) => {
 | `uws_request` | `uWS.Request`  | This property contains the underlying uWebsockets.js request object.|
 | `uws_response` | `uWS.Response`  | This property contains the underlying uWebsockets.js response object.|
 
-#### Methods
+#### Request Methods
 | Method             | Returns | Explanation                                    |
 | -------------------|-| ------------------------------------------------------ |
 | `query_parameters()` | `Object`  | This method can be used to retrieve query parameters.|
