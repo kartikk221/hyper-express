@@ -4,7 +4,7 @@ const Request = require('./request.js');
 const Response = require('./response.js');
 const ROUTER_METHODS = ['any', 'connect', 'del', 'get', 'head', 'options', 'patch', 'post', 'put', 'trace'];
 
-module.exports = class HyperExpress {
+module.exports = class Server {
     #uWS = null;
     #listen_socket = null;
     #not_found_handler = null;
@@ -15,7 +15,7 @@ module.exports = class HyperExpress {
         WS: {},
     };
     #error_handler = (request, response, error) => {
-        response.send('HyperExpress: Uncaught Exception Occured');
+        response.send('HyperExpress: Uncaught Exception Occured: ');
         throw new Error(error);
     };
 
