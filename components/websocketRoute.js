@@ -4,7 +4,7 @@ const uWebsockets = require('uWebSockets.js');
 module.exports = class WebsocketRoute {
     #options = {
         idleTimeout: 30,
-        compression: uWebsockets.DISABLED,
+        compression: uWebsockets.SHARED_COMPRESSOR,
         maxBackpressure: 1024 * 1024, // 1 MB
         maxPayloadLength: 5 * 1024 * 1024, // 5 MB
     };
