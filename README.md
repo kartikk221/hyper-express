@@ -62,14 +62,14 @@ Webserver.listen(80)
 #### Server Instance Methods
 | Method              | Parameters | Explanation                                |
 | -------------------|-| ------------------------------------------------------ |
+| `listen(port)` | `port`: `Number` | Starts the uWS server on specified port.<br />Returns a `Promise` and resolves `uw_listen_socket`.|
+| `close()` | None | Closes the uWS server gracefully.|
 | `uWS()` | None  | Returns the underlying uWS instance.|
 | `use(middleware)` | `middleware`: `function`  | Binds global middleware to webserver.<br />**Example**: `(request, response, next) => {}`<br />Usage: perform middleware operations and call `next()`<br />**Note**: Middlewares can hurt performance depending on logic complexity|
 | `any(pattern, handler)`<br />`get(pattern, handler)`<br />`post(pattern, handler)`<br />`options(pattern, handler)`<br />`del(pattern, handler)`<br />`head(pattern, handler)`<br />`patch(pattern, handler)`<br />`put(pattern, handler)`<br />`trace(pattern, handler)`<br />`connect(pattern, handler)` | `pattern`: `String`<br /> `handler`: `function`| These methods create http routes.<br /> The `handler` parameter accepts either a `normal` or `async` anonymous function.<br />The handler must have also have two parameters `(request, response) => {}`.<br /> The `pattern` parameter must be a string and is a `strict` match.<br />`pattern` supports path parameters with the `/v1/users/:key` format.|
 | `ws(pattern, ws_route)` | `ws_route`: `WebsocketRoute` | This method creates a websocket route.<br />A `WebsocketRoute` instance must be passed to handle connections.|
 | `routes()` | None | Returns created routes.|
 | `ws_compressors()` | None | Returns compressor presets for WebsocketRoute `compressor` option.|
-| `listen(port)` | `port`: `Number`<br />`callback`: `function`  | Starts the uWS server on specified port.<br />Returns a `Promise` and resolves `uw_listen_socket`.|
-| `close()` | None | Closes the uWS server gracefully.|
 | `setErrorHandler(handler)` | `handler`: `function` | Binds a global error handler.<br />**Example**: `(request, response, error) => {}`|
 | `setNotFoundHandler(handler)` | `handler`: `function` | Binds a global not found handler.<br />*Example**: `(request, response) => {}`|
 | `setSessionEngine(engine)` | `engine`: `SessionEngine` | Binds a session engine to webserver.<br />This populates `request.session` with a `Session` object.<br />**Note**: You must call `engine.perform_cleanup()` intervally to cleanup sessions.|
