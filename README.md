@@ -93,12 +93,12 @@ Webserver.post('/api/v1/delete_user/:id', async (request, response) => {
 | Method             | Returns | Explanation                                    |
 | -------------------|-| ------------------------------------------------------ |
 | `query_parameters()` | `Object`  | Retrieves all query parameters from current request.|
-| `get_query_parameter(key)` | `String` `undefined` | Retrieves a specified query parameter from current request.|
-| `cookies()` | `Object`  | Retrieves all cookies from incoming request.|
-| `get_cookie(key, decode)` | `String` `undefined` | Retrieves a specified cookie from incoming request.<br /> The optional decode parameter can be used to decode url encoded cookies.<br /> `Default: false`|
-| `unsign_cookie(name, secret)` | `String`,<br />`undefined`  | Unsigns and retrieves the decoded value for a signed cookie.<br />**Note**: Returns `undefined` when cookie is not set or tampered with.|
+| `get_query_parameter(key)` | `String` `undefined` | Retrieves a specified query parameter from current request.<br />`key`[**String**]: Required|
+| `cookies(decode)` | `Object`  | Retrieves all cookies from incoming request.<br />`decode`[**Boolean**][**Default**: `false`]: Optional|
+| `get_cookie(key, decode)` | `String` `undefined` | Retrieves a specified cookie from incoming request.<br /> The optional decode parameter can be used to decode url encoded cookies.<br /> `key`[**String**]: **Required**<br /> `decode`[**Boolean**][**Default**: `false`]: Optional|
+| `unsign_cookie(name, secret)` | `String`,<br />`undefined`  | Unsigns and retrieves the decoded value for a signed cookie.<br />**Note**: Returns `undefined` when cookie is not set or tampered with.<br />`name`[**String**]: **Required**<br />`secret`[**String**]: **Required**|
 | `text()` | `Promise`  | Retrieves the body from an incoming request asynchronously as a `String`. |
-| `json(default_value)` | `Promise`  | Retrieves the body from an incoming request asynchronously as an `Object`.<br />**Note**: Setting `default_value` to `null` will reject the promise.<br />The **optional** parameter `default_value` is used to resolve specified value on invalid JSON and prevent rejections.<br />`Default`: `{}`|
+| `json(default_value)` | `Promise`  | Retrieves the body from an incoming request asynchronously as an `Object`.<br />**Note**: Setting `default_value` to `null` will reject the promise.<br />The **optional** parameter `default_value` is used to resolve specified value on invalid JSON and prevent rejections.<br />`default_value`[**Any**][**Default**: `{}`]: Optional|
 
 ## Response
 Below is a breakdown of all available methods for the `response` object available through the route handler and websocket upgrade event handler.
