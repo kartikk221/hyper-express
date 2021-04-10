@@ -50,7 +50,7 @@ Webserver.listen(80, () => console.log('Webserver is active on port 80'));
 #### Server Methods
 | Method              | Parameters | Explanation                                |
 | -------------------|-| ------------------------------------------------------ |
-| `any(pattern, handler)`<br />`get(pattern, handler)`<br />`post(pattern, handler)`<br />`options(pattern, handler)`<br />`del(pattern, handler)`<br />`head(pattern, handler)`<br />`patch(pattern, handler)`<br />`put(pattern, handler)`<br />`trace(pattern, handler)`<br />`connect(pattern, handler)` | `pattern`: `String`<br /> `handler`: `function`| This method is used to create an `any` HTTP method route.|
+| `any(pattern, handler)`<br />`get(pattern, handler)`<br />`post(pattern, handler)`<br />`options(pattern, handler)`<br />`del(pattern, handler)`<br />`head(pattern, handler)`<br />`patch(pattern, handler)`<br />`put(pattern, handler)`<br />`trace(pattern, handler)`<br />`connect(pattern, handler)` | `pattern`: `String`<br /> `handler`: `function`| This method is used to create an http route.<br /> The `handler` parameter accepts either a `normal` or `async` anonymous function with two parameters `(request, response) => {}`.<br /> The `pattern` parameter must be a string and is a `strict` match with support for path parameters with the `/v1/users/:prefix` format support.|
 
 ## Request
 Below is a breakdown of all available methods for the `request` object available through the route handler and websocket upgrade event handler.
