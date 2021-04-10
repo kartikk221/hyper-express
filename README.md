@@ -84,7 +84,7 @@ Webserver.post('/api/v1/delete_user/:id', async (request, response) => {
 | `path` | `String`  | This property contains the request path.|
 | `query` | `String`  | This property contains the request query string without after the `?`.|
 | `headers` | `Object`  | This property contains the headers for incoming requests.|
-| `path_parameters` | `Object`  | This property contains path parameters from incoming requests. Example: `/api/v1/delete/:userid` -> `{ userid: 'some value' }` |
+| `path_parameters` | `Object`  | This property contains path parameters from incoming requests.<br />Example: `/api/v1/delete/:userid` -> `{ userid: 'some value' }` |
 | `session` | `Session`  | This property contains the session object for incoming requests when a session engine is active.|
 | `uws_request` | `uWS.Request`  | This property contains the underlying uWebsockets.js request object.|
 | `uws_response` | `uWS.Response`  | This property contains the underlying uWebsockets.js response object.|
@@ -92,13 +92,13 @@ Webserver.post('/api/v1/delete_user/:id', async (request, response) => {
 #### Request Methods
 | Method             | Returns | Explanation                                    |
 | -------------------|-| ------------------------------------------------------ |
-| `query_parameters()` | `Object`  | can be used to retrieve query parameters.|
-| `get_query_parameter(key)` | `String` `undefined` | can be used to retrieve specific query parameter by key.|
-| `cookies()` | `Object`  | can be used to retrieve cookies from incoming requests.|
-| `get_cookie(key, decode)` | `String` `undefined` | can be used to retrieve a specific cookie from incoming requests. The optional decode parameter can be used to decode url encoded cookies. `Default: false`|
-| `unsign_cookie(name, secret)` | `String` `undefined`  | is used to retrieve a specific cookie and verify/unsign it. If the unsigning process fails, will return `undefined`|
-| `text()` | `Promise`  | retrieves the body from an incoming request asynchronously and Returns the body as a `String` |
-| `json(default_value)` | `Promise`  | retrieves the body from an incoming request asynchronously and Returns the body as an `Object`. The optional parameter default_value is `{}` by default but setting this to `null` will throw an exception on invalid JSON. |
+| `query_parameters()` | `Object`  | Retrieves all query parameters from current request.|
+| `get_query_parameter(key)` | `String` `undefined` | Retrieves a specified query parameter from current request.|
+| `cookies()` | `Object`  | Retrieves all cookies from incoming request.|
+| `get_cookie(key, decode)` | `String` `undefined` | Retrieves a specified cookie from incoming request.<br /> The optional decode parameter can be used to decode url encoded cookies.<br /> `Default: false`|
+| `unsign_cookie(name, secret)` | `String`,<br />`undefined`  | Unsigns and retrieves the decoded value for a signed cookie.<br />**Note**: Returns `undefined` when cookie is not set or tampered with.|
+| `text()` | `Promise`  | Retrieves the body from an incoming request asynchronously as a `String`. |
+| `json(default_value)` | `Promise`  | Retrieves the body from an incoming request asynchronously as an `Object`.<br />**Note**: Setting `default_value` to `null` will reject the promise.<br />The **optional** parameter `default_value` is used to resolve specified value on invalid JSON and prevent rejections.<br />`Default`: `{}`|
 
 ## Response
 Below is a breakdown of all available methods for the `response` object available through the route handler and websocket upgrade event handler.
