@@ -65,13 +65,13 @@ Webserver.listen(80)
 | `listen(port)` | `port`: `Number` | Starts the uWS server on specified port.<br />Returns a `Promise` and resolves `uw_listen_socket`.|
 | `close()` | None | Closes the uWS server gracefully.|
 | `uWS()` | None  | Returns the underlying uWS instance.|
-| `use(middleware)` | `middleware`: `function`  | Binds global middleware to webserver.<br />**Example**: `(request, response, next) => {}`<br />Usage: perform middleware operations and call `next()`<br />**Note**: Middlewares can hurt performance depending on logic complexity|
-| `any(pattern, handler)`<br />`get(pattern, handler)`<br />`post(pattern, handler)`<br />`options(pattern, handler)`<br />`del(pattern, handler)`<br />`head(pattern, handler)`<br />`patch(pattern, handler)`<br />`put(pattern, handler)`<br />`trace(pattern, handler)`<br />`connect(pattern, handler)` | `pattern`: `String`<br /> `handler`: `function`| These methods create http routes.<br /> The `handler` parameter accepts either a `normal` or `async` anonymous function.<br />The handler must have also have two parameters `(request, response) => {}`.<br /> The `pattern` parameter must be a string and is a `strict` match.<br />`pattern` supports path parameters with the `/v1/users/:key` format.|
+| `use(middleware)` | `middleware`: `Function`  | Binds global middleware to webserver.<br />**Example**: `(request, response, next) => {}`<br />Usage: perform middleware operations and call `next()`<br />**Note**: Middlewares can hurt performance depending on logic complexity|
+| `any(pattern, handler)`<br />`get(pattern, handler)`<br />`post(pattern, handler)`<br />`options(pattern, handler)`<br />`del(pattern, handler)`<br />`head(pattern, handler)`<br />`patch(pattern, handler)`<br />`put(pattern, handler)`<br />`trace(pattern, handler)`<br />`connect(pattern, handler)` | `pattern`: `String`<br /> `handler`: `Function`| These methods create http routes.<br /> The `handler` parameter accepts either a `normal` or `async` anonymous Function.<br />The handler must have also have two parameters `(request, response) => {}`.<br /> The `pattern` parameter must be a string and is a `strict` match.<br />`pattern` supports path parameters with the `/v1/users/:key` format.|
 | `ws(pattern, ws_route)` | `ws_route`: `WebsocketRoute` | This method creates a websocket route.<br />A `WebsocketRoute` instance must be passed to handle connections.|
 | `routes()` | None | Returns created routes.|
 | `ws_compressors()` | None | Returns compressor presets for WebsocketRoute `compressor` option.|
-| `setErrorHandler(handler)` | `handler`: `function` | Binds a global error handler.<br />**Example**: `(request, response, error) => {}`|
-| `setNotFoundHandler(handler)` | `handler`: `function` | Binds a global not found handler.<br />*Example**: `(request, response) => {}`|
+| `setErrorHandler(handler)` | `handler`: `Function` | Binds a global error handler.<br />**Example**: `(request, response, error) => {}`|
+| `setNotFoundHandler(handler)` | `handler`: `Function` | Binds a global not found handler.<br />*Example**: `(request, response) => {}`|
 | `setSessionEngine(engine)` | `engine`: `SessionEngine` | Binds a session engine to webserver.<br />This populates `request.session` with a `Session` object.<br />**Note**: You must call `engine.perform_cleanup()` intervally to cleanup sessions.|
 
 ## WebsocketRoute
@@ -126,12 +126,53 @@ Webserver.listen(80)
 | Parameter              | Type | Explanation                                |
 | -------------------|-| ------------------------------------------------------ |
 | `compression` | `Number`  | Specifies permessage-deflate compression to use.<br />Must pass one of the constants from `Server.ws_compressors()`.<br />**Default**: `Webserver.ws_compressors().DISABLED`|
-| `idleTimeout` | `Number`  | Specifies interval to automatically timeout/close idle websocket connection in **seconds**.<br />**Default**: `30`| 
+| `idleTimeout` | `Number`  | Specifies interval to automatically timeout/close idle websocket connection in `seconds`.<br />**Default**: `30`| 
+| `maxBackpressure` | `Number`  | Specifies maximum websocket backpressure allowed in `length`.<br />**Default**: `1024 * 1024 = 1048576`| 
+| `maxPayloadLength` | `Number`  | Specifies maximum length allowed on incoming messages.<br />Any client who goes over this limit will immediately be disconnected.<br />**Default**: `32 * 1024 = 32768`| 
 
 #### WebsocketRoute Instance Methods
 | Method              | Parameters | Explanation                                |
 | -------------------|-| ------------------------------------------------------ |
-| `uWS()` | None  | Returns the underlying uWS instance.|
+| `handle(event, handler)` | `event`: `String`<br />`handler`: `Function`  | Sets an event handler for websocket route. <br />See below for supported events.|
+
+#### WebsocketRoute Supported Events
+| Event              | Handler Parameters | Explanation                                |
+| -------------------|-| ------------------------------------------------------ |
+| `upgrade` | `request`: `Request`<br />`response`: `Response` | Handles incoming upgrade requests for websocket connections.<br />You may perform any authentication in this handler upgrading to a websocket connection.<br />**Note**: Incoming requests are upgraded automatically without this event being handled. |
+| `open` | `ws`: `Websocket` | Handles new connections being opened on websocket route.<br />This event **must** be handled on a `WebsocketRoute` instance to prevent automatic disconnections. |
+| `message` | `ws`: `Websocket`<br />`message`: `String`<br />`isBinary`: `Boolean` | Handles incoming messages from websocket connections. |
+| `drain` | `ws`: `Websocket` | Handles drainage of backpressure for websocket connections. |
+| `close` | `ws`: `Websocket`<br />`code`: `Number`<br />`message`: `String` | Handles closing of websocket connections with the associated closing code and message. |
+
+## Websocket
+Below is a breakdown of the `Websocket` connection object made available through `WebsocketRoute` event handlers.
+
+#### Example: Utilizing Websocket connection
+```js
+// Assume HyperExpress and a WebsocketRoute has already been setup/initiated
+
+NewsRouteWS.handle('message', (ws, message) => {
+    ws.send('Acknowleged: ' + message); // Replies with incoming message
+});
+```
+
+#### Websocket Instance Methods
+| Method              | Parameters | Explanation                                |
+| -------------------|-| ------------------------------------------------------ |
+| `close()` | None  | Forcefully closes the connection and immediately calls the close handler.<br />**Note**: No close message is sent. |
+| `cork(callback)` | `callback`: `Function`  | Similar to `response.atomic(callback)` in helping improving performance. |
+| `end(code, message)` | `code`: `Number`<br />`message`: `String`  | Gracefully closes the connectioin and calls the close handler.<br />A close message is sent with the specified code and message. |
+| `getBufferedAmount()` | None  | Returns number of bytes buffered in backpressure. |
+| `getRemoteAddress()` | None  | Returns the remote IP address in Binary. |
+| `getRemoteAddressAsText()` | None  | Returns the remote IP address as text. |
+| `getTopics()` | None  | Returns a list of topics this connection is subscribed to. |
+| `ping(message)` | `message`: `String`  | Sends a ping control message according to protocol with specified message. |
+| `subscribe(topic)` | `topic`: `String` | Subscribes connection to specified topic. |
+| `unsubscribe(topic)` | `topic`: `String` | Unsubscribes connection from the specified topic. |
+| `isSubscribed(topic)` | `topic`: `String`  | Returns a `Boolean` result of whether this connection is subscribed to specified topic. |
+| `publish(topic, message, isBinary, compress)` | `topic`: `String`<br />`message`: `String`<br />`isBinary`: `Boolean`<br />`compress`: `Boolean`  | Publishes a message to specified topic. |
+| `send(message, isBinary, compress)` | `message`: `String`<br />`isBinary`: `Boolean`<br />`compress`: `Boolean`  | Sends a message. Returns a `Boolean` result specifying whether message was sent or failed due to backpressure.|
+
 
 ## Request
 Below is a breakdown of the `request` object made available through the route handler(s) and websocket upgrade event handler(s).
@@ -198,7 +239,7 @@ Webserver.post('/api/v1/delete_user/:id', async (request, response) => {
 #### Response Methods
 | Method             | Parameters | Explanation                                    |
 | -------------------|-| ------------------------------------------------------ |
-| `atomic(callback)` | `callback`: `function`  | Alias of uWebsockets's `.cork(callback)` method.<br />Wrapping multiple response method calls inside this method can improve performance.<br />Example: `response.atomic(() => { /* Some response method calls */ });` |
+| `atomic(callback)` | `callback`: `Function`  | Alias of uWebsockets's `.cork(callback)` method.<br />Wrapping multiple response method calls inside this method can improve performance.<br />Example: `response.atomic(() => { /* Some response method calls */ });` |
 | `status(code)` | `code`: `Number` | Writes status code for current request.<br />This method can only be called once per request.<br />**Note**: This method must be called before any other response methods. |
 | `header(key, value)` | `key`: `String`<br />`value`: `String`  | Writes a response header. |
 | `type(type)` | `type`: `String` | Writes appropriate `content-type` header for specified type.<br />List: [Supported Types](./mime_types.json) |
