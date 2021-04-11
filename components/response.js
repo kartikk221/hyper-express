@@ -89,8 +89,6 @@ module.exports = class Response {
 
     upgrade(user_data = {}) {
         if (this.completed === false) {
-            this.completed = true;
-
             // Ensure a socket exists before upgrading
             if (this.#socket == null) {
                 return this.error_handler(
@@ -100,13 +98,18 @@ module.exports = class Response {
                 );
             }
 
+            this.completed = true;
             let ws_headers = this.#request.ws_headers();
             let sec_websocket_key = ws_headers.sec_websocket_key;
             let sec_websocket_protocol = ws_headers.sec_websocket_protocol;
             let sec_websocket_extensions = ws_headers.sec_websocket_extensions;
-            user_data.url = this.#request.path;
             return this.#uws_response.upgrade(user_data, sec_websocket_key, sec_websocket_protocol, sec_websocket_extensions, this.#socket);
         }
+    }
+
+    write(body) {
+        this.#uws_response.write(body);
+        return this;
     }
 
     send(body = '') {

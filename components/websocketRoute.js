@@ -4,13 +4,13 @@ const uWebsockets = require('uWebSockets.js');
 module.exports = class WebsocketRoute {
     #options = {
         idleTimeout: 30,
-        compression: uWebsockets.SHARED_COMPRESSOR,
-        maxBackpressure: 1024 * 1024, // 1 MB
-        maxPayloadLength: 5 * 1024 * 1024, // 5 MB
+        compression: uWebsockets.DISABLED,
+        maxBackpressure: 1024 * 1024,
+        maxPayloadLength: 32 * 1024,
     };
 
     #methods = {
-        upgrade: (request, response, context) => response.status(500).end('AXUWS_UPGRADE_NOT_SETUP'),
+        upgrade: (request, response, context) => response.upgrade(), // By default upgrade all connections
         open: (ws) => ws.end(),
         message: () => {},
         drain: () => {},
@@ -28,9 +28,9 @@ module.exports = class WebsocketRoute {
         // Bind pass-through handlers
         options.open = (ws) => this.#methods.open(ws);
         options.message = (ws, message, isBinary) =>
-            this.#methods.message(ws, isBinary ? message : this._array_buffer_to_string(message), isBinary);
+            this.#methods.message(ws, isBinary ? message : OPERATORS.arr_buff_to_str(message), isBinary);
         options.drain = (ws) => this.#methods.drain(ws);
-        options.close = (ws, code, message) => this.#methods.close(ws, code, this._array_buffer_to_string(message));
+        options.close = (ws, code, message) => this.#methods.close(ws, code, OPERATORS.arr_buff_to_str(message));
 
         // Bind upgrade request handler with wrapped request/response
         let url_parameters_key = OPERATORS.parse_url_parameters_key(pattern);
@@ -59,9 +59,5 @@ module.exports = class WebsocketRoute {
 
     options() {
         return this.#options;
-    }
-
-    _array_buffer_to_string(array_buffer, encoding = 'utf8') {
-        return Buffer.from(array_buffer).toString(encoding);
     }
 };

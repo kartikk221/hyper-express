@@ -23,12 +23,9 @@ module.exports = class Server {
         // Validate options object
         if (typeof options !== 'object') throw new Error('HyperExpress: Must pass Javascript object during creation');
 
-        // Parse parameters from options
-        const { cert_file_name, key_file_name } = options;
-
-        // Create under the hood uWebsockets instance
-        let is_ssl_instance = cert_file_name && key_file_name;
-        if (is_ssl_instance) {
+        // Create either Normal or SSL uWS instance to be power the webserver
+        const { cert_file_name, key_file_name, passphrase } = options;
+        if (cert_file_name && key_file_name && passphrase) {
             this.#uWS = uWebSockets.SSLApp(options);
         } else {
             this.#uWS = uWebSockets.App(options);
@@ -57,16 +54,28 @@ module.exports = class Server {
         return this.#uWS;
     }
 
-    listen(port, callback = () => {}) {
+    listen(port) {
         let reference = this;
-        this.#uWS.listen(port, (listen_socket) => {
-            reference.#listen_socket = listen_socket;
-            callback();
+        return new Promise((resolve, reject) => {
+            this.#uWS.listen(port, (listen_socket) => {
+                if (listen_socket) {
+                    reference.#listen_socket = listen_socket;
+                    resolve(listen_socket);
+                } else {
+                    reject('NO_SOCKET');
+                }
+            });
         });
     }
 
     close() {
-        this.#uWS.us_listen_socket_close(this.#listen_socket);
+        if (reference.#listen_socket !== null) {
+            uWebSockets.us_listen_socket_close(this.#listen_socket);
+            reference.#listen_socket = null;
+            return true;
+        }
+
+        return false;
     }
 
     setErrorHandler(handler) {

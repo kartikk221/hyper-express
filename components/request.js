@@ -1,7 +1,8 @@
-const Session = require('./session.js');
 const cookie = require('cookie');
 const querystring = require('query-string');
+const Session = require('./session.js');
 const signature = require('cookie-signature');
+const OPERATORS = require('../operators.js');
 
 module.exports = class Request {
     uws_request;
@@ -26,6 +27,8 @@ module.exports = class Request {
         this.path = uws_request.getUrl();
         this.query = uws_request.getQuery();
         this.url = this.path + (this.query ? '?' + this.query : '');
+        // this.remote_ip = OPERATORS.arr_buff_to_str(uws_response.getRemoteAddressAsText());
+        // this.remote_proxy_ip = OPERATORS.arr_buff_to_str(uws_response.getProxiedRemoteAddressAsText());
 
         // Pre-Parse headers
         uws_request.forEach((key, value) => (reference.headers[key] = value));
