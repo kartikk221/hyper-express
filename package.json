@@ -1,6 +1,6 @@
 {
   "name": "hyper-express",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "description": "An extremely fast webserver inspired by Express powered by uWebSockets.js",
   "main": "index.js",
   "scripts": {
@@ -12,9 +12,19 @@
   },
   "keywords": [
     "uws",
+    "websockets",
+    "uwebsocketsjs",
     "express",
+    "expressjs",
     "fast",
-    "session"
+    "session",
+    "http-server",
+    "https-server",
+    "http",
+    "https",
+    "high-performance",
+    "ws",
+    "websocket"
   ],
   "author": "Kartik Kumar",
   "license": "MIT",
