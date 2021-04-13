@@ -41,8 +41,6 @@ OPERATORS.fill_object = (original, target) => {
     return original;
 };
 
-OPERATORS.arr_buff_to_str = (array_buffer, encoding = 'utf8') => {
-    return Buffer.from(array_buffer).toString(encoding);
-};
+OPERATORS.arr_buff_to_str = (array_buffer, encoding = 'utf8') => Buffer.from(array_buffer).toString(encoding);
 
 module.exports = OPERATORS;
