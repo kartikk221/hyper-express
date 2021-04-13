@@ -17,6 +17,8 @@ module.exports = class Request {
     #cookies = null;
     #body = null;
     #query_parameters = null;
+    #remote_ip = null;
+    #remote_proxy_ip = null;
 
     constructor(uws_request, uws_response, url_parameters_key, session_engine) {
         // Parse common data
@@ -27,8 +29,8 @@ module.exports = class Request {
         this.path = uws_request.getUrl();
         this.query = uws_request.getQuery();
         this.url = this.path + (this.query ? '?' + this.query : '');
-        // this.remote_ip = OPERATORS.arr_buff_to_str(uws_response.getRemoteAddressAsText());
-        // this.remote_proxy_ip = OPERATORS.arr_buff_to_str(uws_response.getProxiedRemoteAddressAsText());
+        this.#remote_ip = uws_response.getRemoteAddressAsText();
+        this.#remote_proxy_ip = uws_response.getProxiedRemoteAddressAsText();
 
         // Pre-Parse headers
         uws_request.forEach((key, value) => (reference.headers[key] = value));
@@ -39,6 +41,14 @@ module.exports = class Request {
 
         // Bind session if established
         if (session_engine) this.session = new Session(this, session_engine);
+    }
+
+    remote_ip() {
+        return OPERATORS.arr_buff_to_str(this.#remote_ip);
+    }
+
+    remote_proxy_ip() {
+        return OPERATORS.arr_buff_to_str(this.#remote_proxy_ip);
     }
 
     ws_headers() {
