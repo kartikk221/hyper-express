@@ -136,6 +136,8 @@ Webserver.post('/api/v1/delete_user/:id', async (request, response) => {
 #### Request Methods
 | Method             | Returns | Explanation                                    |
 | -------------------|-| ------------------------------------------------------ |
+| `remote_ip()` | `String`  | Retrieves remote connection IP.|
+| `remote_proxy_ip()` | `String`  | Retrieves remote connection IP over a middleman proxy.|
 | `query_parameters()` | `Object`  | Retrieves all query parameters from current request.|
 | `get_query_parameter(key)` | `String` `undefined` | Retrieves a specified query parameter from current request.<br />`key`[**String**]: Required|
 | `cookies(decode)` | `Object`  | Retrieves all cookies from incoming request.<br />`decode`[**Boolean**][**Default**: `false`]: Optional|
