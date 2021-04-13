@@ -54,10 +54,10 @@ module.exports = class Server {
         return this.#uWS;
     }
 
-    listen(port) {
+    listen(port, host = '0.0.0.0') {
         let reference = this;
         return new Promise((resolve, reject) => {
-            this.#uWS.listen(port, (listen_socket) => {
+            this.#uWS.listen(host, port, (listen_socket) => {
                 if (listen_socket) {
                     reference.#listen_socket = listen_socket;
                     resolve(listen_socket);
