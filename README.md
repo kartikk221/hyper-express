@@ -13,7 +13,7 @@ Some of the most prominent features implemented are:
 - [Installation](#Installation)
 - [Getting Started](#getting-started)
 - [Server](#server)
- 	- [Example](#example:-create-server-instance)
+ 	- [Example](#example-create-server-instance)
 	- [Constructor Options](#server-constructor-options)
 	- [Methods](#server-instance-methods)
 
