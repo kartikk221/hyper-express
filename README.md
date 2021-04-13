@@ -238,7 +238,7 @@ Webserver.listen(80)
 | `id` | **None**  | Specifies handler for generating session IDs.|
 | `read` | `session_id`: `String`  | Specifies handler for session read events.<br />**Note**: This event is required.<br />**Example**: `.handle('read', (session_id) => { /* Some database call here */ });`|
 | `touch` | `expiry_ts`: `Number`  | Specifies handler for session touch events.<br />**Note**: This event is required.<br />**Example**: `.handle('touch', (expiry_ts) => { /* Some database call here */ });`|
-| `write` | `session_id`: `String`<br />`data`: `String`<br />`expiry_ts`: `Number`<br />`from_database`: `Boolean`  | Specifies handler for session write events.<br />Parameter `from_database` specifies wheter a database entry already exists.<br />**Note**: This event is required.<br />**Example**:<br /> `.handle('write', (session_id, data, expiry_ts, from_database) => { /* Some database call here */ });`|
+| `write` | `session_id`: `String`<br />`data`: `String`<br />`expiry_ts`: `Number`<br />`from_database`: `Boolean`  | Specifies handler for session write events.<br />Parameter `from_database` specifies whether a database entry already exists.<br />**Note**: This event is required.<br />**Example**:<br /> `.handle('write', (session_id, data, expiry_ts, from_database) => { /* Some database call here */ });`|
 | `destroy` | `session_id`: `String`  | Specifies handler for session destroy events.<br />**Note**: This event is required.<br />**Example**: `.handle('destroy', (session_id) => { /* Some database call here */ });`|
 | `cleanup` | `duration_msecs`: `String`  | Specifies handler for session cleanup events.<br />**Example**: `.handle('cleanup', (duration_msecs) => { /* Some database call here */ });`|
 
