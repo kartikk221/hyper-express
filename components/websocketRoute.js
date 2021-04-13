@@ -23,6 +23,7 @@ module.exports = class WebsocketRoute {
     }
 
     initiate(pattern, context) {
+        if (!context) throw new Error('HyperExpress: This method should not be called by user.');
         let options = this.#options;
 
         // Bind pass-through handlers

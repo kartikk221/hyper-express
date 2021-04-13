@@ -31,7 +31,7 @@ module.exports = class SessionEngine {
 
     handle(type, handler) {
         if (typeof handler !== 'function') throw new Error('HyperExpress: handler must be a function');
-        if (this.#methods[type] == undefined) throw new Error('HyperExpress: ' + event + ' not a supported event.');
+        if (this.#methods[type] == undefined) throw new Error('HyperExpress: ' + type + ' not a supported event.');
         this.#methods[type] = handler;
         return this;
     }
@@ -45,10 +45,12 @@ module.exports = class SessionEngine {
     }
 
     perform_cleanup() {
-        return this.#methods.cleanup();
+        return this.#methods.cleanup(this.duration_msecs);
     }
 
     _not_setup_method(action) {
-        throw new Error('HyperExpress: SessionEngine ' + action + ' not handled. Use .handle(event, handler) to handle this method.');
+        throw new Error(
+            "HyperExpress: SessionEngine '" + action + "' not handled. Use .handle('" + action + "', handler) to handle this method."
+        );
     }
 };

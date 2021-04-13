@@ -26,8 +26,13 @@ module.exports = class Session {
     }
 
     async roll() {
-        this.#id = await this.generate_id();
-        this.#parsed = true;
+        if (this.#id.repeat(1).length > 0) {
+            await this.destroy();
+            this.#id = await this.generate_id();
+            this.#parsed = true;
+            this.#destroyed = false;
+            this.#from_database = false;
+        }
         return true;
     }
 
@@ -97,12 +102,15 @@ module.exports = class Session {
     }
 
     async start() {
+        // Ensure a session has not been started already
+        if (this.#ready == true) return this;
+
         // Parse id & return if no session exists
         this.#id = this.id();
         if (this.#id.length == 0) {
             this.#id = await this.#methods.id();
             this.#ready = true;
-            return; // Do not pull since no existing session was found
+            return this; // Do not pull since no existing session was found
         }
 
         // Read session from database and update session data
@@ -130,16 +138,20 @@ module.exports = class Session {
     }
 
     async destroy() {
+        // Return if session has already been destroyed
+        if (this.#destroyed === true) return;
+
+        // Asynchronously destroy session and mark as destroyed for post-request cleanup
         this.#id = this.id();
         this.#destroyed = true;
-        if (this.#id.length == 0) return;
+        if (this.#id.length == 0 || this.#from_database === false) return;
         await this.#methods.destroy(this.#id);
     }
 
     perform_sess_closure(response) {
         // Set proper cookie header according to session status
         if (this.#destroyed === true) {
-            response.delete_cookie(this.#cookie_options.name);
+            return response.delete_cookie(this.#cookie_options.name);
         } else {
             response.cookie(this.#cookie_options.name, this.#id, this.duration(), this.#session_engine.get_cookie_options());
         }

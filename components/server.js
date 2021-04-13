@@ -90,7 +90,7 @@ module.exports = class Server {
         if (should_bind) this.any('/*', (request, response) => this.#not_found_handler(request, response));
     }
 
-    setSessionEngine(instance = {}) {
+    setSessionEngine(instance) {
         if (instance.constructor && instance.constructor.name !== 'SessionEngine')
             throw new Error('HyperExpress: setSessionEngine only accepts a HyperExpress.SessionEngine instance');
         this.#session_engine = instance;
