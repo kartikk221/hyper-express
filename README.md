@@ -1,5 +1,5 @@
 # HyperExpress: High Performance Node.js Webserver
-#### Powered by [`uWebsockets.js`](https://github.com/uNetworking/uWebSockets.js/)
+#### Powered by [`uWebSockets.js`](https://github.com/uNetworking/uWebSockets.js/)
 
 HyperExpress aims to bring an Express-like webserver API to uWebsockets.js while maintaining high performance.
 Some of the most prominent features implemented are:
