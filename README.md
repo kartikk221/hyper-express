@@ -10,35 +10,38 @@ Some of the most prominent features implemented are:
 - Secure cookie signing/verification
 
 ## Table Of Contents
-- [Installation](#Installation)
-- [Getting Started](#getting-started)
-- [Server](#server)
- 	- [Example](#example-create-server-instance)
-	- [Constructor Options](#server-constructor-options)
-	- [Methods](#server-instance-methods)
-- [Request](#request)
- 	- [Example](#example-retrieving-properties-and-json-body)
-	- [Properties](#request-properties)
-	- [Methods](#request-methods)
-- [Response](#response)
- 	- [Example](#example-forbidden-request-scenario-utilizing-multiple-response-methods)
-	- [Methods](#response-methods)
-- [SessionEngine](#sessionengine)
- 	- [Example](#example-initializing-and-using-a-new-websocket-route)
-	- [Constructor Options](#sessionengine-constructor-options)
-	- [Methods](#sessionengine-instance-methods)
-	- [Supported Events](#sessionengine-supported-events)
-- [Session](#session)
- 	- [Example](#example-initiating-and-storing-visits-in-a-session)
-	- [Methods](#session-methods)
-- [WebsocketRoute](#websocketroute)
- 	- [Example](#example-initializing-and-using-a-new-websocket-route)
- 	- [Constructor Options](#websocketroute-constructor-options)
-	- [Methods](#websocketroute-instance-methods)
-	- [Supported Events](#websocketroute-supported-events)
-- [Websocket](#websocket)
- 	- [Example](#example-utilizing-websocket-connection)
-	- [Methods](#websocket-instance-methods)
+- [HyperExpress: High Performance Node.js Webserver](#hyperexpress-high-performance-nodejs-webserver)
+      - [Powered by `uWebSockets.js`](#powered-by-uwebsocketsjs)
+  - [Table Of Contents](#table-of-contents)
+  - [Installation](#installation)
+  - [Getting Started](#getting-started)
+  - [Server](#server)
+      - [Example: Create server instance](#example-create-server-instance)
+      - [Server Constructor Options](#server-constructor-options)
+      - [Server Instance Methods](#server-instance-methods)
+  - [Request](#request)
+      - [Example: Retrieving properties and JSON body](#example-retrieving-properties-and-json-body)
+      - [Request Properties](#request-properties)
+      - [Request Methods](#request-methods)
+  - [Response](#response)
+      - [Example: Forbidden request scenario utilizing multiple response methods](#example-forbidden-request-scenario-utilizing-multiple-response-methods)
+      - [Response Methods](#response-methods)
+  - [SessionEngine](#sessionengine)
+      - [Example: Initializing and using a new Websocket Route](#example-initializing-and-using-a-new-websocket-route)
+      - [SessionEngine Constructor Options](#sessionengine-constructor-options)
+      - [SessionEngine Instance Methods](#sessionengine-instance-methods)
+      - [SessionEngine Supported Events](#sessionengine-supported-events)
+  - [Session](#session)
+      - [Example: Initiating and storing visits in a session](#example-initiating-and-storing-visits-in-a-session)
+      - [Session Methods](#session-methods)
+  - [WebsocketRoute](#websocketroute)
+      - [Example: Initializing and using a new Websocket Route](#example-initializing-and-using-a-new-websocket-route-1)
+      - [WebsocketRoute Constructor Options](#websocketroute-constructor-options)
+      - [WebsocketRoute Instance Methods](#websocketroute-instance-methods)
+      - [WebsocketRoute Supported Events](#websocketroute-supported-events)
+  - [Websocket](#websocket)
+      - [Example: Utilizing Websocket connection](#example-utilizing-websocket-connection)
+      - [Websocket Instance Methods](#websocket-instance-methods)
 
 ## Installation
 
@@ -335,7 +338,7 @@ Webserver.listen(80)
 | Parameter              | Type | Explanation                                |
 | -------------------|-| ------------------------------------------------------ |
 | `compression` | `Number`  | Specifies permessage-deflate compression to use.<br />Must pass one of the constants from `Server.ws_compressors()`.<br />**Default**: `Webserver.ws_compressors().DISABLED`|
-| `idleTimeout` | `Number`  | Specifies interval to automatically timeout/close idle websocket connection in `seconds`.<br />**Default**: `30`| 
+| `idleTimeout` | `Number`  | Specifies interval to automatically timeout/close idle websocket connection in `seconds`.<br />**Default**: `32`| 
 | `maxBackpressure` | `Number`  | Specifies maximum websocket backpressure allowed in `length`.<br />**Default**: `1024 * 1024 = 1048576`| 
 | `maxPayloadLength` | `Number`  | Specifies maximum length allowed on incoming messages.<br />Any client who goes over this limit will immediately be disconnected.<br />**Default**: `32 * 1024 = 32768`| 
 
