@@ -3,7 +3,7 @@ const uWebsockets = require('uWebSockets.js');
 
 module.exports = class WebsocketRoute {
     #options = {
-        idleTimeout: 30,
+        idleTimeout: 32,
         compression: uWebsockets.DISABLED,
         maxBackpressure: 1024 * 1024,
         maxPayloadLength: 32 * 1024,
