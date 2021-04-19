@@ -71,10 +71,8 @@ module.exports = class Session {
 
         // Retrieve current session's id and sign/cache signed id
         let id = this.id();
-        if (id.length > 0) {
-            this.#signed_id = SIGNATURE.sign(id, this.#cookie_options.secret);
-            return this.#signed_id;
-        }
+        if (id.length > 0) this.#signed_id = SIGNATURE.sign(id, this.#cookie_options.secret);
+        return this.#signed_id;
     }
 
     set_id(id) {
