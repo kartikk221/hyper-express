@@ -22,16 +22,26 @@ module.exports = class SessionEngine {
         cleanup: () => this._not_setup_method('Session Cleanup'),
     };
 
-    constructor({ cookie = this.#cookie_options, duration_msecs = this.duration_msecs, require_manual_touch = this.require_manual_touch }) {
-        if (cookie && typeof cookie == 'object') OPERATORS.fill_object(this.#cookie_options, cookie);
+    constructor({
+        cookie = this.#cookie_options,
+        duration_msecs = this.duration_msecs,
+        require_manual_touch = this.require_manual_touch,
+    }) {
+        if (cookie && typeof cookie == 'object')
+            OPERATORS.fill_object(this.#cookie_options, cookie);
         if (duration_msecs) this.duration_msecs = duration_msecs;
-        if (cookie.secret == null) throw new Error('HyperExpress: A random cookie secret must be specified for session signatures.');
+        if (cookie.secret == null)
+            throw new Error(
+                'HyperExpress: A random cookie secret must be specified for session signatures.'
+            );
         this.require_manual_touch = require_manual_touch === true;
     }
 
     handle(type, handler) {
-        if (typeof handler !== 'function') throw new Error('HyperExpress: handler must be a function');
-        if (this.#methods[type] == undefined) throw new Error('HyperExpress: ' + type + ' not a supported event.');
+        if (typeof handler !== 'function')
+            throw new Error('HyperExpress: handler must be a function');
+        if (this.#methods[type] == undefined)
+            throw new Error('HyperExpress: ' + type + ' not a supported event.');
         this.#methods[type] = handler;
         return this;
     }
@@ -50,7 +60,11 @@ module.exports = class SessionEngine {
 
     _not_setup_method(action) {
         throw new Error(
-            "HyperExpress: SessionEngine '" + action + "' not handled. Use .handle('" + action + "', handler) to handle this method."
+            "HyperExpress: SessionEngine '" +
+                action +
+                "' not handled. Use .handle('" +
+                action +
+                "', handler) to handle this method."
         );
     }
 };
