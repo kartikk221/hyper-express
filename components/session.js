@@ -1,5 +1,7 @@
+const SIGNATURE = require('cookie-signature');
 module.exports = class Session {
     #id = '';
+    #signed_id = '';
     #request = {};
     #data = {};
     #session_engine = {};
@@ -49,11 +51,49 @@ module.exports = class Session {
     }
 
     id() {
-        // Parse signed cookie and cache for future access operations
+        // Return from cache if session id has already been parsed
         if (this.#parsed === true) return this.#id;
+
+        // Attempt to unsign potential session cookie
         this.#id = this.#request.unsign_cookie(this.#cookie_options.name, this.#cookie_options.secret) || '';
+
+        // Cache signed id string if signed value was successfully unsigned/verified
+        if (this.#id.length > 0) this.#signed_id = this.#request.get_cookie(this.#cookie_options.name, false) || '';
+
+        // Mark session as 'parsed' for faster future access
         this.#parsed = true;
         return this.#id;
+    }
+
+    signed_id() {
+        // Check cache for an existing signed id
+        if (this.#signed_id.length > 0) return this.#signed_id;
+
+        // Retrieve current session's id and sign/cache signed id
+        let id = this.id();
+        if (id.length > 0) {
+            this.#signed_id = SIGNATURE.sign(id, this.#cookie_options.secret);
+            return this.#signed_id;
+        }
+    }
+
+    set_id(id) {
+        if (typeof id !== 'string') return false;
+        this.#id = id;
+        this.#parsed = true;
+        return true;
+    }
+
+    set_signed_id(signed_id) {
+        // Attempt to unsign cookie before setting it as session id
+        let unsigned = SIGNATURE.unsign(signed_id, this.#cookie_options.secret);
+        if (unsigned === false) return false;
+
+        // Store id/signed_id for future use after verification
+        this.#id = unsigned;
+        this.#signed_id = signed_id;
+        this.#parsed = true;
+        return true;
     }
 
     ready() {
@@ -152,6 +192,8 @@ module.exports = class Session {
         // Set proper cookie header according to session status
         if (this.#destroyed === true) {
             return response.delete_cookie(this.#cookie_options.name);
+        } else if (this.#signed_id.length > 0) {
+            response.cookie(this.#cookie_options.name, this.#signed_id, this.duration(), this.#session_engine.get_cookie_options(), false);
         } else {
             response.cookie(this.#cookie_options.name, this.#id, this.duration(), this.#session_engine.get_cookie_options());
         }
