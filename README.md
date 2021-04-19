@@ -275,7 +275,10 @@ Webserver.get('/dashboard/news', async (request, response) => {
 | `touch(perform_now)` | `Promise` | Touches current session (updates expiry) if a already session exists.<br />Parameter `perform_now` accepts a `Boolean` and signifies whether the touch should occur now or after response is sent.<br />**Default**: `false` |
 | `destroy()` | `Promise` | Destroys current session asynchronously and unsets session cookie. |
 | `generate_id()` | `Promise` | Asynchronously returns a cryptographically random session id.<br />**Note**: This method may not return a `Promise` if you set a custom synchronous id generator in session engine. |
-| `id()` | `String` | Returns current the current session id by reading/unsigning session cookie.<br />**Note**: If session cookie reading or signature verification fails, then this method returns an empty string. |
+| `id()` | `String` | Returns the current unsigned session id by reading and unsigning session cookie from current request.<br />**Note**: If session cookie reading or signature verification fails, then this method returns an empty string. |
+| `signed_id()` | `String` | Returns the signed session id for current request.<br />Returns an empty string If no valid session id is found from current request. |
+| `set_id(id)` | `Boolean` | Sets the session id to use for current request.<br />**Note**: Utilizing this method is not recommended for security purposes.<br />You should always try to use `set_signed_id(id)` whenever possible. |
+| `set_signed_id(signed_id)` | `Boolean` | Unsigns and sets the session id to use for current request.<br />**Note**: This method will return `false` if unsigning process fails due to a bad signed id. |
 | `ready()` | `Boolean` | Returns `true` if session has successfully been started. |
 | `duration()` | `Number` | Returns current session's duration (milliseconds) to determine the lifetime of a session before it is expired. |
 | `update_duration(duration)` | `Session` | Used to extend and update the lifetime duration of current session (In milliseconds).<br />**Note**: This method will store the custom duration in a session data value called `_he_cdur`.<br /> Modifying this property will default the session back to the default duration. |
