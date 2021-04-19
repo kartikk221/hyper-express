@@ -283,9 +283,9 @@ Webserver.get('/dashboard/news', async (request, response) => {
 | `duration()` | `Number` | Returns current session's duration (milliseconds) to determine the lifetime of a session before it is expired. |
 | `update_duration(duration)` | `Session` | Used to extend and update the lifetime duration of current session (In milliseconds).<br />**Note**: This method will store the custom duration in a session data value called `_he_cdur`.<br /> Modifying this property will default the session back to the default duration. |
 | `set(key, value)` | `Session` | Sets a value for defined key in current session. |
-| `setAll(object)` | `Session` | Sets current session's data payload to defined `object` parameter.<br />**Note**: Parameter `object` must be an `Object` type. |
+| `set_all(object)` | `Session` | Sets current session's data payload to defined `object` parameter.<br />**Note**: Parameter `object` must be an `Object` type. |
 | `get(key)` | `Any` | Returns session stored value for a key or `undefined`. |
-| `getAll()` | `Object` | Returns the whole session data object. |
+| `get_all()` | `Object` | Returns the whole session data object. |
 | `delete(key)` | `Session` | Deletes specified `key` from session data. |
 | `deleteAll()` | `Session` | Deletes all data stored in session setting session data to `{}`. |
 
