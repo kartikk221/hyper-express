@@ -34,18 +34,21 @@ module.exports = class Session {
             this.#parsed = true;
             this.#destroyed = false;
             this.#from_database = false;
+            return true;
         }
-        return true;
+        return false;
     }
 
     duration() {
+        // Return custom duration or default duration based on session data
         return typeof this.#data[this.#prefixes.duration] == 'number'
             ? this.#data[this.#prefixes.duration]
             : this.#session_engine.duration_msecs;
     }
 
     update_duration(duration_msecs) {
-        if (typeof duration_msecs !== 'number') throw new Error('HyperExpress: .update_duration() only takes a timestamp in milliseconds');
+        if (typeof duration_msecs !== 'number')
+            throw new Error('HyperExpress: .update_duration() only takes a number type timestamp in milliseconds');
         this.#data[this.#prefixes.duration] = duration_msecs;
         return this;
     }
@@ -106,7 +109,7 @@ module.exports = class Session {
         return this;
     }
 
-    setAll(value) {
+    set_all(value) {
         if (typeof value !== 'object') throw new Error('HyperExpress: setAll(object) only takes in a Javascript object');
         this.#data = value;
         this.#persist = true;
@@ -117,7 +120,7 @@ module.exports = class Session {
         return this.#data[key];
     }
 
-    getAll() {
+    get_all() {
         return this.#data;
     }
 
@@ -141,14 +144,15 @@ module.exports = class Session {
 
     async start() {
         // Ensure a session has not been started already
-        if (this.#ready == true) return this;
+        if (this.#ready == true) return;
 
         // Parse id & return if no session exists
         this.#id = this.id();
         if (this.#id.length == 0) {
             this.#id = await this.#methods.id();
+            this.#parsed = true;
             this.#ready = true;
-            return this; // Do not pull since no existing session was found
+            return; // Do not pull from database since no existing session was found
         }
 
         // Read session from database and update session data
@@ -161,7 +165,6 @@ module.exports = class Session {
         }
 
         this.#ready = true;
-        return this;
     }
 
     async touch(perform_now = false) {
@@ -171,7 +174,7 @@ module.exports = class Session {
         if (perform_now === true) {
             await this.#methods.touch(this.#id, this._get_expiry_ts());
         } else {
-            this.#persist = true; // Will persist after request end
+            this.#persist = true; // Will persist after request ends
         }
     }
 
@@ -181,9 +184,9 @@ module.exports = class Session {
 
         // Asynchronously destroy session and mark as destroyed for post-request cleanup
         this.#id = this.id();
-        this.#destroyed = true;
         if (this.#id.length == 0 || this.#from_database === false) return;
         await this.#methods.destroy(this.#id);
+        this.#destroyed = true;
     }
 
     perform_sess_closure(response) {
@@ -191,15 +194,17 @@ module.exports = class Session {
         if (this.#destroyed === true) {
             return response.delete_cookie(this.#cookie_options.name);
         } else if (this.#signed_id.length > 0) {
+            // Do not sign cookie if signed value already exists in session cache
             response.cookie(this.#cookie_options.name, this.#signed_id, this.duration(), this.#session_engine.get_cookie_options(), false);
         } else {
+            // Sign and set session cookie
             response.cookie(this.#cookie_options.name, this.#id, this.duration(), this.#session_engine.get_cookie_options());
         }
 
-        // Persist or touch session
+        // Persist or touch session depending on session engine configuration
         if (this.#persist === true) {
             this.#methods
-                .write(this.#id, JSON.stringify(this.#data), this._get_expiry_ts(), this.#from_database)
+                .write(this.#id, this.#data, this._get_expiry_ts(), this.#from_database)
                 .catch((error) => response.throw_error(error));
         } else if (this.#session_engine.require_manual_touch !== true) {
             this.touch(true).catch((error) => response.throw_error(error));
