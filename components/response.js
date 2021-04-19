@@ -60,7 +60,8 @@ module.exports = class Response {
             secure: true,
             sameSite: 'none',
             path: '/',
-        }
+        },
+        sign_cookie = true
     ) {
         // Convert expiry to valid expires Date object
         if (typeof expiry == 'number') {
@@ -70,7 +71,7 @@ module.exports = class Response {
         }
 
         // Sign cookie if a secret is provided
-        if (typeof options.secret == 'string') {
+        if (sign_cookie && typeof options.secret == 'string') {
             value = SIGNATURE.sign(value, options.secret);
             options.encode = false;
         }
