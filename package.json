@@ -1,7 +1,7 @@
 {
   "name": "hyper-express",
-  "version": "1.0.5",
-  "description": "An extremely fast webserver inspired by Express powered by uWebSockets.js",
+  "version": "1.0.7",
+  "description": "An extremely fast webserver inspired by ExpressJS and powered by uWebSockets.js",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
