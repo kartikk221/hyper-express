@@ -1,0 +1,15 @@
+{
+  "name": "hyper-express-tests",
+  "version": "1.0.0",
+  "description": "Unit/API Tests For HyperExpress",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "node-fetch": "^2.6.1",
+    "ws": "^7.4.5"
+  }
+}
