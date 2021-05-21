@@ -1,7 +1,7 @@
 # HyperExpress: High Performance Node.js Webserver
 #### Powered by [`uWebSockets.js`](https://github.com/uNetworking/uWebSockets.js/)
 
-<div align="center">
+<div align="left">
 
 [![NPM version](https://img.shields.io/npm/v/fastify.svg?style=flat)](https://www.npmjs.com/package/hyper-express)
 [![NPM downloads](https://img.shields.io/npm/dm/fastify.svg?style=flat)](https://www.npmjs.com/package/hyper-express)
