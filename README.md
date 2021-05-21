@@ -30,28 +30,41 @@ npm i hyper-express
 ```
 
 ## Table Of Contents
-- [Examples](#examples)
-- [Server](#server)
-  - [Server Constructor Options](#server-constructor-options)
-  - [Server Instance Properties](#server-instance-properties)
-  - [Server Instance Methods](#server-instance-methods)
-- [Request](#request)
-  - [Request Properties](#request-properties)
-  - [Request Methods](#request-methods)
-- [Response](#response)
-  - [Response Properties](#response-properties)
-  - [Response Methods](#response-methods)
-- [SessionEngine](#sessionengine)
-  - [SessionEngine Constructor Options](#sessionengine-constructor-options)
-  - [SessionEngine Instance Methods](#sessionengine-methods)
-- [Session](#session)
-  - [Session Properties](#session-properties)
-  - [Session Methods](#session-methods)
-- [WebsocketRoute](#websocketroute)
-  - [WebsocketRoute Methods](#websocketroute-methods)
-- [Websocket](#websocket)
-  - [Websocket Methods](#websocket-methods)
-- [License - MIT](#license)
+- [HyperExpress: High Performance Node.js Webserver](#hyperexpress-high-performance-nodejs-webserver)
+      - [Powered by `uWebSockets.js`](#powered-by-uwebsocketsjs)
+  - [Motivation](#motivation)
+  - [Installation](#installation)
+  - [Table Of Contents](#table-of-contents)
+  - [Examples](#examples)
+      - [Example: Create server instance](#example-create-server-instance)
+      - [Example: Retrieving properties and JSON body](#example-retrieving-properties-and-json-body)
+      - [Example: Forbidden request scenario utilizing multiple response methods](#example-forbidden-request-scenario-utilizing-multiple-response-methods)
+      - [Example: Initializing & Binding A Session Engine](#example-initializing--binding-a-session-engine)
+      - [Example: Initiating and storing visits in a session](#example-initiating-and-storing-visits-in-a-session)
+      - [Example: Initializing and using a new Websocket Route](#example-initializing-and-using-a-new-websocket-route)
+      - [Example: Utilizing Websocket connection](#example-utilizing-websocket-connection)
+  - [Server](#server)
+      - [Server Constructor Options](#server-constructor-options)
+      - [Server Instance Properties](#server-instance-properties)
+      - [Server Instance Methods](#server-instance-methods)
+  - [Request](#request)
+      - [Request Properties](#request-properties)
+      - [Request Methods](#request-methods)
+  - [Response](#response)
+      - [Response Properties](#response-properties)
+      - [Response Methods](#response-methods)
+  - [SessionEngine](#sessionengine)
+      - [SessionEngine Constructor Options](#sessionengine-constructor-options)
+      - [SessionEngine Methods](#sessionengine-methods)
+  - [Session](#session)
+      - [Session Properties](#session-properties)
+      - [Session Methods](#session-methods)
+  - [WebsocketRoute](#websocketroute)
+      - [WebsocketRoute Methods](#websocketroute-methods)
+  - [Websocket](#websocket)
+      - [Websocket Properties](#websocket-properties)
+      - [Websocket Methods](#websocket-methods)
+  - [License](#license)
 
 ## Examples
 Below are various examples that make use of most classes and methods in HyperExpress.
@@ -309,7 +322,7 @@ Below is a breakdown of the `response` object made available through the route h
     * **Note** this method can only be called once.
 * `type(String: mime_type)`: Writes correct protocol `content-type` header for specified mime type.
     * **Example:** `response.type('json')` writes `application/json`
-    * **Supported:** [Mime Types](./components/constants/mime_types.json)
+    * **Supported:** [Mime Types](./src/components/constants/mime_types.json)
 * `header(String: name, String: value)`: Writes a response header.
 * `cookie(String: name, String: value, Number: expiry, Object: options, Boolean: sign_cookie)`: Writes a cookie header to set cookie on response.
     * `expiry` specifies the cookie lifetime duration in **milliseconds**.
