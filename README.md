@@ -322,7 +322,7 @@ Below is a breakdown of the `response` object made available through the route h
     * **Note** this method can only be called once.
 * `type(String: mime_type)`: Writes correct protocol `content-type` header for specified mime type.
     * **Example:** `response.type('json')` writes `application/json`
-    * **Supported:** [Mime Types](./src/components/constants/mime_types.json)
+    * **Supported:** [Mime Types](./src/constants/mime_types.json)
 * `header(String: name, String: value)`: Writes a response header.
 * `cookie(String: name, String: value, Number: expiry, Object: options, Boolean: sign_cookie)`: Writes a cookie header to set cookie on response.
     * `expiry` specifies the cookie lifetime duration in **milliseconds**.
