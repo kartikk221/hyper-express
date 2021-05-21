@@ -72,19 +72,19 @@ Below are various examples that make use of most classes and methods in HyperExp
 #### Example: Create server instance
 ```javascript
 const HyperExpress = require('hyper-express');
-const Webserver = new HyperExpress.Server();
+const webserver = new HyperExpress.Server();
 
 // Do some stuff like binding routes or handlers
 
 // Activate webserver by calling .listen(port, callback);
-Webserver.listen(80)
+webserver.listen(80)
 .then((socket) => console.log('Webserver started on port 80'))
-.catch((code) => console.log('Failed to start webserver on port 80: ' + code));
+.catch((error) => console.log('Failed to start webserver on port 80'));
 ```
 
 #### Example: Retrieving properties and JSON body 
 ```javascript
-Webserver.post('/api/v1/delete_user/:id', async (request, response) => {
+webserver.post('/api/v1/delete_user/:id', async (request, response) => {
    let headers = request.headers;
    let id = request.path_parameters.id;
    let body = await request.json(); // we must await as .json() returns a Promise
@@ -96,8 +96,8 @@ Webserver.post('/api/v1/delete_user/:id', async (request, response) => {
 
 #### Example: Forbidden request scenario utilizing multiple response methods
 ```javascript
-Webserver.post('/api/v1/delete_user/:id', async (request, response) => {
-   // Some bad stuff happened and this request is forbidden
+webserver.post('/api/v1/delete_user/:id', async (request, response) => {
+   // Some bad stuff happened and this request is now forbidden
    
    // All methods EXCEPT "response ending methods" such as send(), json(), upgrade() support chaining
    response
@@ -117,66 +117,67 @@ Webserver.post('/api/v1/delete_user/:id', async (request, response) => {
 #### Example: Initializing & Binding A Session Engine
 ```javascript
 const HyperExpress = require('hyper-express');
-const Webserver = new HyperExpress.Server();
+const webserver = new HyperExpress.Server();
 
 // Create new SessionEngine instance
 // Note! You can only bind a single SessionEngine to a webserver instance
-const APISessionEngine = new HyperExpress.SessionEngine({
-    duration_msecs: 1000 * 60 * 45, // Default duration is 45 Minutes
+const session_engine = new HyperExpress.SessionEngine({
+    default_duration: 1000 * 60 * 45, // Default duration is 45 Minutes
+    signature_secret: 'SomeSuperSecretForSigningCookies',
     cookie: {
         name: 'example_sess',
-        domain: 'example.com',
         path: '/',
         httpOnly: true,
         secure: true,
-        sameSite: 'none',
-        secret: 'SomeSuperSecretForSigningCookies'
+        sameSite: 'strict'
     }
 });
 
 // Bind SessionEngine to Webserver instance
-Webserver.setSessionEngine(APISessionEngine);
+webserver.set_session_engine(session_engine);
 
 // Add some routes here
 
 // Activate webserver by calling .listen(port, callback);
 Webserver.listen(80)
 .then((socket) => console.log('Webserver started on port 80'))
-.catch((code) => console.log('Failed to start webserver on port 80: ' + code));
+.catch((error) => console.log('Failed to start webserver on port 80: '));
 ```
 
 #### Example: Initiating and storing visits in a session
 ```js
-Webserver.get('/dashboard/news', async (request, response) => {
+webserver.get('/dashboard/news', async (request, response) => {
    // Initiate a session asynchronously
    await request.session.start();
    
    // Read session for visits property and iterate
    let visits = request.session.get('visits');
    if(visits == undefined){
-        request.session.set('visits', 1); // Initiate visits property
+        request.session.set('visits', 1); // Initiate visits property in session
    } else {
-        request.session.set('visits', visits + 1); // Iterate visist by 1
+        request.session.set('visits', visits + 1); // Iterate visists by 1
    }
    
-   return response.html(some_html);
+   return response.html(news_html);
 });
 ```
 
 #### Example: Initializing and using a new Websocket Route
 ```js
 const HyperExpress = require('hyper-express');
-const Webserver = new HyperExpress.Server();
+const webserver = new HyperExpress.Server();
 
 // Create new WebsocketRoute instance
-const NewsRouteWS = new HyperExpress.WebsocketRoute(some_options);
-
-// IMPORTANT! Bind WebsocketRoute to HyperExpress Server instance at a specific pattern
-Webserver.ws('/api/v1/ws/connect', NewsRouteWS);
+const news_ws_route = webserver.ws('/api/v1/ws/connect', {
+    compression: HyperExpress.DISABLED,
+    idleTimeout: 32,
+    maxBackPressure: 1024 * 1024,
+    maxPayloadLength: 1024 * 32
+});
 
 // Handle connection 'upgrade' event
-NewsRouteWS.handle('upgrade', async (request, response) => {
-    // Some asynchronous database calls/verification done here
+news_ws_route.handle('upgrade', async (request, response) => {
+    // Some asynchronous database calls/verification can be done here
     
     // Reject upgrade request if verification fails
     if(verified !== true) return response.status(403).send('Forbidden Request');
@@ -188,31 +189,31 @@ NewsRouteWS.handle('upgrade', async (request, response) => {
 });
 
 // Handle connection 'open' event
-NewsRouteWS.handle('open', (ws) => {
+news_ws_route.handle('open', (ws) => {
    console.log(ws.user_id + ' is now connected using websockets!'); 
 });
 
 // Handle connection 'message' event
-NewsRouteWS.handle('message', (ws, message, isBinary) => {
+news_ws_route.handle('message', (ws, message, isBinary) => {
     console.log(ws.user_id + ' sent message: ' + message); 
 });
 
 // Handle connection 'close' event
-NewsRouteWS.handle('close', (ws, code, message) => {
+news_ws_route.handle('close', (ws, code, message) => {
    console.log(ws.user_id + ' has disconnected!'); 
 });
 
 // Activate webserver by calling .listen(port, callback);
 Webserver.listen(80)
 .then((socket) => console.log('Webserver started on port 80'))
-.catch((code) => console.log('Failed to start webserver on port 80: ' + code));
+.catch((error) => console.log('Failed to start webserver on port 80: '));
 ```
 
 #### Example: Utilizing Websocket connection
 ```js
 // Assume HyperExpress and a WebsocketRoute has already been setup/initiated
 
-NewsRouteWS.handle('message', (ws, message) => {
+news_ws_route.handle('message', (ws, message) => {
     ws.send('Acknowleged: ' + message); // Replies with incoming message
 });
 ```
