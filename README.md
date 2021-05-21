@@ -1,78 +1,65 @@
 # HyperExpress: High Performance Node.js Webserver
 #### Powered by [`uWebSockets.js`](https://github.com/uNetworking/uWebSockets.js/)
+## Motivation
+HyperExpress aims to be a simple and perfomant HTTP & Websocket Server.
+Some of the prominent features implemented are:
+- Simplified HTTP API
+- Simplified Websocket API
+- Asynchronous By Nature
+- Middleware Support
+- Global Handlers
+- Built-in Session Engine
+- Cryptographically Secure Cookie Signing/Authentication
 
-HyperExpress aims to bring an Express-like webserver API to uWebsockets.js while maintaining high performance.
-Some of the most prominent features implemented are:
-- Middleware support
-- Global handlers
-- Built-in session engine
-- Simplified websocket API
-- Secure cookie signing/verification
-
-## Table Of Contents
-- [HyperExpress: High Performance Node.js Webserver](#hyperexpress-high-performance-nodejs-webserver)
-      - [Powered by `uWebSockets.js`](#powered-by-uwebsocketsjs)
-  - [Table Of Contents](#table-of-contents)
-  - [Installation](#installation)
-  - [Getting Started](#getting-started)
-  - [Server](#server)
-      - [Example: Create server instance](#example-create-server-instance)
-      - [Server Constructor Options](#server-constructor-options)
-      - [Server Instance Methods](#server-instance-methods)
-  - [Request](#request)
-      - [Example: Retrieving properties and JSON body](#example-retrieving-properties-and-json-body)
-      - [Request Properties](#request-properties)
-      - [Request Methods](#request-methods)
-  - [Response](#response)
-      - [Example: Forbidden request scenario utilizing multiple response methods](#example-forbidden-request-scenario-utilizing-multiple-response-methods)
-      - [Response Methods](#response-methods)
-  - [SessionEngine](#sessionengine)
-      - [Example: Initializing and using a new Websocket Route](#example-initializing-and-using-a-new-websocket-route)
-      - [SessionEngine Constructor Options](#sessionengine-constructor-options)
-      - [SessionEngine Instance Methods](#sessionengine-instance-methods)
-      - [SessionEngine Supported Events](#sessionengine-supported-events)
-  - [Session](#session)
-      - [Example: Initiating and storing visits in a session](#example-initiating-and-storing-visits-in-a-session)
-      - [Session Methods](#session-methods)
-  - [WebsocketRoute](#websocketroute)
-      - [Example: Initializing and using a new Websocket Route](#example-initializing-and-using-a-new-websocket-route-1)
-      - [WebsocketRoute Constructor Options](#websocketroute-constructor-options)
-      - [WebsocketRoute Instance Methods](#websocketroute-instance-methods)
-      - [WebsocketRoute Supported Events](#websocketroute-supported-events)
-  - [Websocket](#websocket)
-      - [Example: Utilizing Websocket connection](#example-utilizing-websocket-connection)
-      - [Websocket Instance Methods](#websocket-instance-methods)
-
+  
 ## Installation
-
 HyperExpress can be installed using node package manager (`npm`)
-
 ```
 npm i hyper-express
 ```
 
-## Getting Started
+## Table Of Contents
+- [HyperExpress: High Performance Node.js Webserver](#hyperexpress-high-performance-nodejs-webserver)
+      - [Powered by `uWebSockets.js`](#powered-by-uwebsocketsjs)
+  - [Motivation](#motivation)
+  - [Installation](#installation)
+  - [Table Of Contents](#table-of-contents)
+  - [Examples](#examples)
+      - [Example: Create server instance](#example-create-server-instance)
+      - [Example: Retrieving properties and JSON body](#example-retrieving-properties-and-json-body)
+      - [Example: Forbidden request scenario utilizing multiple response methods](#example-forbidden-request-scenario-utilizing-multiple-response-methods)
+      - [Example: Initializing & Binding A Session Engine](#example-initializing--binding-a-session-engine)
+      - [Example: Initiating and storing visits in a session](#example-initiating-and-storing-visits-in-a-session)
+      - [Example: Initializing and using a new Websocket Route](#example-initializing-and-using-a-new-websocket-route)
+      - [Example: Utilizing Websocket connection](#example-utilizing-websocket-connection)
+  - [Server](#server)
+      - [Server Constructor Options](#server-constructor-options)
+      - [Server Instance Properties](#server-instance-properties)
+      - [Server Instance Methods](#server-instance-methods)
+  - [Request](#request)
+      - [Request Properties](#request-properties)
+      - [Request Methods](#request-methods)
+  - [Response](#response)
+      - [Response Properties](#response-properties)
+      - [Response Methods](#response-methods)
+  - [SessionEngine](#sessionengine)
+      - [SessionEngine Constructor Options](#sessionengine-constructor-options)
+      - [SessionEngine Methods](#sessionengine-methods)
+  - [Session](#session)
+      - [Session Properties](#session-properties)
+      - [Session Methods](#session-methods)
+  - [WebsocketRoute](#websocketroute)
+      - [WebsocketRoute Methods](#websocketroute-methods)
+  - [Websocket](#websocket)
+      - [Websocket Properties](#websocket-properties)
+      - [Websocket Methods](#websocket-methods)
+  - [License](#license)
 
-Below is a simple example of a simple 'Hello World' application running on port 80:
-
-```js
-const HyperExpress = require('hyper-express');
-const Webserver = new HyperExpress.Server();
-
-Webserver.get('/', (request, response) => {
-    return response.send('Hello World');
-});
-
-Webserver.listen(80)
-.then((socket) => console.log('Webserver started on port 80'))
-.catch((code) => console.log('Failed to start webserver on port 80: ' + code));
-```
-
-## Server
-Below is a breakdown of the `Server` object class generated while creating a new webserver instance.
+## Examples
+Below are various examples that make use of most classes and methods in HyperExpress.
 
 #### Example: Create server instance
-```js
+```javascript
 const HyperExpress = require('hyper-express');
 const Webserver = new HyperExpress.Server();
 
@@ -84,35 +71,8 @@ Webserver.listen(80)
 .catch((code) => console.log('Failed to start webserver on port 80: ' + code));
 ```
 
-#### Server Constructor Options
-| Parameter              | Type | Explanation                                |
-| -------------------|-| ------------------------------------------------------ |
-| `key_file_name` | `String`  | Path to SSL private key file.<br />**Example**: `misc/key.pm`<br />**Required** for an SSL server.|
-| `cert_file_name` | `String`  | Path to SSL certificate file.<br />**Example**: `misc/cert.pm`<br />**Required** for an SSL server.|
-| `passphrase` | `String`  | Strong passphrase for SSL cryptographic purposes.<br />**Example**: `Gy3wyNky19bQigRgdg6l`<br />**Required** for an SSL server.|
-| `dh_params_file_name` | `String`  | Path to SSL Diffie-Hellman parameters file.<br />**Example**: `misc/dhparam4096.pm`<br />**Optional** for an SSL server.|
-| `ssl_prefer_low_memory_usage` | `Boolean`  | Specifies uWS to prefer lower memory usage while serving SSL requests.<br />**Optional** for an SSL server.|
-
-#### Server Instance Methods
-| Method              | Parameters | Explanation                                |
-| -------------------|-| ------------------------------------------------------ |
-| `listen(port)` | `port`: `Number` | Starts the uWS server on specified port.<br />Returns a `Promise` and resolves `uw_listen_socket`.|
-| `close()` | None | Closes the uWS server gracefully.|
-| `uWS()` | None  | Returns the underlying uWS instance.|
-| `use(middleware)` | `middleware`: `Function`  | Binds global middleware to webserver.<br />**Example**: `(request, response, next) => {}`<br />Usage: perform middleware operations and call `next()`<br />**Note**: Middlewares can hurt performance depending on logic complexity|
-| `any(pattern, handler)`<br />`get(pattern, handler)`<br />`post(pattern, handler)`<br />`options(pattern, handler)`<br />`del(pattern, handler)`<br />`head(pattern, handler)`<br />`patch(pattern, handler)`<br />`put(pattern, handler)`<br />`trace(pattern, handler)`<br />`connect(pattern, handler)` | `pattern`: `String`<br /> `handler`: `Function`| These methods create http routes.<br /> The `handler` parameter accepts either a `normal` or `async` anonymous Function.<br />The handler must have also have two parameters `(request, response) => {}`.<br /> The `pattern` parameter must be a string and is a `strict` match.<br />`pattern` supports path parameters with the `/v1/users/:key` format.|
-| `ws(pattern, ws_route)` | `ws_route`: `WebsocketRoute` | This method creates a websocket route.<br />A `WebsocketRoute` instance must be passed to handle connections.|
-| `routes()` | None | Returns created routes.|
-| `ws_compressors()` | None | Returns compressor presets for WebsocketRoute `compressor` option.|
-| `setErrorHandler(handler)` | `handler`: `Function` | Binds a global error handler.<br />**Example**: `(request, response, error) => {}`|
-| `setNotFoundHandler(handler)` | `handler`: `Function` | Binds a global not found handler.<br />*Example**: `(request, response) => {}`|
-| `setSessionEngine(engine)` | `engine`: `SessionEngine` | Binds a session engine to webserver.<br />This populates `request.session` with a `Session` object.<br />**Note**: You must call `engine.perform_cleanup()` intervally to cleanup sessions.|
-
-## Request
-Below is a breakdown of the `request` object made available through the route handler(s) and websocket upgrade event handler(s).
-
 #### Example: Retrieving properties and JSON body 
-```js
+```javascript
 Webserver.post('/api/v1/delete_user/:id', async (request, response) => {
    let headers = request.headers;
    let id = request.path_parameters.id;
@@ -123,37 +83,8 @@ Webserver.post('/api/v1/delete_user/:id', async (request, response) => {
 });
 ```
 
-#### Request Properties
-| Property             | Type | Explanation                                     |
-| -------------------|-| ------------------------------------------------------ |
-| `method` | `String`  | This property contains the request HTTP method in uppercase.|
-| `url` | `String`  | This property contains the full path + query string. |
-| `path` | `String`  | This property contains the request path.|
-| `query` | `String`  | This property contains the request query string without after the `?`.|
-| `headers` | `Object`  | This property contains the headers for incoming requests.|
-| `path_parameters` | `Object`  | This property contains path parameters from incoming requests.<br />Example: `/api/v1/delete/:userid` -> `{ userid: 'some value' }` |
-| `session` | `Session`  | This property contains the session object for incoming requests when a session engine is active.|
-| `uws_request` | `uWS.Request`  | This property contains the underlying uWebsockets.js request object.|
-| `uws_response` | `uWS.Response`  | This property contains the underlying uWebsockets.js response object.|
-
-#### Request Methods
-| Method             | Returns | Explanation                                    |
-| -------------------|-| ------------------------------------------------------ |
-| `remote_ip()` | `String`  | Retrieves remote connection IP.|
-| `remote_proxy_ip()` | `String`  | Retrieves remote connection IP over a middleman proxy.|
-| `query_parameters()` | `Object`  | Retrieves all query parameters from current request.|
-| `get_query_parameter(key)` | `String` `undefined` | Retrieves a specified query parameter from current request.<br />`key`[**String**]: Required|
-| `cookies(decode)` | `Object`  | Retrieves all cookies from incoming request.<br />`decode`[**Boolean**][**Default**: `false`]: Optional|
-| `get_cookie(key, decode)` | `String` `undefined` | Retrieves a specified cookie from incoming request.<br /> The optional decode parameter can be used to decode url encoded cookies.<br /> `key`[**String**]: **Required**<br /> `decode`[**Boolean**][**Default**: `false`]: Optional|
-| `unsign_cookie(name, secret)` | `String`,<br />`undefined`  | Unsigns and retrieves the decoded value for a signed cookie.<br />**Note**: Returns `undefined` when cookie is not set or tampered with.<br />`name`[**String**]: **Required**<br />`secret`[**String**]: **Required**|
-| `text()` | `Promise`  | Retrieves the body from an incoming request asynchronously as a `String`. |
-| `json(default_value)` | `Promise`  | Retrieves the body from an incoming request asynchronously as an `Object`.<br />**Note**: Setting `default_value` to `null` will reject the promise.<br />The **optional** parameter `default_value` is used to resolve specified value on invalid JSON and prevent rejections.<br />`default_value`[**Any**][**Default**: `{}`]: Optional|
-
-## Response
-Below is a breakdown of the `response` object made available through the route handler(s) and websocket upgrade event handler(s).
-
 #### Example: Forbidden request scenario utilizing multiple response methods
-```js
+```javascript
 Webserver.post('/api/v1/delete_user/:id', async (request, response) => {
    // Some bad stuff happened and this request is forbidden
    
@@ -172,27 +103,8 @@ Webserver.post('/api/v1/delete_user/:id', async (request, response) => {
 });
 ```
 
-#### Response Methods
-| Method             | Parameters | Explanation                                    |
-| -------------------|-| ------------------------------------------------------ |
-| `atomic(callback)` | `callback`: `Function`  | Alias of uWebsockets's `.cork(callback)` method.<br />Wrapping multiple response method calls inside this method can improve performance.<br />Example: `response.atomic(() => { /* Some response method calls */ });` |
-| `status(code)` | `code`: `Number` | Writes status code for current request.<br />This method can only be called once per request.<br />**Note**: This method must be called before any other response methods. |
-| `header(key, value)` | `key`: `String`<br />`value`: `String`  | Writes a response header. |
-| `type(type)` | `type`: `String` | Writes appropriate `content-type` header for specified type.<br />List: [Supported Types](./mime_types.json) |
-| `cookie(name, value, expiry, options)` | `name`: `String`<br />`value`: `String`<br />`expiry`: `Number`<br />`options`: `Object`  | Sets a cookie for current request.<br />`expiry` must be the duration of the cookie in **milliseconds**.<br /><br />Supported Options:<br />`domain`[**String**]: Sets cookie domain<br />`path`[**String**]: Sets cookie path<br />`maxAge`[**Number**]: Sets maxAge (In seconds)<br />`encode`[**Boolean**]: URL encodes cookie value<br />`secure`[**Boolean**]: Adds secure flag<br />`httpOnly`[**Boolean**]: Adds httpOnly flag<br />`sameSite`[**Boolean**, **none**, **lax**, **strict**]: Adds sameSite flag |
-| `delete_cookie(name)` | `name`: `String` | Deletes a cookie for current request. |
-| `upgrade(data)` | `data`: `Object` | Upgrades request from websocket upgrade handlers.<br />Parameter `data` is optional and be used to bind data to websocket object.<br />**Note**: This method is only available inside websocket upgrade handlers. |
-| `redirect(url)` | `url`: `String` | Redirects request to specified `url`. |
-| `send(body)` | `body`: `String` | Sends response with an **optional** specified `body`. |
-| `json(payload)` | `payload`: `Object` | Sends response with the specified json body. |
-| `html(code)` | `code`: `String` | Sends response with the specified html body. |
-| `throw_error(error)` | `error`: `Error` | Calls global error handler with specified `Error` object. |
-
-## SessionEngine
-Below is a breakdown of the `SessionEngine` object class generated while creating a new `SessionEngine` instance.
-
-#### Example: Initializing and using a new Websocket Route
-```js
+#### Example: Initializing & Binding A Session Engine
+```javascript
 const HyperExpress = require('hyper-express');
 const Webserver = new HyperExpress.Server();
 
@@ -222,32 +134,6 @@ Webserver.listen(80)
 .catch((code) => console.log('Failed to start webserver on port 80: ' + code));
 ```
 
-#### SessionEngine Constructor Options
-| Parameter              | Type | Explanation                                |
-| -------------------|-| ------------------------------------------------------ |
-| `cookie` | `Object`  | Specifies cookie settings for session cookies.<br />**Note**: You must specify a `cookie.secret` value for secure operation. |
-| `duration_msecs` | `Number`  | Specifies the default session duration/lifetime in milliseconds. |
-| `require_manual_touch` | `Boolean`  | Specifies whether sessions should require a manual `session.touch()` call on every request.<br />**Default**: `false` |
-
-#### SessionEngine Instance Methods
-| Method              | Parameters | Explanation                                |
-| -------------------|-| ------------------------------------------------------ |
-| `handle(event, handler)` | `event`: `String`<br />`handler`: `Function`  | Sets an event handler for a session engine action. <br />See below for supported events.|
-| `perform_cleanup()` | **None**  | Calls `cleanup` event handler to trigger a session cleanup. |
-
-#### SessionEngine Supported Events
-| Event              | Handler Parameters | Explanation                                |
-| -------------------|-| ------------------------------------------------------ |
-| `id` | **None**  | Specifies handler for generating session IDs.|
-| `read` | `session_id`: `String`  | Specifies handler for session read events.<br />**Note**: This event is required.<br />**Example**: `.handle('read', (session_id) => { /* Some database call here */ });`|
-| `touch` | `expiry_ts`: `Number`  | Specifies handler for session touch events.<br />**Note**: This event is required.<br />**Example**: `.handle('touch', (expiry_ts) => { /* Some database call here */ });`|
-| `write` | `session_id`: `String`<br />`data`: `String`<br />`expiry_ts`: `Number`<br />`from_database`: `Boolean`  | Specifies handler for session write events.<br />Parameter `from_database` specifies whether a database entry already exists.<br />**Note**: This event is required.<br />**Example**:<br /> `.handle('write', (session_id, data, expiry_ts, from_database) => { /* Some database call here */ });`|
-| `destroy` | `session_id`: `String`  | Specifies handler for session destroy events.<br />**Note**: This event is required.<br />**Example**: `.handle('destroy', (session_id) => { /* Some database call here */ });`|
-| `cleanup` | `duration_msecs`: `String`  | Specifies handler for session cleanup events.<br />**Example**: `.handle('cleanup', (duration_msecs) => { /* Some database call here */ });`|
-
-## Session
-Below is a breakdown of the `session` object made available through the `request.session` property in route handler(s) and websocket upgrade event handler(s).
-
 #### Example: Initiating and storing visits in a session
 ```js
 Webserver.get('/dashboard/news', async (request, response) => {
@@ -265,32 +151,6 @@ Webserver.get('/dashboard/news', async (request, response) => {
    return response.html(some_html);
 });
 ```
-
-#### Session Methods
-**Note**: All methods below can be accessed using `request.session` property in all request handlers when a session engine has been set for webserver instance.
-| Method             | Returns | Explanation                                    |
-| -------------------|-| ------------------------------------------------------ |
-| `start()` | `Promise` | Initiates a new session or continues an existing session from signed session cookie defined by session engine. |
-| `roll()` | `Promise` | Asynchronously re-generates session ID for an existing session.<br />**Note**: This method will first delete old session record and then create a new one after request ends. |
-| `touch(perform_now)` | `Promise` | Touches current session (updates expiry) if a already session exists.<br />Parameter `perform_now` accepts a `Boolean` and signifies whether the touch should occur now or after response is sent.<br />**Default**: `false` |
-| `destroy()` | `Promise` | Destroys current session asynchronously and unsets session cookie. |
-| `generate_id()` | `Promise` | Asynchronously returns a cryptographically random session id.<br />**Note**: This method may not return a `Promise` if you set a custom synchronous id generator in session engine. |
-| `id()` | `String` | Returns the current unsigned session id by reading and unsigning session cookie from current request.<br />**Note**: If session cookie reading or signature verification fails, then this method returns an empty string. |
-| `signed_id()` | `String` | Returns the signed session id for current request.<br />Returns an empty string If no valid session id is found from current request. |
-| `set_id(id)` | `Boolean` | Sets the session id to use for current request.<br />**Note**: Utilizing this method is not recommended for security purposes.<br />You should always try to use `set_signed_id()` whenever possible. |
-| `set_signed_id(signed_id)` | `Boolean` | Unsigns and sets the session id to use for current request.<br />**Note**: This method will return `false` if unsigning process fails due to a bad signed id. |
-| `ready()` | `Boolean` | Returns `true` if session has successfully been started. |
-| `duration()` | `Number` | Returns current session's duration (milliseconds) to determine the lifetime of a session before it is expired. |
-| `update_duration(duration)` | `Session` | Used to extend and update the lifetime duration of current session (In milliseconds).<br />**Note**: This method will store the custom duration in a session data value called `_he_cdur`.<br /> Modifying this property will default the session back to the default duration. |
-| `set(key, value)` | `Session` | Sets a value for defined key in current session. |
-| `set_all(object)` | `Session` | Sets current session's data payload to defined `object` parameter.<br />**Note**: Parameter `object` must be an `Object` type. |
-| `get(key)` | `Any` | Returns session stored value for a key or `undefined`. |
-| `get_all()` | `Object` | Returns the whole session data object. |
-| `delete(key)` | `Session` | Deletes specified `key` from session data. |
-| `deleteAll()` | `Session` | Deletes all data stored in session setting session data to `{}`. |
-
-## WebsocketRoute
-Below is a breakdown of the `WebsocketRoute` object class generated while creating a new `WebsocketRoute` instance.
 
 #### Example: Initializing and using a new Websocket Route
 ```js
@@ -337,31 +197,6 @@ Webserver.listen(80)
 .catch((code) => console.log('Failed to start webserver on port 80: ' + code));
 ```
 
-#### WebsocketRoute Constructor Options
-| Parameter              | Type | Explanation                                |
-| -------------------|-| ------------------------------------------------------ |
-| `compression` | `Number`  | Specifies permessage-deflate compression to use.<br />Must pass one of the constants from `Server.ws_compressors()`.<br />**Default**: `Webserver.ws_compressors().DISABLED`|
-| `idleTimeout` | `Number`  | Specifies interval to automatically timeout/close idle websocket connection in `seconds`.<br />**Default**: `32`| 
-| `maxBackpressure` | `Number`  | Specifies maximum websocket backpressure allowed in `length`.<br />**Default**: `1024 * 1024 = 1048576`| 
-| `maxPayloadLength` | `Number`  | Specifies maximum length allowed on incoming messages.<br />Any client who goes over this limit will immediately be disconnected.<br />**Default**: `32 * 1024 = 32768`| 
-
-#### WebsocketRoute Instance Methods
-| Method              | Parameters | Explanation                                |
-| -------------------|-| ------------------------------------------------------ |
-| `handle(event, handler)` | `event`: `String`<br />`handler`: `Function`  | Sets an event handler for websocket route. <br />See below for supported events.|
-
-#### WebsocketRoute Supported Events
-| Event              | Handler Parameters | Explanation                                |
-| -------------------|-| ------------------------------------------------------ |
-| `upgrade` | `request`: `Request`<br />`response`: `Response` | Handles incoming upgrade requests for websocket connections.<br />You may perform any authentication in this handler upgrading to a websocket connection.<br />**Note**: Incoming requests are upgraded automatically without this event being handled. |
-| `open` | `ws`: `Websocket` | Handles new connections being opened on websocket route.<br />This event **must** be handled on a `WebsocketRoute` instance to prevent automatic disconnections. |
-| `message` | `ws`: `Websocket`<br />`message`: `String`<br />`isBinary`: `Boolean` | Handles incoming messages from websocket connections. |
-| `drain` | `ws`: `Websocket` | Handles drainage of backpressure for websocket connections. |
-| `close` | `ws`: `Websocket`<br />`code`: `Number`<br />`message`: `String` | Handles closing of websocket connections with the associated closing code and message. |
-
-## Websocket
-Below is a breakdown of the `Websocket` connection object made available through `WebsocketRoute` event handlers.
-
 #### Example: Utilizing Websocket connection
 ```js
 // Assume HyperExpress and a WebsocketRoute has already been setup/initiated
@@ -371,19 +206,265 @@ NewsRouteWS.handle('message', (ws, message) => {
 });
 ```
 
-#### Websocket Instance Methods
-| Method              | Parameters | Explanation                                |
-| -------------------|-| ------------------------------------------------------ |
-| `close()` | None  | Forcefully closes the connection and immediately calls the close handler.<br />**Note**: No close message is sent. |
-| `cork(callback)` | `callback`: `Function`  | Similar to `response.atomic(callback)` in helping improving performance. |
-| `end(code, message)` | `code`: `Number`<br />`message`: `String`  | Gracefully closes the connectioin and calls the close handler.<br />A close message is sent with the specified code and message. |
-| `getBufferedAmount()` | None  | Returns number of bytes buffered in backpressure. |
-| `getRemoteAddress()` | None  | Returns the remote IP address in Binary. |
-| `getRemoteAddressAsText()` | None  | Returns the remote IP address as text. |
-| `getTopics()` | None  | Returns a list of topics this connection is subscribed to. |
-| `ping(message)` | `message`: `String`  | Sends a ping control message according to protocol with specified message. |
-| `subscribe(topic)` | `topic`: `String` | Subscribes connection to specified topic. |
-| `unsubscribe(topic)` | `topic`: `String` | Unsubscribes connection from the specified topic. |
-| `isSubscribed(topic)` | `topic`: `String`  | Returns a `Boolean` result of whether this connection is subscribed to specified topic. |
-| `publish(topic, message, isBinary, compress)` | `topic`: `String`<br />`message`: `String`<br />`isBinary`: `Boolean`<br />`compress`: `Boolean`  | Publishes a message to specified topic. |
-| `send(message, isBinary, compress)` | `message`: `String`<br />`isBinary`: `Boolean`<br />`compress`: `Boolean`  | Sends a message. Returns a `Boolean` result specifying whether message was sent or failed due to backpressure.|
+## Server
+Below is a breakdown of the `Server` object class generated while creating a new webserver instance.
+
+#### Server Constructor Options
+* `key_file_name` [`String`]: Path to SSL private key file to be used for SSL/TLS.
+    * **Example**: `'misc/key.pm'`
+    * **Required** for an SSL server.
+* `cert_file_name` [`String`]: Path to SSL certificate file.
+    * **Example**: `'misc/cert.pm'`
+    * **Required** for an SSL server.
+* `passphrase` [`String`]: Strong passphrase for SSL cryptographic purposes.
+    * **Example**: `'SOME_RANDOM_PASSPHRASE'`
+    * **Required** for an SSL server.
+* `dh_params_file_name` [`String`]: Path to SSL Diffie-Hellman parameters file.
+    * **Example**: `'misc/dhparam4096.pm'`
+    * **Optional** for an SSL server.
+* `ssl_prefer_low_memory_usage` [`Boolean`]: Specifies uWebsockets to prefer lower memory usage while serving SSL requests.
+
+#### Server Instance Properties
+| Property  | Type     | Description                |
+| :-------- | :------- | :------------------------- |
+| `error_handler` | `Function` | Global catch-all error handler function. |
+| `session_engine` | `SessionEngine` | Session Engine bound to current instance. |
+| `uws_instance` | `uWS` | Underlying uWebsockets TemplatedApp instance. |
+| `routes` | `Object` | All routes created on current instance. |
+
+#### Server Instance Methods
+* `listen(Number: port, String: host)`: Starts the uWebsockets server on specified port.
+    * **Returns** a `Promise` and resolves `uw_listen_socket`.
+    * **Note** port is required and host is `0.0.0.0` by default.
+* `close(uws_socket: socket)`: Closes the uWebsockets server gracefully.
+    * **Note**: socket is not required.
+* `set_error_handler(Function: handler)`: Binds a global catch-all error handler that will attempt to catch mostsynchronous/asynchronous errors.
+    * **Handler Parameters:** `(Request: request, Response: response, Error: error) => {}`.
+* `set_error_handler(Function: handler)`: Binds a global catch-all not found handler that will handle all requests which are not handled by any routes.
+    * **Handler Parameters:** `(Request: request, Response: responser) => {}`.
+* `set_session_engine(SessionEngine: engine)`: Binds specified session engine to current webserver and populates **request.session** with sessions based on engine settings.
+* `use(Function: handler)`: Binds a global middleware for all incoming requests.
+    * **Handler Parameters:** `(Request: request, Response: responser, Function: next) => {}`.
+    * **Note** you must call `next()` at the end of your middleware execution.
+* `any(String: pattern, Function: handler)`: Creates an HTTP route on specified pattern. Alias methods are listed below for HTTP method specific routes.
+    * **Handler Parameters:** `(Request: request, Response: responser) => {}`.
+    * **Alias Methods:** `get()`, `post()`, `delete()`, `head()`, `options()`, `patch()`, `trace()`, `connect()`.
+    * **Supports** both synchronous and asynchronous handler.
+    * **Supports** path parameters with `:` prefix. Example: `/api/v1/users/:action/:id`.
+    * **Note** pattern string must be a `strict` match and trailing-slashes will be treated as different paths.
+* `ws(String: pattern, Object: options)`: Creates a websocket route on specified pattern.
+    * **Returns** a `WebsocketRoute` instance which can be used to handle upgrade and connection events.
+    * `options`:
+        * `compression`[`Number`]: Specifies permessage-deflate compression to use.
+            * **Default**: `'DISABLED'` 
+            * Must pass one of the constants from `require('hyper-express').compressors`.
+        * `idleTimeout`[`Number`]: Specifies interval to automatically timeout/close idle websocket connection in **seconds**.
+            * **Default**: `32` 
+        * `maxBackpressure`[`Number`]: Specifies maximum websocket backpressure allowed in character length.
+            * **Default**: `1048576` (1024 * 1024) 
+        * `maxPayloadLength`[`Number`]: Specifies maximum length allowed on incoming messages.
+            * **Note** any client who crosses this limit will immediately be disconnected. 
+            * **Default**: `32768` (32 * 1024) 
+
+## Request
+Below is a breakdown of the `request` object made available through the route handler(s) and websocket upgrade event handler(s).
+
+#### Request Properties
+| Property  | Type     | Description                |
+| :-------- | :------- | :------------------------- |
+| `raw` | `uWS.Request`  | Underlying uWebsockets.js request object.|
+| `method` | `String`  | Request HTTP method in uppercase. |
+| `url` | `String`  | Full path + query string. |
+| `path` | `String`  | Request path.|
+| `query` | `String`  | Query string without the `?`.|
+| `headers` | `Object`  | Request Headers from incoming request. |
+| `cookies` | `Object`  | Request cookies from incoming request. |
+| `session` | `Session`  | Session object made available when a session engine is active. |
+| `path_parameters` | `Object`  | Path parameters from incoming request. |
+| `query_parameters` | `Object`  | Query parameters from incoming request. |
+| `ip` | `String`  | Remote connection IP. |
+| `proxy_ip` | `String`  | Remote proxy connection IP. |
+
+#### Request Methods
+* `unsign(String: signed_value, String: secret)`: Attempts to unsign provided value with provided secret.
+    * **Returns** `String` or `undefined` if signed value is invalid.
+* `text()`: Parses body as a string from incoming request.
+    * **Returns** `Promise` which is then resolved to a `String`.
+* `json(Object: default_value)`: Parses body as a JSON Object from incoming request.
+    * **Returns** `Promise` which is then resolved to an `Object`.
+    * **Note** this method returns the specified `default_value` if JSON parsing fails instead of throwing an exception. To have this method throw an exception, pass `undefined` for `default_value`.
+
+## Response
+Below is a breakdown of the `response` object made available through the route handler(s) and websocket upgrade event handler(s).
+
+#### Response Properties
+| Property  | Type     | Description                |
+| :-------- | :------- | :------------------------- |
+| `raw` | `uWS.Request`  | Underlying uWebsockets.js response object. |
+| `aborted` | `Boolean`  | Signifies whether the request has been aborted by sender. |
+
+#### Response Methods
+* `atomic(Function: callback)`: Alias of uWebsockets's `cork(callback)` method.
+    * **Usage:** Wrapping multiple response method calls inside this method can improve performance.
+* `status(Number: code)`: Writes HTTP status code for current request.
+    * **Note** this method must be called before any other response/network methods.
+    * **Note** this method can only be called once.
+* `type(String: mime_type)`: Writes correct protocol `content-type` header for specified mime type.
+    * **Example:** `response.type('json')` writes `application/json`
+    * **Supported:** [Mime Types](./components/constants/mime_types.json)
+* `header(String: name, String: value)`: Writes a response header.
+* `cookie(String: name, String: value, Number: expiry, Object: options, Boolean: sign_cookie)`: Writes a cookie header to set cookie on response.
+    * `expiry` specifies the cookie lifetime duration in **milliseconds**.
+    * `sign_cookie` is `true` by default.
+    * `options`:
+        * `domain`:[`String`]: Cookie Domain
+        * `path`:[`String`]: Cookie Path
+        * `maxAge`:[`Number`]: Max Cookie Age (In Seconds)
+        * `secure`:[`Boolean`]: Adds Secure Flag
+        * `httpOnly`:[`Boolean`]: Adds httpOnly Flag
+        * `sameSite`:[`Boolean`, `'none'`, `'lax'`, `'strict'`]: Cookie Same-Site Preference
+        * `secret`:[`String`]: Cryptographically signs cookie value
+    * **Note** cookie values are not URL encoded.
+* `delete_cookie(String: name)`: Writes a cookie header to delete/expire specified cookie.
+* `upgrade(Object: user_data)`: Upgrades incoming request to a websocket connection.
+    * `user_data` is optional and can be used to store data inside websocket connection object.
+    * **Note** this method can only be used inside the `upgrade` handler of a WebsocketRoute.
+* `write(String: body)`: Writes specified string content to the body.
+    * **Note** the `send()` must still be called to send the response.
+* `send(String: body)`: Writes specified string body and sends response.
+* `json(Object: body)`: Alias of `send()`. Sets mime type to `json` and sends response.
+* `html(Object: body)`: Alias of `send()`. Sets mime type to `html` and sends response.
+* `redirect(String: url)`: Writes 302 header to redirect incoming request to specified url.
+* `throw_error(Error: error)`: Calls global catch-all error handler with specified error.
+
+## SessionEngine
+Below is a breakdown of the `SessionEngine` object class generated while creating a new `SessionEngine` instance.
+
+#### SessionEngine Constructor Options
+* `signature_secret` [`String`]: Specifies secret value used to sign/authenticate session cookies.
+    * This parameter is **Required** and must be **Unique** and kept secret.
+* `default_duration`[`Number`]: Specifies default cookie and session duration in **milliseconds**.
+* `require_manual_touch`[`Boolean`]: Specifies whether active sessions should be automatically touched upon incoming requests.
+* `cookie_options`[`Object`]: Specifies session cookie options.
+    * See **Request**->**Methods**->**cookie()** for all cookie options.
+
+#### SessionEngine Methods
+* `cleanup()`: Triggers `cleanup` event to delete expired sessions from storage.
+* `handle(String: type, Function: handler)`: Binds event handler for specified event type.
+    * **Note** you must use your own storage implementation in combination with events below.
+    * Event `'id'`: Must return a promise that generates and resolves a cryptographically random id.
+        * `handler`: `() => {}`.
+        * **Returns:** `Promise` -> `String`.
+        * **Required** before using session engine.
+    * Event `'read'`: Reads and returns session data as an `Object` from storage.
+        * `handler`: `(String: session_id) => {}`.
+        * **Returns:** `Promise` -> `Object`.
+        * **Required** before using session engine.
+    * Event `'touch'`: Updates session expiry timestamp in storage.
+        * `handler`: `(String: session_id, Number: expiry_ts) => {}`.
+        * `expiry_ts` must be a timestamp in **milliseconds**.
+        * **Returns:** `Promise` -> `Any`[`Optional`].
+        * **Required** before using session engine.
+    * Event `'write'`: Writes session data with expiry timestamp to storage.
+        * `handler`: `(String: session_id, Object: data, Number: expiry_ts, Boolean: from_database) => {}`.
+        * `expiry_ts` is a timestamp in **milliseconds**
+        * `from_database` specifies whether the session is brand new or retrieved from database.
+        * **Returns:** `Promise` -> `Any`[`Optional`].
+        * **Required** before using session engine.
+    * Event `'destroy'`: Destroys session from storage.
+        * `handler`: `(String: session_id) => {}`.
+        * **Returns:** `Promise` -> `Any`[`Optional`].
+        * **Required** before using session engine.
+    * Event `'cleanup'`: Cleans up storage source and deletes expired sessions.
+        * `handler`: `() => {}`.
+        * **Returns:** `Promise` -> `Any`[`Optional`].
+        * **Optional** but recommended to centralize session logic.
+
+## Session
+Below is a breakdown of the `session` object made available through the `request.session` property in route handler(s) and websocket upgrade event handler(s).
+
+#### Session Properties
+| Property  | Type     | Description                |
+| :-------- | :------- | :------------------------- |
+| `id`      | `Number` | Raw session id for current request. |
+| `signed_id` | `Number`  | Signed session id for current request. |
+| `ready` | `Boolean`  | Specifies whether session has been started. |
+| `duration` | `Number`  | Duration in **milliseconds** of current session. |
+| `expiry_timestamp` | `Number`  | Expiry timestamp in **milliseconds** of current session. |
+
+#### Session Methods
+* `generate_id()`: Asynchronously generates and returns a new session id from `'id'` session engine event.
+    * **Returns** `Promise`->`String`
+* `set_id(String: session_id)`: Overwrites/Sets session id for current request session.
+    * **Note** this method is not recommended in conjunction with user input as it performs no verification.
+    * **Returns** `Session`
+* `set_signed_id(String: signed_id, String: secret)`: Overwrites/Sets session id for current request session.
+    * **Note** this method is **recommended** over the above method as it will first unsign/verify the provided signed id and then update the state of current session.
+    * `secret` is **optional** as this method uses the underlying `SessionEngine` specified secret by default.
+    * **Returns** `Session`
+* `set_duration(Number: duration)`: Sets a custom session lifetime duration for current session.
+    * **Note** this method stores the custom duration value as a part of the session data in a prefix called `__cust_dur`.
+* `start()`: Starts session on incoming request and loads session data from storage source.
+    * **Returns** `Promise`.
+* `roll()`: Rolls current session's id by migrating current session data to a new session id.
+    * **Returns** `Promise`
+* `touch()`: Updates current session's expiry timestamp in storage.
+    * **Returns** `Promise`
+    * **Note** This method is automatically called after a request ends unless `require_manual_touch` is set to `true` in `SessionEngine` settings.
+* `destroy()`: Destroys current session from storage and set's cookie header to delete session cookie.
+    * **Returns** `Promise`
+* `set(String: name, Any: value)`: Sets session data value.
+* `set_all(Object: data)`: Overwrites all session data with provided `Object`.
+* `get(String: name)`: Returns session data value for specified name.
+    * **Returns** `Any` or `undefined`
+* `get_all()`: Returns all session data.
+    * **Returns** `Object`
+* `delete(String: name)`: Deletes session data value.
+* `delete_all()`: Deletes all session data.
+
+## WebsocketRoute
+Below is a breakdown of the `WebsocketRoute` object class generated and returned when calling `ws()` route method.
+
+#### WebsocketRoute Methods
+* `handle(String: type, Function: handler)`: Binds event handler for specified event type.
+    * Event `'upgrade'`: Handles incoming upgrade requests.
+        * `handler`: `(Request: request, Response: response, uws_socket: socket) => {}`.
+        * **Upgrade** incoming requests using `Request.upgrade(user_data)` method.
+        * **Optional** but all connections are upgraded automatically if this event is not handled.
+    * Event `'open'`: Handles newly opened websocket connections.
+        * `handler`: `(Websocket: websocket) => {}`.
+    * Event `'message'`: Handles incoming messages from websocket connections.
+        * `handler`: `(Websocket: websocket, String: message, Boolean: isBinary) => {}`.
+    * Event `'drain'`: Handles drainage of websocket connections with backpressure.
+        * `handler`: `(Websocket: websocket) => {}`.
+    * Event `'close'`: Handles closing of websocket connections.
+        * `handler`: `(Websocket: websocket, Number: code, String: message) => {}`.
+
+## Websocket
+Below is a breakdown of the `Websocket` connection object made available through `WebsocketRoute` event handlers representing connections.
+
+#### Websocket Properties
+The `Websocket` object has no inherent properties and only contains the `user_data` provided during upgrade as its properties.
+
+#### Websocket Methods
+* `close()`: Forcefully closes the connection and immediately calls the close handler.
+    * **Note** no protocol close message is sent.
+    * Only recommended under extreme circumstances.
+* `end(Number: code, String: message)`: Gracefully closes the connection and writes specified code and message.
+    * **Note** this method is recommended for most use-cases.
+* `send(String: message, Boolean: isBinary, Boolean: compress)`: Sends specified message over websocket connection.
+    * **Returns** `Boolean`
+    * **Note** this method returns `false` when sending fails due to built up backpressure.
+* `cork(Function: callback)`: Similar to `Response.atomic()`. Improves network performance for operations.
+* `getBufferedAmount()`: Returns number of bytes buffered in backpressure.
+* `getRemoteAddress()`: Returns the remote IP address in Binary.
+* `getRemoteAddressAsText()`: Returns the remote Ip address as text.
+* `getTopics()`: Returns a list of topics this connection is subscribed to.
+* `ping(String: message)`: Sends a ping control message according to protocol with specified message.
+* `subscribe(String: topic)`: Subscribes connection to specified topic.
+* `unsubscribe(String: topic)`: Unsubscribes connection from the specified topic.
+* `isSubscribed(String: topic)`: Returns a `Boolean` result of whether this connection is subscribed to specified topic.
+* `publish(String: topic, String: message, Boolean: isBinary, Boolean: compress)`: Publishes a message to specified topic.
+
+## License
+[MIT](./LICENSE)
