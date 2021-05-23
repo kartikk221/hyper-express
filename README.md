@@ -170,7 +170,7 @@ const webserver = new HyperExpress.Server();
 
 // Create new WebsocketRoute instance
 const news_ws_route = webserver.ws('/api/v1/ws/connect', {
-    compression: HyperExpress.DISABLED,
+    compression: HyperExpress.compressors.DISABLED,
     idleTimeout: 32,
     maxBackPressure: 1024 * 1024,
     maxPayloadLength: 1024 * 32
