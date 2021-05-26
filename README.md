@@ -254,13 +254,13 @@ Below is a breakdown of the `Server` object class generated while creating a new
 * `set_error_handler(Function: handler)`: Binds a global catch-all error handler that will attempt to catch mostsynchronous/asynchronous errors.
     * **Handler Parameters:** `(Request: request, Response: response, Error: error) => {}`.
 * `set_error_handler(Function: handler)`: Binds a global catch-all not found handler that will handle all requests which are not handled by any routes.
-    * **Handler Parameters:** `(Request: request, Response: responser) => {}`.
+    * **Handler Parameters:** `(Request: request, Response: response) => {}`.
 * `set_session_engine(SessionEngine: engine)`: Binds specified session engine to current webserver and populates **request.session** with sessions based on engine settings.
 * `use(Function: handler)`: Binds a global middleware for all incoming requests.
-    * **Handler Parameters:** `(Request: request, Response: responser, Function: next) => {}`.
+    * **Handler Parameters:** `(Request: request, Response: response, Function: next) => {}`.
     * **Note** you must call `next()` at the end of your middleware execution.
 * `any(String: pattern, Function: handler)`: Creates an HTTP route on specified pattern. Alias methods are listed below for HTTP method specific routes.
-    * **Handler Parameters:** `(Request: request, Response: responser) => {}`.
+    * **Handler Parameters:** `(Request: request, Response: response) => {}`.
     * **Alias Methods:** `get()`, `post()`, `delete()`, `head()`, `options()`, `patch()`, `trace()`, `connect()`.
     * **Supports** both synchronous and asynchronous handler.
     * **Supports** path parameters with `:` prefix. Example: `/api/v1/users/:action/:id`.
