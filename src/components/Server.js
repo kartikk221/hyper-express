@@ -134,6 +134,10 @@ class Server {
      * @param {Function} final - Callback/Chain completion handler
      */
     _chain_middlewares(request, response, final, cursor = 0) {
+        // Break chain if request has been aborted
+        if (response.aborted) return;
+
+        // Determine current middleware and execute
         let current_middleware = this.#middlewares[cursor];
         if (current_middleware)
             return current_middleware(request, response, () =>
@@ -162,18 +166,30 @@ class Server {
      *
      * @param {String} method Supported: any, get, post, delete, head, options, patch, put, trace
      * @param {String} pattern Example: "/api/v1"
+     * @param {Object} options Route processor options (Optional)
      * @param {Function} handler Example: (request, response) => {}
      */
-    _create_route(method, pattern, handler) {
+    _create_route(method, pattern, options, handler) {
         // Do not allow duplicate routes for performance/stability reasons
         if (this.#routes[method]?.[pattern])
             throw new Error(
-                `HyperExpress: Failed to create ${method} @ ${pattern} as duplicate routes are not allowed.`
+                'HyperExpress: Failed to create route as duplicate routes are not allowed.'
             );
+
+        // Do not allow non object type options
+        let options_type = typeof options;
+        if (options_type !== 'object' && options_type !== 'function')
+            throw new Error(
+                'HyperExpress: Failed to create route as options must be an object.'
+            );
+
+        // Convert options to handler if options is a function
+        if (typeof options == 'function') handler = options;
 
         // Pre-parse path parameters key and bind a middleman uWebsockets route for wrapping request/response objects
         let reference = this;
         let path_parameters_key = operators.parse_path_params(pattern);
+        let route_options = options_type == 'object' ? options : {};
         let route = this.#uws_instance[method](pattern, (response, request) =>
             reference._handle_wrapped_request(
                 request,
@@ -181,11 +197,30 @@ class Server {
                 null,
                 handler,
                 path_parameters_key,
-                reference
+                reference,
+                route_options
             )
         );
 
         return (this.#routes[method][pattern] = route);
+    }
+
+    /**
+     * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
+     * This method is used to determine if request body should be pre-parsed in anticipation for future call.
+     *
+     * @param {Request} wrapped_request
+     * @returns {Boolean} Boolean
+     */
+    _pre_parse_body(wrapped_request, options) {
+        // Do not pre-parse if options.pre_parse_body is turned off
+        if (options.pre_parse_body === false) return false;
+
+        // Determine a content-length and content-type header exists to trigger pre-parsing
+        let has_content_type = wrapped_request.headers['content-type'];
+        let content_length = +wrapped_request.headers['content-length'];
+        let valid_content_length = !isNaN(content_length) && content_length > 0;
+        return has_content_type && valid_content_length;
     }
 
     /**
@@ -205,7 +240,8 @@ class Server {
         socket,
         handler,
         path_params_key,
-        master_context
+        master_context,
+        options = {}
     ) {
         // Wrap uWS.Request -> Request
         let wrapped_request = new Request(
@@ -223,8 +259,8 @@ class Server {
             this
         );
 
-        // Safely prefetch body if content-length is specified to prevent forbidden access errors from uWS.Request
-        if (wrapped_request.headers['content-length'])
+        // Pre-Parse body as uWS.Request is deallocated after first synchronous execution
+        if (this._pre_parse_body(wrapped_request, options))
             try {
                 await wrapped_request.text();
             } catch (error) {
@@ -242,58 +278,61 @@ class Server {
         master_context._chain_middlewares(
             wrapped_request,
             wrapped_response,
-            () =>
-                new Promise((resolve, reject) => {
-                    try {
-                        resolve(handler(wrapped_request, wrapped_response));
-                    } catch (error) {
-                        reject(error);
-                    }
-                }).catch((error) =>
-                    master_context.error_handler(
-                        wrapped_request,
-                        wrapped_response,
-                        error
-                    )
-                )
+            () => {
+                // Check to ensure request has not been aborted
+                if (!wrapped_response.aborted)
+                    return new Promise((resolve, reject) => {
+                        try {
+                            resolve(handler(wrapped_request, wrapped_response));
+                        } catch (error) {
+                            reject(error);
+                        }
+                    }).catch((error) =>
+                        master_context.error_handler(
+                            wrapped_request,
+                            wrapped_response,
+                            error
+                        )
+                    );
+            }
         );
     }
 
     /* Server Route Alias Methods */
-    any(pattern, handler) {
-        return this._create_route('any', pattern, handler);
+    any(pattern, options, handler) {
+        return this._create_route('any', pattern, options, handler);
     }
 
-    get(pattern, handler) {
-        return this._create_route('get', pattern, handler);
+    get(pattern, options, handler) {
+        return this._create_route('get', pattern, options, handler);
     }
 
-    post(pattern, handler) {
-        return this._create_route('post', pattern, handler);
+    post(pattern, options, handler) {
+        return this._create_route('post', pattern, options, handler);
     }
 
-    delete(pattern, handler) {
-        return this._create_route('del', pattern, handler);
+    delete(pattern, options, handler) {
+        return this._create_route('del', pattern, options, handler);
     }
 
-    head(pattern, handler) {
-        return this._create_route('head', pattern, handler);
+    head(pattern, options, handler) {
+        return this._create_route('head', pattern, options, handler);
     }
 
-    options(pattern, handler) {
-        return this._create_route('options', pattern, handler);
+    options(pattern, options, handler) {
+        return this._create_route('options', pattern, options, handler);
     }
 
-    patch(pattern, handler) {
-        return this._create_route('patch', pattern, handler);
+    patch(pattern, options, handler) {
+        return this._create_route('patch', pattern, options, handler);
     }
 
-    trace(pattern, handler) {
-        return this._create_route('trace', pattern, handler);
+    trace(pattern, options, handler) {
+        return this._create_route('trace', pattern, options, handler);
     }
 
-    connect(pattern, handler) {
-        return this._create_route('connect', pattern, handler);
+    connect(pattern, options, handler) {
+        return this._create_route('connect', pattern, options, handler);
     }
 
     ws(pattern, options = {}) {

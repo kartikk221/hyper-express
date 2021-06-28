@@ -11,7 +11,11 @@ class Request {
     #url;
     #path;
     #query;
-    #body;
+    #body_stream;
+    #body_text;
+    #body_json;
+    #body_form;
+    #busboy;
     #remote_ip;
     #remote_proxy_ip;
     #cookies;
@@ -29,9 +33,9 @@ class Request {
         // Pre-parse core data attached to volatile uWebsockets request/response objects
         this.#raw_request = raw_request;
         this.#raw_response = raw_response;
-        this._parse_request_information();
-        this._parse_request_headers();
-        this._parse_path_parameters(path_parameters_key);
+        this._request_information();
+        this._request_headers();
+        this._path_parameters(path_parameters_key);
         this._load_session_engine(session_engine);
     }
 
@@ -40,7 +44,7 @@ class Request {
      * This method parses initial data from uWS.Request and uWS.Response to prevent forbidden
      * stack memory access errors for asynchronous usage
      */
-    _parse_request_information() {
+    _request_information() {
         let request = this.#raw_request;
         let response = this.#raw_response;
 
@@ -56,7 +60,7 @@ class Request {
      * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method parses request headers utilizing uWS.Request.forEach((key, value) => {})
      */
-    _parse_request_headers() {
+    _request_headers() {
         this.#raw_request.forEach((key, value) => (this.#headers[key] = value));
     }
 
@@ -66,7 +70,7 @@ class Request {
      *
      * @param {Array} parameters_key [[key, index], ...]
      */
-    _parse_path_parameters(parameters_key) {
+    _path_parameters(parameters_key) {
         if (parameters_key.length > 0) {
             let path_parameters = this.#path_parameters;
             let request = this.#raw_request;
@@ -108,38 +112,36 @@ class Request {
     text() {
         let reference = this;
         return new Promise((resolve, reject) => {
-            // resolve undefined if no content-length header or empty body is sent
-            let content_length = reference.#headers['content-length'];
-            if (content_length == undefined || +content_length == 0)
-                return resolve('');
-
             // Check cache and return if body has already been parsed
-            if (reference.#body) return resolve(reference.#body);
+            if (reference.#body_text) return resolve(reference.#body_text);
 
-            // Parse incoming body chunks from uWS.Response
-            let buffer;
+            // Resolve empty if invalid content-length header detected
+            let content_length = +reference.#headers['content-length'];
+            if (isNaN(content_length) || content_length < 1) {
+                reference.#body_text = '';
+                return resolve(reference.#body_text);
+            }
+
+            // Store incoming buffer chunks into buffers Array
+            let buffers = [];
             reference.#raw_response.onData((chunk, is_last) => {
+                // Convert original chunk ArrayBuffer -> Buffer
                 chunk = Buffer.from(chunk);
+
+                // Store chunks in buffers array
+                if (chunk.length > 0) buffers.push(chunk);
+
+                // Trigger final processing on last chunk
                 if (is_last) {
-                    // Concatenate all stored buffer chunks into final stringified body
-                    let body;
-                    if (buffer) {
-                        body = Buffer.concat([buffer, chunk]);
-                        body = body.toString();
-                    } else if (chunk) {
-                        body = chunk.toString();
-                    } else {
-                        body = '';
-                    }
+                    let body = '';
+
+                    // Concatenate all buffer chunks to build a body
+                    if (buffers.length > 0)
+                        body = Buffer.concat(buffers).toString();
 
                     // Cache and resolve parsed string type body
-                    reference.#body = body;
+                    reference.#body_text = body;
                     return resolve(body);
-                } else if (buffer) {
-                    // Concat and store incoming buffers
-                    buffer = Buffer.concat([buffer, chunk]);
-                } else {
-                    buffer = Buffer.concat([chunk]);
                 }
             });
         });
@@ -154,7 +156,11 @@ class Request {
      * @returns {Promise} Promise(String: body)
      */
     async json(default_value = {}) {
-        let body = this.#body || (await this.text());
+        // Return from cache if available
+        if (this.#body_json) return this.#body_json;
+
+        // Parse a text body
+        let body = this.#body_text || (await this.text());
 
         // Unsafely parse JSON without catching exception if no default_value is specified
         if (default_value == undefined) return JSON.parse(body);
@@ -169,7 +175,28 @@ class Request {
             return default_value;
         }
 
+        // Cache and resolve JSON body
+        this.#body_json = body;
         return body;
+    }
+
+    /**
+     * INTERNAL METHOD!
+     * This method creates and stores incoming body chunks into a PassThrough Stream.
+     */
+    _stream_body() {
+        let stream = new PassThrough();
+        this.#body_stream = stream;
+        this.#raw_response.onData((chunk, is_last) => {
+            // Write chunks into PassThrough stream while it is alive
+            if (!stream.destroyed) {
+                if (is_last) {
+                    stream.end(Buffer.from(chunk));
+                } else {
+                    stream.write(Buffer.from(chunk));
+                }
+            }
+        });
     }
 
     /* Request Getters */

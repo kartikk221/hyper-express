@@ -35,8 +35,8 @@
     "dependencies": {
         "cookie": "^0.4.1",
         "cookie-signature": "^1.1.0",
-        "query-string": "^7.0.0",
-        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v19.2.0",
+        "query-string": "^7.0.1",
+        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v19.3.0",
         "uid-safe": "^2.1.5"
     }
 }
