@@ -1,6 +1,6 @@
 {
     "name": "hyper-express",
-    "version": "2.0.9",
+    "version": "2.0.10",
     "description": "An extremely fast webserver inspired by ExpressJS and powered by uWebSockets.js",
     "main": "index.js",
     "scripts": {
