@@ -46,6 +46,7 @@ class Server {
             reference.#uws_instance.listen(host, port, (listen_socket) => {
                 if (listen_socket) {
                     reference.#listen_socket = listen_socket;
+                    this._bind_exit_handler();
                     resolve(listen_socket);
                 } else {
                     reject('NO_SOCKET');
@@ -127,6 +128,22 @@ class Server {
 
     /**
      * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
+     * This method binds a cleanup handler which closes the underlying uWS socket.
+     */
+    _bind_exit_handler() {
+        let reference = this;
+        [
+            `exit`,
+            `SIGINT`,
+            `SIGUSR1`,
+            `SIGUSR2`,
+            `uncaughtException`,
+            `SIGTERM`,
+        ].forEach((type) => process.once(type, () => reference.close()));
+    }
+
+    /**
+     * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method chains a request/response through all middlewares.
      *
      * @param {Request} request - Request Object
@@ -138,9 +155,9 @@ class Server {
         if (response.aborted) return;
 
         // Determine current middleware and execute
-        let current_middleware = this.#middlewares[cursor];
-        if (current_middleware)
-            return current_middleware(request, response, () =>
+        let current = this.#middlewares[cursor];
+        if (current)
+            return current(request, response, () =>
                 this._chain_middlewares(request, response, final, cursor + 1)
             );
 
@@ -278,24 +295,47 @@ class Server {
         master_context._chain_middlewares(
             wrapped_request,
             wrapped_response,
-            () => {
-                // Check to ensure request has not been aborted
-                if (!wrapped_response.aborted)
-                    return new Promise((resolve, reject) => {
-                        try {
-                            resolve(handler(wrapped_request, wrapped_response));
-                        } catch (error) {
-                            reject(error);
-                        }
-                    }).catch((error) =>
-                        master_context.error_handler(
-                            wrapped_request,
-                            wrapped_response,
-                            error
-                        )
-                    );
-            }
+            () =>
+                master_context._trigger_request_handler(
+                    master_context,
+                    wrapped_request,
+                    wrapped_response,
+                    handler
+                )
         );
+    }
+
+    /**
+     * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
+     * Triggers user specified route handler.
+     *
+     * @param {Server} master_context
+     * @param {Request} wrapped_request
+     * @param {Response} wrapped_response
+     * @param {Function} route_handler
+     * @returns {Promise} Promise
+     */
+    _trigger_request_handler(
+        master_context,
+        wrapped_request,
+        wrapped_response,
+        route_handler
+    ) {
+        // Check to ensure request has not been aborted
+        if (!wrapped_response.aborted)
+            return new Promise((resolve, reject) => {
+                try {
+                    resolve(route_handler(wrapped_request, wrapped_response));
+                } catch (error) {
+                    reject(error);
+                }
+            }).catch((error) =>
+                master_context.error_handler(
+                    wrapped_request,
+                    wrapped_response,
+                    error
+                )
+            );
     }
 
     /* Server Route Alias Methods */
