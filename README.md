@@ -253,7 +253,7 @@ Below is a breakdown of the `Server` object class generated while creating a new
     * **Note**: socket is not required.
 * `set_error_handler(Function: handler)`: Binds a global catch-all error handler that will attempt to catch mostsynchronous/asynchronous errors.
     * **Handler Parameters:** `(Request: request, Response: response, Error: error) => {}`.
-* `set_error_handler(Function: handler)`: Binds a global catch-all not found handler that will handle all requests which are not handled by any routes.
+* `set_not_found_handler(Function: handler)`: Binds a global catch-all not found handler that will handle all requests which are not handled by any routes.
     * **Handler Parameters:** `(Request: request, Response: response) => {}`.
 * `set_session_engine(SessionEngine: engine)`: Binds specified session engine to current webserver and populates **request.session** with sessions based on engine settings.
 * `use(Function: handler)`: Binds a global middleware for all incoming requests.
