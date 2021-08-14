@@ -11,11 +11,8 @@ class Request {
     #url;
     #path;
     #query;
-    #body_stream;
     #body_text;
     #body_json;
-    #body_form;
-    #busboy;
     #remote_ip;
     #remote_proxy_ip;
     #cookies;
@@ -24,15 +21,13 @@ class Request {
     #query_parameters;
     #session;
 
-    constructor(
-        raw_request,
-        raw_response,
-        path_parameters_key,
-        session_engine
-    ) {
+    constructor(raw_request, raw_response, path_parameters_key, session_engine) {
         // Pre-parse core data attached to volatile uWebsockets request/response objects
         this.#raw_request = raw_request;
         this.#raw_response = raw_response;
+
+        // Execute requesr operators for pre-parsing common access data
+        // Attach session engine and parse path parameters based on specification
         this._request_information();
         this._request_headers();
         this._path_parameters(path_parameters_key);
@@ -45,9 +40,12 @@ class Request {
      * stack memory access errors for asynchronous usage
      */
     _request_information() {
+        // Retrieve raw uWS request & response objects
         let request = this.#raw_request;
         let response = this.#raw_response;
 
+        // Perform request pre-parsing for common access data
+        // This is required as uWS.Request is forbidden for access after initial execution
         this.#method = request.getMethod().toUpperCase();
         this.#path = request.getUrl();
         this.#query = request.getQuery();
@@ -74,9 +72,9 @@ class Request {
         if (parameters_key.length > 0) {
             let path_parameters = this.#path_parameters;
             let request = this.#raw_request;
-            parameters_key.forEach((keySet) => {
-                path_parameters[keySet[0]] = request.getParameter(keySet[1]);
-            });
+            parameters_key.forEach(
+                (keySet) => (path_parameters[keySet[0]] = request.getParameter(keySet[1]))
+            );
         }
     }
 
@@ -136,8 +134,7 @@ class Request {
                     let body = '';
 
                     // Concatenate all buffer chunks to build a body
-                    if (buffers.length > 0)
-                        body = Buffer.concat(buffers).toString();
+                    if (buffers.length > 0) body = Buffer.concat(buffers).toString();
 
                     // Cache and resolve parsed string type body
                     reference.#body_text = body;
@@ -178,25 +175,6 @@ class Request {
         // Cache and resolve JSON body
         this.#body_json = body;
         return body;
-    }
-
-    /**
-     * INTERNAL METHOD!
-     * This method creates and stores incoming body chunks into a PassThrough Stream.
-     */
-    _stream_body() {
-        let stream = new PassThrough();
-        this.#body_stream = stream;
-        this.#raw_response.onData((chunk, is_last) => {
-            // Write chunks into PassThrough stream while it is alive
-            if (!stream.destroyed) {
-                if (is_last) {
-                    stream.end(Buffer.from(chunk));
-                } else {
-                    stream.write(Buffer.from(chunk));
-                }
-            }
-        });
     }
 
     /* Request Getters */
@@ -258,6 +236,7 @@ class Request {
         } else {
             this.#cookies = {};
         }
+
         return this.#cookies;
     }
 
@@ -291,14 +270,22 @@ class Request {
      * Returns remote IP address in string format from incoming request.
      */
     get ip() {
-        return operators.arr_buff_to_str(this.#remote_ip);
+        // Convert Remote IP to string on first access
+        if (typeof this.#remote_ip !== 'string')
+            this.#remote_ip = operators.arr_buff_to_str(this.#remote_ip);
+
+        return this.#remote_ip;
     }
 
     /**
      * Returns remote proxy IP address in string format from incoming request.
      */
     get proxy_ip() {
-        return operators.arr_buff_to_str(this.#remote_proxy_ip);
+        // Convert Remote Proxy IP to string on first access
+        if (typeof this.#remote_proxy_ip !== 'string')
+            this.#remote_proxy_ip = operators.arr_buff_to_str(this.#remote_proxy_ip);
+
+        return this.#remote_proxy_ip;
     }
 }
 

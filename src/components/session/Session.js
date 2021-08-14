@@ -41,8 +41,7 @@ class Session {
      * @returns {Session} Session (chainable)
      */
     set_id(session_id) {
-        if (typeof session_id !== 'string')
-            throw new Error('set_id(id) -> id must be a string');
+        if (typeof session_id !== 'string') throw new Error('set_id(id) -> id must be a string');
         this.#id = session_id;
         this.#parsed_id = true;
         return this;
@@ -146,9 +145,7 @@ class Session {
             return true;
         }
 
-        throw new Error(
-            'HyperExpress: You must first start() a session before calling .roll()'
-        );
+        throw new Error('HyperExpress: You must first start() a session before calling .roll()');
     }
 
     /**
@@ -193,10 +190,12 @@ class Session {
      * @returns {Session} Session (Chainable)
      */
     set(name, value) {
+        // Check to ensure the key/value pair is changed and requires a persist request
         if (this.#session_data[name] !== value) {
             this.#session_data[name] = value;
             this.#persist = true;
         }
+
         return this;
     }
 
@@ -207,10 +206,11 @@ class Session {
      * @returns {Session} Session (Chainable)
      */
     set_all(data) {
-        if (typeof data !== 'object')
-            throw new Error(
-                'HyperExpress: .set_all() only accepts a Javascript object'
-            );
+        // Enforce Object type for input set_all data
+        if (typeof data !== 'object' || data == null)
+            throw new Error('HyperExpress: .set_all(data) -> data must be an Object with values.');
+
+        // Overwrite all session data and mark for persistance
         this.#session_data = data;
         this.#persist = true;
         return this;
@@ -245,10 +245,12 @@ class Session {
      * @returns {Session} Session (Chainable)
      */
     delete(name) {
+        // Check to ensure the deleted value actually exists and session requires persistance
         if (this.#session_data[name]) {
             delete this.#session_data[name];
             this.#persist = true;
         }
+
         return this;
     }
 
@@ -258,11 +260,13 @@ class Session {
      * @returns {Session} Session (Chainable)
      */
     delete_all() {
-        // Retain custom duration value
+        // Retain custom duration value throughout cleaning process to retain custom duration state
         let prefix = this.#prefixes.duration;
         let custom_duration = this.get(prefix);
         this.#session_data = {};
         if (custom_duration) this.set(prefix, custom_duration);
+
+        // Mark session for persistance
         this.#persist = true;
         return this;
     }
@@ -292,17 +296,12 @@ class Session {
             );
         } else if (typeof this.#id == 'string') {
             // Sign and set session cookie in the scenario a cached signed session id is not found
-            wrapped_response.cookie(
-                cookie_options.name,
-                this.#id,
-                this.duration,
-                cookie_options
-            );
+            wrapped_response.cookie(cookie_options.name, this.#id, this.duration, cookie_options);
         }
 
-        if (this.#destroyed) return; // Do not perform any writes/touch if session has been destroyed
+        if (this.#destroyed) return; // Do not perform any persistance operations if session has been destroyed already
 
-        // Catch any errors during the write & touch process and report to catchall global handler
+        // Catch any errors during the persistance process and report to catchall global handler
         try {
             let engine_methods = this.#session_engine._methods;
             let require_manual_touch = this.#session_engine._manual_touch;
@@ -319,11 +318,7 @@ class Session {
                 await this.touch();
             }
         } catch (error) {
-            master_context.error_handler(
-                wrapped_request,
-                wrapped_response,
-                error
-            );
+            master_context.error_handler(wrapped_request, wrapped_response, error);
         }
     }
 
@@ -343,11 +338,13 @@ class Session {
         let cookie_options = this.#session_engine._cookie_options;
         let signed_cookie_id = request_cookies[cookie_options.name];
         if (signed_cookie_id) {
+            // Unsign raw cookie value to verify signature
             let unsigned_value = this.#wrapped_request.unsign(
                 signed_cookie_id,
                 cookie_options.secret
             );
 
+            // Store raw id and signed id locally for faster access in future operations
             if (unsigned_value !== false) {
                 this.#id = unsigned_value;
                 this.#signed_id = signed_cookie_id;
@@ -372,10 +369,7 @@ class Session {
         let unsigned_id = this.id;
         let cookie_options = this.#session_engine._cookie_options;
         if (unsigned_id && this.#signed_id == undefined)
-            this.#signed_id = signature.sign(
-                unsigned_id,
-                cookie_options.secret
-            );
+            this.#signed_id = signature.sign(unsigned_id, cookie_options.secret);
 
         return this.#signed_id;
     }
@@ -391,12 +385,9 @@ class Session {
      * Returns the current session's duration in milliseconds.
      */
     get duration() {
-        let session_engine = this.#session_engine;
-        let custom_prefix = this.#prefixes.duration;
-        let custom_duration = this.#session_data[custom_prefix];
-        let default_duration = session_engine._default_duration;
-        let is_custom = typeof custom_duration == 'number';
-        return is_custom ? custom_duration : default_duration;
+        let custom_duration = this.#session_data[this.#prefixes.duration];
+        let default_duration = this.#session_engine._default_duration;
+        return typeof custom_duration == 'number' ? custom_duration : default_duration;
     }
 
     /**
