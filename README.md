@@ -253,7 +253,7 @@ Below is a breakdown of the `Server` object class generated while creating a new
     * **Note**: socket is not required.
 * `set_error_handler(Function: handler)`: Binds a global catch-all error handler that will attempt to catch mostsynchronous/asynchronous errors.
     * **Handler Parameters:** `(Request: request, Response: response, Error: error) => {}`.
-* `set_error_handler(Function: handler)`: Binds a global catch-all not found handler that will handle all requests which are not handled by any routes.
+* `set_not_found_handler(Function: handler)`: Binds a global catch-all not found handler that will handle all requests which are not handled by any routes.
     * **Handler Parameters:** `(Request: request, Response: response) => {}`.
 * `set_session_engine(SessionEngine: engine)`: Binds specified session engine to current webserver and populates **request.session** with sessions based on engine settings.
 * `use(Function: handler)`: Binds a global middleware for all incoming requests.
@@ -346,7 +346,7 @@ Below is a breakdown of the `response` object made available through the route h
     * **Note** the `send()` must still be called to send the response.
 * `send(String: body)`: Writes specified string body and sends response.
 * `json(Object: body)`: Alias of `send()`. Sets mime type to `json` and sends response.
-* `html(Object: body)`: Alias of `send()`. Sets mime type to `html` and sends response.
+* `html(String: body)`: Alias of `send()`. Sets mime type to `html` and sends response.
 * `redirect(String: url)`: Writes 302 header to redirect incoming request to specified url.
 * `throw_error(Error: error)`: Calls global catch-all error handler with specified error.
 
