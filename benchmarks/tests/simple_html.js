@@ -11,7 +11,7 @@ function simple_html() {
         </head>
         <body>
             <h1>Benchmark Page</h1>
-            <h3>Generated @ ${new Date(timestamp).toString()}</h3>
+            <h3>Generated @ ${new Date(timestamp).toString()} [${timestamp}]</h3>
         </body>
     </html>
     `;
