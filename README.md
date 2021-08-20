@@ -36,6 +36,10 @@ npm i hyper-express
   - [Motivation](#motivation)
   - [Installation](#installation)
   - [Table Of Contents](#table-of-contents)
+  - [Benchmarks](#benchmarks)
+      - [CLI Command](#cli-command)
+    - [Environment Specifications](#environment-specifications)
+    - [Benchmark Results](#benchmark-results)
   - [Examples](#examples)
       - [Example: Create server instance](#example-create-server-instance)
       - [Example: Retrieving properties and JSON body](#example-retrieving-properties-and-json-body)
@@ -66,6 +70,32 @@ npm i hyper-express
       - [Websocket Properties](#websocket-properties)
       - [Websocket Methods](#websocket-methods)
   - [License](#license)
+
+## Benchmarks
+Below benchmark results were derived using the **[autocannon](https://www.npmjs.com/package/autocannon)** HTTP benchmarking utility. The benchmark source code is included in this repository in the benchmarks folder.
+
+#### CLI Command
+This command simulates a high stress situation where **2500 unique visitors** visit your website at the same time and their browsers on average make **4 pipelined requests** per TCP connection sustained for **30 seconds**.
+```
+autocannon -c 2500 -d 30 -p 4 http://HOST:PORT/benchmark
+```
+
+### Environment Specifications
+* __Machine:__ Ubuntu 20.04 | 1 vCPU | 1GB Mem | 32GB Nvme | Vultr @ $6/Month
+* __Node:__ `v15.14.0`
+* __Method:__ Two rounds; one to warm-up, one to measure
+* __Response Body:__ Small HTML page with a dynamic timestamp generated with `Date`. See more in [HTML Test](./benchmarks/tests/simple_html.js).
+* __Linux Optimizations:__ None.
+
+### Benchmark Results
+**Note!** This was a very intensive real-world scenario thus the latencies are high. For most scenarios, all webservers below maintain an average response time of less than **100ms**.
+
+|                          | Version | Requests/s | Latency | Throughput/s |
+| :--                      | --:     | :-:        | --:     | --:          |
+| uWebsockets.js           | 19.3.0  | 196,544    | 428 ms   | 106 Mb/s    |
+| HyperExpress             | 2.0.12  | 195,889    | 424 ms   | 106 Mb/s    |
+| Fastify                  | 3.15.1  | 13,472     | 650 ms   | 8 Mb/s      |
+| Express                  | 4.17.1  | 5,284      | 1603 ms   | 3.5 Mb/s      |
 
 ## Examples
 Below are various examples that make use of most classes and methods in HyperExpress.
