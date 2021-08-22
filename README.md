@@ -13,7 +13,8 @@
 </div>
 
 ## Motivation
-HyperExpress aims to be a simple and perfomant HTTP & Websocket Server.
+HyperExpress aims to be a simple yet perfomant HTTP & Websocket Server. Combined with the power of uWebsockets.js, a Node.js binding of uSockets written in C++, HyperExpress allows developers to unlock higher throughput for their web applications with their existing hardware. This can allow many web applications to become much more performant on optimized data serving endpoints without having to scale hardware.
+
 Some of the prominent features implemented are:
 - Simplified HTTP API
 - Simplified Websocket API
@@ -23,7 +24,6 @@ Some of the prominent features implemented are:
 - Built-in Session Engine
 - Cryptographically Secure Cookie Signing/Authentication
 
-  
 ## Installation
 HyperExpress can be installed using node package manager (`npm`)
 ```
@@ -88,7 +88,7 @@ autocannon -c 2500 -d 30 -p 4 http://HOST:PORT/benchmark
 * __Linux Optimizations:__ None.
 
 ### Benchmark Results
-**Note!** This was a very intensive real-world scenario thus the latencies are high. For most scenarios, all webservers below maintain an average response time of less than **100ms**.
+**Note!** uWebsockets.js and HyperExpress were bottlenecked by the network upload speed of the Vultr instance. While, Fastify and Express were bottlenecked by high CPU usage resulting in a much lower throughput with relatively higher latency numbers. For average use cases, all webservers below can serve requests at lower than **50ms** latency.
 
 |                          | Version | Requests/s | Latency | Throughput/s |
 | :--                      | --:     | :-:        | --:     | --:          |
