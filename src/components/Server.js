@@ -13,7 +13,7 @@ class Server {
         on_not_found: null,
         on_error: (req, res, error) => {
             res.status(500).send('HyperExpress: Uncaught Exception Occured');
-            throw new Error(error);
+            throw error;
         },
     };
 
@@ -97,9 +97,7 @@ class Server {
         let should_bind = this.#handlers.on_not_found === null;
         this.#handlers.on_not_found = handler;
         if (should_bind)
-            this.any('/*', (request, response) =>
-                this.#handlers.on_not_found(request, response)
-            );
+            this.any('/*', (request, response) => this.#handlers.on_not_found(request, response));
     }
 
     /**
@@ -109,9 +107,7 @@ class Server {
      */
     set_session_engine(session_engine) {
         if (session_engine?.constructor?.name !== 'SessionEngine')
-            throw new Error(
-                'HyperExpress: session_engine must be a SessionEngine instance'
-            );
+            throw new Error('HyperExpress: session_engine must be a SessionEngine instance');
         this.#session_engine = session_engine;
     }
 
@@ -132,14 +128,9 @@ class Server {
      */
     _bind_exit_handler() {
         let reference = this;
-        [
-            `exit`,
-            `SIGINT`,
-            `SIGUSR1`,
-            `SIGUSR2`,
-            `uncaughtException`,
-            `SIGTERM`,
-        ].forEach((type) => process.once(type, () => reference.close()));
+        [`exit`, `SIGINT`, `SIGUSR1`, `SIGUSR2`, `uncaughtException`, `SIGTERM`].forEach((type) =>
+            process.once(type, () => reference.close())
+        );
     }
 
     /**
@@ -196,25 +187,22 @@ class Server {
         // Do not allow non object type options
         let options_type = typeof options;
         if (options_type !== 'object' && options_type !== 'function')
-            throw new Error(
-                'HyperExpress: Failed to create route as options must be an object.'
-            );
+            throw new Error('HyperExpress: Failed to create route as options must be an object.');
 
         // Convert options to handler if options is a function
         if (typeof options == 'function') handler = options;
 
         // Pre-parse path parameters key and bind a middleman uWebsockets route for wrapping request/response objects
-        let reference = this;
         let path_parameters_key = operators.parse_path_params(pattern);
         let route_options = options_type == 'object' ? options : {};
         let route = this.#uws_instance[method](pattern, (response, request) =>
-            reference._handle_wrapped_request(
+            this._handle_wrapped_request(
                 request,
                 response,
                 null,
                 handler,
                 path_parameters_key,
-                reference,
+                this,
                 route_options
             )
         );
@@ -236,8 +224,7 @@ class Server {
         // Determine a content-length and content-type header exists to trigger pre-parsing
         let has_content_type = wrapped_request.headers['content-type'];
         let content_length = +wrapped_request.headers['content-length'];
-        let valid_content_length = !isNaN(content_length) && content_length > 0;
-        return has_content_type && valid_content_length;
+        return has_content_type && !isNaN(content_length) && content_length > 0;
     }
 
     /**
@@ -269,40 +256,36 @@ class Server {
         );
 
         // Wrap uWS.Response -> Response
-        let wrapped_response = new Response(
-            wrapped_request,
-            response,
-            socket,
-            this
-        );
+        let wrapped_response = new Response(wrapped_request, response, socket, this);
 
         // Pre-Parse body as uWS.Request is deallocated after first synchronous execution
         if (this._pre_parse_body(wrapped_request, options))
             try {
                 await wrapped_request.text();
             } catch (error) {
-                return master_context.error_handler(
-                    wrapped_request,
-                    wrapped_response,
-                    error
-                );
+                return master_context.error_handler(wrapped_request, wrapped_response, error);
             }
 
-        /**
-         * Chain through middlewares and then call handler in
-         * a promise/try...catch enclosure to catch as many errors as possible
-         */
-        master_context._chain_middlewares(
-            wrapped_request,
-            wrapped_response,
-            () =>
+        // Check to ensure some middlewares have been bound
+        if (master_context.#middlewares.length > 0) {
+            // Chain through middlewares and trigger user request handler as callback
+            master_context._chain_middlewares(wrapped_request, wrapped_response, () =>
                 master_context._trigger_request_handler(
                     master_context,
                     wrapped_request,
                     wrapped_response,
                     handler
                 )
-        );
+            );
+        } else {
+            // Trigger request handler directly to save on additional anonymous method initialization
+            master_context._trigger_request_handler(
+                master_context,
+                wrapped_request,
+                wrapped_response,
+                handler
+            );
+        }
     }
 
     /**
@@ -315,12 +298,7 @@ class Server {
      * @param {Function} route_handler
      * @returns {Promise} Promise
      */
-    _trigger_request_handler(
-        master_context,
-        wrapped_request,
-        wrapped_response,
-        route_handler
-    ) {
+    _trigger_request_handler(master_context, wrapped_request, wrapped_response, route_handler) {
         // Check to ensure request has not been aborted
         if (!wrapped_response.aborted)
             return new Promise((resolve, reject) => {
@@ -330,11 +308,7 @@ class Server {
                     reject(error);
                 }
             }).catch((error) =>
-                master_context.error_handler(
-                    wrapped_request,
-                    wrapped_response,
-                    error
-                )
+                master_context.error_handler(wrapped_request, wrapped_response, error)
             );
     }
 
@@ -383,11 +357,11 @@ class Server {
                 `HyperExpress: Failed to create ${method} @ ${pattern} as duplicate routes are not allowed.`
             );
 
+        // Enforce object type on provided options
         if (typeof options !== 'object')
-            throw new Error(
-                'HyperExpress: .ws(pattern, options) -> options must be an Object'
-            );
+            throw new Error('HyperExpress: .ws(pattern, options) -> options must be an Object');
 
+        // Create WebsocketRoute instance for specified pattern/options
         let route = new WebsocketRoute(pattern, options, this);
         this.#routes[method][pattern] = route;
         return route;
