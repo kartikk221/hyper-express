@@ -128,7 +128,7 @@ class Server {
      */
     _bind_exit_handler() {
         let reference = this;
-        [`exit`, `SIGINT`, `SIGUSR1`, `SIGUSR2`, `uncaughtException`, `SIGTERM`].forEach((type) =>
+        ['exit', 'SIGINT', 'SIGUSR1', 'SIGUSR2', 'SIGTERM'].forEach((type) =>
             process.once(type, () => reference.close())
         );
     }
