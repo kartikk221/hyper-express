@@ -11,6 +11,7 @@ class Request {
     #url;
     #path;
     #query;
+    #body_buffer;
     #body_text;
     #body_json;
     #remote_ip;
@@ -103,21 +104,21 @@ class Request {
     }
 
     /**
-     * Asynchronously parses and returns request body as a String.
+     * Asynchronously downloads and returns request body as a Buffer.
      *
      * @returns {Promise} Promise
      */
-    text() {
+    buffer() {
         let reference = this;
         return new Promise((resolve, reject) => {
             // Check cache and return if body has already been parsed
-            if (reference.#body_text) return resolve(reference.#body_text);
+            if (reference.#body_buffer) return resolve(reference.#body_buffer);
 
             // Resolve empty if invalid content-length header detected
             let content_length = +reference.#headers['content-length'];
             if (isNaN(content_length) || content_length < 1) {
-                reference.#body_text = '';
-                return resolve(reference.#body_text);
+                reference.#body_buffer = Buffer.from('');
+                return resolve(reference.#body_buffer);
             }
 
             // Store incoming buffer chunks into buffers Array
@@ -131,17 +132,32 @@ class Request {
 
                 // Trigger final processing on last chunk
                 if (is_last) {
-                    let body = '';
-
                     // Concatenate all buffer chunks to build a body
-                    if (buffers.length > 0) body = Buffer.concat(buffers).toString();
+                    if (buffers.length > 0) {
+                        reference.#body_buffer = Buffer.concat(buffers);
+                    } else {
+                        reference.#body_buffer = Buffer.from('');
+                    }
 
-                    // Cache and resolve parsed string type body
-                    reference.#body_text = body;
-                    return resolve(body);
+                    return resolve(reference.#body_buffer);
                 }
             });
         });
+    }
+
+    /**
+     * Asynchronously parses and returns request body as a String.
+     *
+     * @returns {Promise} Promise
+     */
+    async text() {
+        // Resolve from cache if available
+        if (this.#body_text) return this.#body_text;
+
+        // Parse body buffer into string and cache
+        this.#body_text = (await this.buffer()).toString();
+
+        return this.#body_text;
     }
 
     /**
