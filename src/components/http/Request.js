@@ -11,6 +11,8 @@ class Request {
     #url;
     #path;
     #query;
+    #buffer_pending = false;
+    #buffer_resolve;
     #body_buffer;
     #body_text;
     #body_json;
@@ -104,6 +106,13 @@ class Request {
     }
 
     /**
+     * Aborts pending body buffer downloads if request is prematurely aborted.
+     */
+    _abort_buffer() {
+        if (this.#buffer_pending && this.#buffer_resolve) this.#buffer_resolve('');
+    }
+
+    /**
      * Asynchronously downloads and returns request body as a Buffer.
      *
      * @returns {Promise} Promise
@@ -123,23 +132,34 @@ class Request {
 
             // Store incoming buffer chunks into buffers Array
             let buffers = [];
+            let bytes = 0;
+            reference.#buffer_pending = true;
+            reference.#buffer_resolve = resolve;
             reference.#raw_response.onData((chunk, is_last) => {
-                // Convert original chunk ArrayBuffer -> Buffer
-                chunk = Buffer.from(chunk);
-
                 // Store chunks in buffers array
-                if (chunk.length > 0) buffers.push(chunk);
+                if (chunk.byteLength > 0) {
+                    buffers.push(Buffer.concat([Buffer.from(chunk)]));
+                    bytes += chunk.byteLength;
+                }
 
                 // Trigger final processing on last chunk
                 if (is_last) {
                     // Concatenate all buffer chunks to build a body
                     if (buffers.length > 0) {
-                        reference.#body_buffer = Buffer.concat(buffers);
+                        let unsafe_buffer = Buffer.allocUnsafe(bytes);
+                        let cursor = 0;
+                        for (let i = 0; i < buffers.length; i++) {
+                            let current = buffers[i];
+                            current.copy(unsafe_buffer, cursor, 0, current.byteLength);
+                            cursor += current.byteLength;
+                        }
+                        reference.#body_buffer = unsafe_buffer;
                     } else {
                         reference.#body_buffer = Buffer.from('');
                     }
 
-                    return resolve(reference.#body_buffer);
+                    reference.#buffer_pending = false;
+                    if (!reference.#raw_response.aborted) return resolve(reference.#body_buffer);
                 }
             });
         });
