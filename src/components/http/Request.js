@@ -4,7 +4,11 @@ const signature = require('cookie-signature');
 const querystring = require('query-string');
 const operators = require('../../shared/operators.js');
 
+// We'll re-use this buffer throughout requests with empty bodies
+const EMPTY_BUFFER = Buffer.from('');
+
 class Request {
+    #master_context;
     #raw_request = null;
     #raw_response = null;
     #method;
@@ -24,17 +28,18 @@ class Request {
     #query_parameters;
     #session;
 
-    constructor(raw_request, raw_response, path_parameters_key, session_engine) {
+    constructor(raw_request, raw_response, path_parameters_key, master_context) {
         // Pre-parse core data attached to volatile uWebsockets request/response objects
         this.#raw_request = raw_request;
         this.#raw_response = raw_response;
+        this.#master_context = master_context;
 
         // Execute requesr operators for pre-parsing common access data
         // Attach session engine and parse path parameters based on specification
         this._request_information();
         this._request_headers();
         this._path_parameters(path_parameters_key);
-        this._load_session_engine(session_engine);
+        this._load_session_engine(master_context.session_engine);
     }
 
     /**
@@ -109,7 +114,10 @@ class Request {
      * Aborts pending body buffer downloads if request is prematurely aborted.
      */
     _abort_buffer() {
-        if (this.#buffer_pending && this.#buffer_resolve) this.#buffer_resolve('');
+        if (this.#buffer_pending === true && typeof this.#buffer_resolve == 'function') {
+            this.#body_buffer = EMPTY_BUFFER;
+            this.#buffer_resolve(this.#body_buffer);
+        }
     }
 
     /**
@@ -126,38 +134,51 @@ class Request {
             // Resolve empty if invalid content-length header detected
             let content_length = +reference.#headers['content-length'];
             if (isNaN(content_length) || content_length < 1) {
-                reference.#body_buffer = Buffer.from('');
+                reference.#body_buffer = EMPTY_BUFFER;
                 return resolve(reference.#body_buffer);
             }
 
             // Store incoming buffer chunks into buffers Array
-            let buffers = [];
-            let bytes = 0;
             reference.#buffer_pending = true;
             reference.#buffer_resolve = resolve;
-            reference.#raw_response.onData((chunk, is_last) => {
-                // Store chunks in buffers array
-                if (chunk.byteLength > 0) {
-                    buffers.push(Buffer.concat([Buffer.from(chunk)]));
-                    bytes += chunk.byteLength;
+            let body_buffer;
+            let body_cursor = 0;
+            reference.#raw_response.onData((array_buffer, is_last) => {
+                let chunk;
+                if (is_last && body_cursor === 0) {
+                    // Create a copy of ArrayBuffer from uWS as it will be deallocated and this is the only chunk
+                    chunk = Buffer.concat([Buffer.from(array_buffer)]);
+                } else {
+                    // Allocate a Buffer for storing incoming body content
+                    if (body_buffer == undefined) {
+                        // Use appropriate allocation scheme based on user options
+                        if (reference.#master_context.fast_buffers === true) {
+                            body_buffer = Buffer.allocUnsafe(content_length);
+                        } else {
+                            body_buffer = Buffer.alloc(content_length);
+                        }
+                    }
+
+                    // Convert ArrayBuffer to Buffer and copy to body buffer
+                    chunk = Buffer.from(array_buffer);
+                    chunk.copy(body_buffer, body_cursor, 0, chunk.byteLength);
                 }
+
+                // Iterate body cursor to keep track of incoming chunks
+                body_cursor += array_buffer.byteLength;
 
                 // Trigger final processing on last chunk
                 if (is_last) {
-                    // Concatenate all buffer chunks to build a body
-                    if (buffers.length > 0) {
-                        let unsafe_buffer = Buffer.allocUnsafe(bytes);
-                        let cursor = 0;
-                        for (let i = 0; i < buffers.length; i++) {
-                            let current = buffers[i];
-                            current.copy(unsafe_buffer, cursor, 0, current.byteLength);
-                            cursor += current.byteLength;
-                        }
-                        reference.#body_buffer = unsafe_buffer;
+                    // Cache buffer locally depending on situation
+                    if (body_buffer) {
+                        reference.#body_buffer = body_buffer;
+                    } else if (chunk) {
+                        reference.#body_buffer = chunk;
                     } else {
-                        reference.#body_buffer = Buffer.from('');
+                        reference.#body_buffer = EMPTY_BUFFER;
                     }
 
+                    // Mark instance as no longer buffer pending and resolve
                     reference.#buffer_pending = false;
                     if (!reference.#raw_response.aborted) return resolve(reference.#body_buffer);
                 }
