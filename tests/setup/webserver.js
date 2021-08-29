@@ -2,7 +2,9 @@ const { log } = require('../scripts/operators.js');
 const { HyperExpress, server } = require('../scripts/configuration.js');
 
 // Simple HTTP server for testing purposes only
-const test_server = new HyperExpress.Server();
+const test_server = new HyperExpress.Server({
+    fast_buffers: true,
+});
 
 // Bind error handler for catch-all logging
 test_server.set_error_handler((request, response, error) => {
