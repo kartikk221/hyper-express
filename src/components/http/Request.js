@@ -126,23 +126,23 @@ class Request {
      * @returns {Promise} Promise
      */
     buffer() {
+        // Check cache and return if body has already been parsed
+        if (this.#body_buffer) return Promise.resolve(this.#body_buffer);
+
+        // Resolve empty if invalid content-length header detected
+        let content_length = +this.#headers['content-length'];
+        if (isNaN(content_length) || content_length < 1) {
+            this.#body_buffer = EMPTY_BUFFER;
+            return Promise.resolve(this.#body_buffer);
+        }
+
         let reference = this;
         return new Promise((resolve, reject) => {
-            // Check cache and return if body has already been parsed
-            if (reference.#body_buffer) return resolve(reference.#body_buffer);
-
-            // Resolve empty if invalid content-length header detected
-            let content_length = +reference.#headers['content-length'];
-            if (isNaN(content_length) || content_length < 1) {
-                reference.#body_buffer = EMPTY_BUFFER;
-                return resolve(reference.#body_buffer);
-            }
-
             // Store incoming buffer chunks into buffers Array
-            reference.#buffer_pending = true;
-            reference.#buffer_resolve = resolve;
             let body_buffer;
             let body_cursor = 0;
+            reference.#buffer_pending = true;
+            reference.#buffer_resolve = resolve;
             reference.#raw_response.onData((array_buffer, is_last) => {
                 let chunk;
                 if (is_last && body_cursor === 0) {
@@ -191,14 +191,51 @@ class Request {
      *
      * @returns {Promise} Promise
      */
-    async text() {
+    text() {
         // Resolve from cache if available
-        if (this.#body_text) return this.#body_text;
+        if (this.#body_text) return Promise.resolve(this.#body_text);
 
-        // Parse body buffer into string and cache
-        this.#body_text = (await this.buffer()).toString();
+        // Convert and resolve from memory if buffer is available
+        if (this.#body_buffer) {
+            this.#body_text = this.#body_buffer.toString();
+            return Promise.resolve(this.#body_text);
+        }
 
-        return this.#body_text;
+        // Parse Buffer from incoming request body and cache/resolve string type
+        let reference = this;
+        return new Promise((resolve, reject) =>
+            reference
+                .buffer()
+                .then((buffer) => {
+                    reference.#body_text = buffer.toString();
+                    resolve(reference.#body_text);
+                })
+                .catch(reject)
+        );
+    }
+
+    /**
+     * Parses JSON from provided string. Resolves default_value or throws exception on failure.
+     *
+     * @param {String} string
+     * @param {Any} default_value
+     * @returns {Any}
+     */
+    _parse_json(string, default_value) {
+        // Unsafely parse JSON as we do not have a default_value
+        if (default_value == undefined) return JSON.parse(string);
+
+        // Resolve default_value if string is empty and thus invalid
+        if (string == '') return default_value;
+
+        // Safely parse JSON as we have a default_value
+        let json;
+        try {
+            json = JSON.parse(string);
+        } catch (error) {
+            return default_value;
+        }
+        return json;
     }
 
     /**
@@ -209,29 +246,30 @@ class Request {
      * @param {Any} default_value Default: {}
      * @returns {Promise} Promise(String: body)
      */
-    async json(default_value = {}) {
+    json(default_value = {}) {
         // Return from cache if available
-        if (this.#body_json) return this.#body_json;
+        if (this.#body_json) return Promise.resolve(this.#body_json);
 
-        // Parse a text body
-        let body = this.#body_text || (await this.text());
-
-        // Unsafely parse JSON without catching exception if no default_value is specified
-        if (default_value == undefined) return JSON.parse(body);
-
-        // Return default value on empty body
-        if (body == '') return default_value;
-
-        // Safely parse JSON and return default value on exception
-        try {
-            body = JSON.parse(body);
-        } catch (error) {
-            return default_value;
+        // Parse and resolve fast if text body is available locally
+        if (this.#body_text) {
+            this.#body_json = this._parse_json(this.#body_text, default_value);
+            return this.#body_json;
         }
 
-        // Cache and resolve JSON body
-        this.#body_json = body;
-        return body;
+        // Parse Text from incoming request body and cache/resolve Object type
+        let reference = this;
+        return new Promise((resolve, reject) =>
+            reference
+                .text()
+                .then((text) => {
+                    reference.#body_json = reference._parse_json(text, default_value);
+                    resolve(reference.#body_json);
+                })
+                .catch((error) => {
+                    if (default_value == undefined) return reject(error);
+                    resolve(default_value);
+                })
+        );
     }
 
     /* Request Getters */
