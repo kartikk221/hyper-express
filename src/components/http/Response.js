@@ -24,7 +24,11 @@ class Response {
      * This method binds an abort handler which will update completed field to lock appropriate operations in Response
      */
     _bind_abort_handler() {
-        this.#raw_response.onAborted(() => (this.#completed = true));
+        let reference = this;
+        this.#raw_response.onAborted(() => {
+            reference.#completed = true;
+            reference.#wrapped_request._abort_buffer();
+        });
     }
 
     /* Response Methods/Operators */
@@ -60,8 +64,7 @@ class Response {
 
         // Match status code Number to a status message and call uWS.Response.writeStatus
         let message = status_codes[code];
-        if (!this.#completed)
-            this.#raw_response.writeStatus(code + ' ' + message);
+        if (!this.#completed) this.#raw_response.writeStatus(code + ' ' + message);
         return this;
     }
 
@@ -221,8 +224,7 @@ class Response {
      * @returns {Boolean} Boolean (true || false)
      */
     redirect(url) {
-        if (!this.#completed)
-            return this.status(302).header('location', url).send();
+        if (!this.#completed) return this.status(302).header('location', url).send();
 
         return false;
     }
