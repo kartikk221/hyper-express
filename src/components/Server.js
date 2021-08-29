@@ -8,6 +8,7 @@ class Server {
     #uws_instance = null;
     #listen_socket = null;
     #session_engine = null;
+    #unsafe_buffers = false;
     #middlewares = [];
     #handlers = {
         on_not_found: null,
@@ -17,7 +18,25 @@ class Server {
         },
     };
 
-    constructor(options = {}) {
+    #defaults = {
+        cert_file_name: '',
+        key_file_name: '',
+        passphrase: '',
+        dh_params_file_name: '',
+        ssl_prefer_low_memory_usage: false,
+        fast_buffers: false,
+    };
+
+    /**
+     * @param {Object} options Server Options
+     * @param {String} options.cert_file_name Path to SSL certificate file.
+     * @param {String} options.key_file_name Path to SSL private key file to be used for SSL/TLS.
+     * @param {String} options.passphrase Strong passphrase for SSL cryptographic purposes.
+     * @param {String} options.dh_params_file_name Path to SSL Diffie-Hellman parameters file.
+     * @param {Boolean} options.ssl_prefer_low_memory_usage Specifies uWebsockets to prefer lower memory usage while serving SSL
+     * @param {Boolean} options.fast_buffers Buffer.allocUnsafe is used when set to true for faster performance.
+     */
+    constructor(options = this.#defaults) {
         // Only accept object as a parameter type for options
         if (typeof options !== 'object')
             throw new Error(
@@ -31,6 +50,9 @@ class Server {
         } else {
             this.#uws_instance = uWebSockets.App(options);
         }
+
+        // Determine which type of buffering scheme to utilize
+        if (options.fast_buffers === true) this.#unsafe_buffers = true;
     }
 
     /**
@@ -248,12 +270,7 @@ class Server {
         options = {}
     ) {
         // Wrap uWS.Request -> Request
-        let wrapped_request = new Request(
-            request,
-            response,
-            path_params_key,
-            master_context.session_engine
-        );
+        let wrapped_request = new Request(request, response, path_params_key, master_context);
 
         // Wrap uWS.Response -> Response
         let wrapped_response = new Response(wrapped_request, response, socket, this);
@@ -403,6 +420,13 @@ class Server {
      */
     get routes() {
         return this.#routes;
+    }
+
+    /**
+     * Returns whether instance is using unasfe buffers for storing incoming request bodies.
+     */
+    get fast_buffers() {
+        return this.#unsafe_buffers;
     }
 }
 
