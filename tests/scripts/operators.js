@@ -50,5 +50,4 @@ module.exports = {
     random_string: random_string,
     assert_log: assert_log,
     async_for_each: async_for_each,
-    async_wait: async_wait,
 };
