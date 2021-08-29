@@ -266,6 +266,9 @@ Below is a breakdown of the `Server` object class generated while creating a new
     * **Example**: `'misc/dhparam4096.pm'`
     * **Optional** for an SSL server.
 * `ssl_prefer_low_memory_usage` [`Boolean`]: Specifies uWebsockets to prefer lower memory usage while serving SSL requests.
+* `fast_buffers` [`Boolean`]: Specifies HyperExpress to use `Buffer.allocUnsafe` for storing incoming request body data for faster performance.
+  * **Default:** `false` 
+  * **Note!** Any data in the unsafely allocated buffer will always be written over thus this option is provided for those working with strict regulatory requirements.
 
 #### Server Instance Properties
 | Property  | Type     | Description                |
