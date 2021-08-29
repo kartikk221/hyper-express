@@ -8,11 +8,7 @@ const test_server = new HyperExpress.Server();
 test_server.set_error_handler((request, response, error) => {
     log(
         'UNCAUGHT_ERROR_REQUEST',
-        `${request.method} | ${request.url}\n ${JSON.stringify(
-            request.headers,
-            null,
-            2
-        )}`
+        `${request.method} | ${request.url}\n ${JSON.stringify(request.headers, null, 2)}`
     );
     console.log(error);
     return response.send('Uncaught Error Occured');
@@ -22,21 +18,14 @@ test_server.set_error_handler((request, response, error) => {
 test_server.set_not_found_handler((request, response) => {
     log(
         'NOT_FOUND_REQUEST',
-        `${request.method} | ${request.url}\n ${JSON.stringify(
-            request.headers,
-            null,
-            2
-        )}`
+        `${request.method} | ${request.url}\n ${JSON.stringify(request.headers, null, 2)}`
     );
     return response.status(404).send('Not Found');
 });
 
 async function initiate_http_server(port) {
     await test_server.listen(port);
-    log(
-        'WEBSERVER',
-        'Successfully Started Testing HTTP Server On Port ' + port
-    );
+    log('WEBSERVER', 'Successfully Started Testing HTTP Server On Port ' + port);
 }
 
 module.exports = {
