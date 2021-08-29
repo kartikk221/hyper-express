@@ -334,11 +334,14 @@ Below is a breakdown of the `request` object made available through the route ha
 #### Request Methods
 * `unsign(String: signed_value, String: secret)`: Attempts to unsign provided value with provided secret.
     * **Returns** `String` or `undefined` if signed value is invalid.
+* `buffer()`: Parses body as a Buffer from incoming request.
+    * **Returns** `Promise` which is then resolved to a `Buffer`.
 * `text()`: Parses body as a string from incoming request.
     * **Returns** `Promise` which is then resolved to a `String`.
-* `json(Object: default_value)`: Parses body as a JSON Object from incoming request.
-    * **Returns** `Promise` which is then resolved to an `Object`.
+* `json(Any: default_value)`: Parses body as a JSON Object from incoming request.
+    * **Returns** `Promise` which is then resolved to an `Object` or `typeof default_value`.
     * **Note** this method returns the specified `default_value` if JSON parsing fails instead of throwing an exception. To have this method throw an exception, pass `undefined` for `default_value`.
+    * **Note** `default_value` is `{}` by default meaning `json()` is a safe method even if incoming body is invalid json.
 
 ## Response
 Below is a breakdown of the `response` object made available through the route handler(s) and websocket upgrade event handler(s).
@@ -346,7 +349,7 @@ Below is a breakdown of the `response` object made available through the route h
 #### Response Properties
 | Property  | Type     | Description                |
 | :-------- | :------- | :------------------------- |
-| `raw` | `uWS.Request`  | Underlying uWebsockets.js response object. |
+| `raw` | `uWS.Response`  | Underlying uWebsockets.js response object. |
 | `aborted` | `Boolean`  | Signifies whether the request has been aborted by sender. |
 
 #### Response Methods
@@ -372,8 +375,8 @@ Below is a breakdown of the `response` object made available through the route h
         * `secret`:[`String`]: Cryptographically signs cookie value
     * **Note** cookie values are not URL encoded.
 * `delete_cookie(String: name)`: Writes a cookie header to delete/expire specified cookie.
-* `upgrade(Object: user_data)`: Upgrades incoming request to a websocket connection.
-    * `user_data` is optional and can be used to store data inside websocket connection object.
+* `upgrade(Object: data)`: Upgrades incoming request to a websocket connection.
+    * `data` is optional and can be used to store data attributes on the websocket connection object.
     * **Note** this method can only be used inside the `upgrade` handler of a WebsocketRoute.
 * `write(String: body)`: Writes specified string content to the body.
     * **Note** the `send()` must still be called to send the response.
@@ -487,10 +490,10 @@ Below is a breakdown of the `WebsocketRoute` object class generated and returned
         * `handler`: `(Websocket: websocket, Number: code, String: message) => {}`.
 
 ## Websocket
-Below is a breakdown of the `Websocket` connection object made available through `WebsocketRoute` event handlers representing connections.
+Below is a breakdown of the `Websocket` (`uWS.Websocket`) connection object made available through `WebsocketRoute` event handlers representing connections.
 
 #### Websocket Properties
-The `Websocket` object has no inherent properties and only contains the `user_data` provided during upgrade as its properties.
+The `Websocket` object has no inherent properties and only contains the `data` provided during the `upgrade(data)` call as its properties.
 
 #### Websocket Methods
 * `close()`: Forcefully closes the connection and immediately calls the close handler.
