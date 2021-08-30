@@ -255,16 +255,16 @@ Below is a breakdown of the `Server` object class generated while creating a new
 #### Server Constructor Options
 * `key_file_name` [`String`]: Path to SSL private key file to be used for SSL/TLS.
     * **Example**: `'misc/key.pm'`
-    * **Required** for an SSL server.
+    * **[Required]** for an **SSL** server.
 * `cert_file_name` [`String`]: Path to SSL certificate file.
     * **Example**: `'misc/cert.pm'`
-    * **Required** for an SSL server.
+    * **[Required]** for an **SSL** server.
 * `passphrase` [`String`]: Strong passphrase for SSL cryptographic purposes.
     * **Example**: `'SOME_RANDOM_PASSPHRASE'`
-    * **Required** for an SSL server.
+    * **Optional** for an **SSL** server.
 * `dh_params_file_name` [`String`]: Path to SSL Diffie-Hellman parameters file.
     * **Example**: `'misc/dhparam4096.pm'`
-    * **Optional** for an SSL server.
+    * **Optional** for an **SSL** server.
 * `ssl_prefer_low_memory_usage` [`Boolean`]: Specifies uWebsockets to prefer lower memory usage while serving SSL requests.
 * `fast_buffers` [`Boolean`]: Specifies HyperExpress to use `Buffer.allocUnsafe` for storing incoming request body data for faster performance.
   * **Default:** `false` 
