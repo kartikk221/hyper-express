@@ -44,8 +44,8 @@ class Server {
             );
 
         // Create underlying uWebsockets App or SSLApp to power HyperExpress
-        const { cert_file_name, key_file_name, passphrase } = options;
-        if (cert_file_name && key_file_name && passphrase) {
+        const { cert_file_name, key_file_name } = options;
+        if (cert_file_name && key_file_name) {
             this.#uws_instance = uWebSockets.SSLApp(options);
         } else {
             this.#uws_instance = uWebSockets.App(options);
