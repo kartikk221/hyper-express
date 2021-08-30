@@ -277,6 +277,7 @@ Below is a breakdown of the `Server` object class generated while creating a new
 | `session_engine` | `SessionEngine` | Session Engine bound to current instance. |
 | `uws_instance` | `uWS` | Underlying uWebsockets TemplatedApp instance. |
 | `routes` | `Object` | All routes created on current instance. |
+| `fast_buffers` | `Boolean` | Whether fast buffering is enabled. |
 
 #### Server Instance Methods
 * `listen(Number: port, String: host)`: Starts the uWebsockets server on specified port.
