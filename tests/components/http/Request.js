@@ -4,15 +4,44 @@ const { fetch, server } = require(root + 'scripts/configuration.js');
 const { webserver } = require(root + 'setup/webserver.js');
 const crypto = require('crypto');
 const endpoint = '/tests/request/:param1/:param2';
+const middleware_delay = 100 + Math.floor(Math.random() * 150);
+const middleware_property = random_string(10);
 const base = server.base;
 
+// Bind a middlewares for simulating artificial delay on request endpoint
+webserver.use((request, response, next) => {
+    // We only want this middleware to run for this request endpoint
+    if (request.headers['x-middleware-test'] === 'true') {
+        request.mproperty = middleware_property;
+        return setTimeout((n) => n(), middleware_delay, next);
+    }
+
+    return next();
+});
+
+webserver.use((request, response, next) => {
+    // We only want this middleware to run for this request endpoint
+    if (request.headers['x-middleware-test-2'] === 'true') {
+        request.mproperty2 = middleware_property;
+        return setTimeout((n) => n(), middleware_delay, next);
+    }
+
+    return next();
+});
+
 let last_endpoint_body;
+let last_endpoint_mproperty;
+let last_endpoint_mproperty2;
 
 // Create Backend HTTP Route
 webserver.any(endpoint, async (request, response) => {
     let text = await request.text();
     last_endpoint_body = text;
     let json = await request.json();
+
+    // Store mproperty if exists on request object to check for middleware
+    if (request.mproperty) last_endpoint_mproperty = request.mproperty;
+    if (request.mproperty2) last_endpoint_mproperty2 = request.mproperty;
 
     // Return all possible information about incoming request
     return response.json({
@@ -80,13 +109,30 @@ async function test_request_object() {
             'x-test-value': header_test_value,
             'content-type': 'application/json',
             cookie: `${header_test_cookie.name}=${header_test_cookie.value}`,
+            'x-middleware-test': 'true',
+            'x-middleware-test-2': 'true',
         },
         body: fetch_body,
     };
 
     // Perform HTTP Request To Endpoint
+    let req_start_time = Date.now();
     let response = await fetch(base + url, options);
     let body = await response.json();
+
+    // Verify middleware functionalitiy and property binding
+    assert_log(
+        group,
+        'Middleware Execution & Timing Test',
+        () => Date.now() - req_start_time > middleware_delay
+    );
+    assert_log(
+        group,
+        'Middleware Property Binding Test',
+        () =>
+            last_endpoint_mproperty === middleware_property &&
+            last_endpoint_mproperty2 === middleware_property
+    );
 
     // Verify .method
     assert_log(group, candidate + '.method', () => test_method === body.method);
