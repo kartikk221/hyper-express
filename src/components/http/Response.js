@@ -44,6 +44,7 @@ class Response {
             throw new Error(
                 'HyperExpress: atomic(handler) -> handler must be a Javascript function'
             );
+
         return this.#raw_response.cork(handler);
     }
 

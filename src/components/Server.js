@@ -275,13 +275,13 @@ class Server {
         // Wrap uWS.Response -> Response
         let wrapped_response = new Response(wrapped_request, response, socket, this);
 
-        // Pre-Parse body into a buffer as uWS.Request is deallocated after first synchronous execution
+        // We initiate buffer retrieval as uWS.Request is deallocated after initial synchronous cycle
         if (this._pre_parse_body(wrapped_request, options))
-            try {
-                await wrapped_request.buffer();
-            } catch (error) {
-                return master_context.error_handler(wrapped_request, wrapped_response, error);
-            }
+            wrapped_request
+                .buffer()
+                .catch((error) =>
+                    master_context.error_handler(wrapped_request, wrapped_response, error)
+                );
 
         // Check to ensure some middlewares have been bound
         if (master_context.#middlewares.length > 0) {

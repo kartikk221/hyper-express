@@ -1,5 +1,6 @@
 const root = '../../';
-const { log, assert_log, random_string } = require(root + 'scripts/operators.js');
+const { log, assert_log, random_string, http_post_headers } = require(root +
+    'scripts/operators.js');
 const { fetch, server } = require(root + 'scripts/configuration.js');
 const { webserver } = require(root + 'setup/webserver.js');
 const crypto = require('crypto');

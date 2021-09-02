@@ -15,7 +15,7 @@ class Request {
     #url;
     #path;
     #query;
-    #buffer_pending = false;
+    #buffer_promise;
     #buffer_resolve;
     #body_buffer;
     #body_text;
@@ -111,39 +111,32 @@ class Request {
     }
 
     /**
-     * Aborts pending body buffer downloads if request is prematurely aborted.
-     */
-    _abort_buffer() {
-        if (this.#buffer_pending === true && typeof this.#buffer_resolve == 'function') {
-            this.#body_buffer = EMPTY_BUFFER;
-            this.#buffer_resolve(this.#body_buffer);
-        }
-    }
-
-    /**
-     * Asynchronously downloads and returns request body as a Buffer.
+     * Initiates body buffer download process.
      *
-     * @returns {Promise} Promise
+     * @param {Number} content_length
+     * @returns {Promise}
      */
-    buffer() {
-        // Check cache and return if body has already been parsed
-        if (this.#body_buffer) return Promise.resolve(this.#body_buffer);
+    _download_buffer(content_length) {
+        // Return pending buffer promise if in flight
+        if (this.#buffer_promise) return this.#buffer_promise;
 
-        // Resolve empty if invalid content-length header detected
-        let content_length = +this.#headers['content-length'];
-        if (isNaN(content_length) || content_length < 1) {
-            this.#body_buffer = EMPTY_BUFFER;
-            return Promise.resolve(this.#body_buffer);
-        }
-
+        // Initiate a buffer promise with chunk retrieval process
         let reference = this;
-        return new Promise((resolve, reject) => {
-            // Store incoming buffer chunks into buffers Array
+        this.#buffer_promise = new Promise((resolve, reject) => {
+            // Store promise resolve method to allow closure from _abort_buffer() method
+            reference.#buffer_resolve = resolve;
+
+            // Store body into a singular Buffer for most memory efficiency
             let body_buffer;
             let body_cursor = 0;
-            reference.#buffer_pending = true;
-            reference.#buffer_resolve = resolve;
+            let use_fast_buffers = reference.#master_context.fast_buffers === true;
+
+            // Store incoming buffer chunks into buffers Array
             reference.#raw_response.onData((array_buffer, is_last) => {
+                // Do not process chunk if request has been aborted
+                if (reference.#raw_response.aborted) return;
+
+                // Process current array_buffer chunk into a Buffer
                 let chunk;
                 if (is_last && body_cursor === 0) {
                     // Create a copy of ArrayBuffer from uWS as it will be deallocated and this is the only chunk
@@ -152,7 +145,7 @@ class Request {
                     // Allocate a Buffer for storing incoming body content
                     if (body_buffer == undefined) {
                         // Use appropriate allocation scheme based on user options
-                        if (reference.#master_context.fast_buffers === true) {
+                        if (use_fast_buffers) {
                             body_buffer = Buffer.allocUnsafe(content_length);
                         } else {
                             body_buffer = Buffer.alloc(content_length);
@@ -178,12 +171,50 @@ class Request {
                         reference.#body_buffer = EMPTY_BUFFER;
                     }
 
-                    // Mark instance as no longer buffer pending and resolve
-                    reference.#buffer_pending = false;
+                    // Abort request with a (400 Bad Request) if downloaded buffer length does not match expected content-length header
+                    if (reference.#body_buffer.length !== content_length) {
+                        reference.#body_buffer = EMPTY_BUFFER;
+                        reference.#raw_response.status(400).send();
+                    }
+
+                    // Mark instance as no longer buffer pending and resolve if request has not been reslolved yet
+                    reference.#buffer_promise = undefined;
                     if (!reference.#raw_response.aborted) return resolve(reference.#body_buffer);
                 }
             });
         });
+
+        return this.#buffer_promise;
+    }
+
+    /**
+     * Aborts pending body buffer downloads if request is prematurely aborted.
+     */
+    _abort_buffer() {
+        // Overwrite allocated buffer with empty buffer and pending buffer promise
+        if (this.#buffer_promise !== undefined && typeof this.#buffer_resolve == 'function') {
+            this.#body_buffer = EMPTY_BUFFER;
+            this.#buffer_resolve(this.#body_buffer);
+        }
+    }
+
+    /**
+     * Asynchronously downloads and returns request body as a Buffer.
+     *
+     * @returns {Promise} Promise
+     */
+    buffer() {
+        // Check cache and return if body has already been parsed
+        if (this.#body_buffer) return Promise.resolve(this.#body_buffer);
+
+        // Resolve empty if invalid content-length header detected
+        let content_length = +this.#headers['content-length'];
+        if (isNaN(content_length) || content_length < 1) {
+            this.#body_buffer = EMPTY_BUFFER;
+            return Promise.resolve(this.#body_buffer);
+        }
+
+        return this._download_buffer(content_length);
     }
 
     /**
