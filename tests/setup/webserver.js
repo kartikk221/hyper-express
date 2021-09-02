@@ -4,6 +4,7 @@ const { HyperExpress, server } = require('../scripts/configuration.js');
 // Simple HTTP server for testing purposes only
 const test_server = new HyperExpress.Server({
     fast_buffers: true,
+    max_body_length: 1000 * 1000 * 7,
 });
 
 // Bind error handler for catch-all logging
