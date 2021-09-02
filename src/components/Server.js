@@ -10,7 +10,7 @@ class Server {
     #session_engine = null;
     #unsafe_buffers = false;
     #fast_abort = false;
-    #max_body_length = 150 * 1000;
+    #max_body_length = 250 * 1000;
     #middlewares = [];
     #handlers = {
         on_not_found: null,
@@ -27,8 +27,8 @@ class Server {
         dh_params_file_name: '',
         ssl_prefer_low_memory_usage: false,
         fast_buffers: false,
-        max_body_length: this.#max_body_length, // Default to 150kb
         fast_abort: this.#fast_abort,
+        max_body_length: this.#max_body_length,
     };
 
     /**
