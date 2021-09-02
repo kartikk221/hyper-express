@@ -269,6 +269,11 @@ Below is a breakdown of the `Server` object class generated while creating a new
 * `fast_buffers` [`Boolean`]: Specifies HyperExpress to use `Buffer.allocUnsafe` for storing incoming request body data for faster performance.
   * **Default:** `false` 
   * **Note!** Any data in the unsafely allocated buffer will always be written over thus this option is provided for those working with strict regulatory requirements.
+* `fast_abort` [`Boolean`]: Specifies HyperExpress to forcefully/abruptly close incoming request connections with bad conditions such as payload too large. This can significantly improve performance but at the cost of no HTTP status code being received by the sender.
+  * **Default:** `false`
+* `max_body_length` [`Number`]: Maximum number of `bytes` allowed for incoming request body size. For reference, **1kb** = **1000 Bytes** and **1mb** = **1000kb**.
+  * **Default:** `250 * 1000` or **250kb**
+
 
 #### Server Instance Properties
 | Property  | Type     | Description                |
