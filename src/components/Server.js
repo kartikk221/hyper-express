@@ -9,6 +9,8 @@ class Server {
     #listen_socket = null;
     #session_engine = null;
     #unsafe_buffers = false;
+    #fast_abort = false;
+    #max_body_length = 150 * 1000;
     #middlewares = [];
     #handlers = {
         on_not_found: null,
@@ -25,6 +27,8 @@ class Server {
         dh_params_file_name: '',
         ssl_prefer_low_memory_usage: false,
         fast_buffers: false,
+        max_body_length: this.#max_body_length, // Default to 150kb
+        fast_abort: this.#fast_abort,
     };
 
     /**
@@ -35,6 +39,8 @@ class Server {
      * @param {String} options.dh_params_file_name Path to SSL Diffie-Hellman parameters file.
      * @param {Boolean} options.ssl_prefer_low_memory_usage Specifies uWebsockets to prefer lower memory usage while serving SSL
      * @param {Boolean} options.fast_buffers Buffer.allocUnsafe is used when set to true for faster performance.
+     * @param {Boolean} options.fast_abort Determines whether HyperExpress will abrubptly close bad requests. This can be much faster but the client does not receive an HTTP status code as it is a premature connection closure.
+     * @param {Number} options.max_body_length Maximum body content length allowed in bytes. For Reference: 1kb = 1000 bytes and 1mb = 1000kb.
      */
     constructor(options = this.#defaults) {
         // Only accept object as a parameter type for options
@@ -53,6 +59,13 @@ class Server {
 
         // Determine which type of buffering scheme to utilize
         if (options.fast_buffers === true) this.#unsafe_buffers = true;
+
+        // Determine whether HyperExpress should use fast abort scheme
+        if (options.fast_abort === true) this.#fast_abort = true;
+
+        // Determine maximum body length in bytes to allow for incoming requests
+        if (typeof options.max_body_length == 'number' && options.max_body_length > 0)
+            this.#max_body_length = options.max_body_length;
     }
 
     /**
@@ -276,12 +289,27 @@ class Server {
         let wrapped_response = new Response(wrapped_request, response, socket, this);
 
         // We initiate buffer retrieval as uWS.Request is deallocated after initial synchronous cycle
-        if (this._pre_parse_body(wrapped_request, options))
+        if (this._pre_parse_body(wrapped_request, options)) {
+            // Check incoming content-length to ensure it is within max_body_length bounds
+            // Abort request with a 413 Payload Too Large status code
+            if (+wrapped_request.headers['content-length'] > master_context.max_body_length) {
+                // Use fast abort scheme if specified
+                if (master_context.fast_abort === true) return response.close();
+
+                // According to uWebsockets developer, we have to drain incoming data before aborting and closing request
+                // Prematurely closing request with a 413 leads to an ECONNRESET in which we lose 413 error from client
+                return response.onData((array_buffer, is_last) => {
+                    if (is_last) wrapped_response.status(413).send();
+                });
+            }
+
+            // Initiate body buffer download
             wrapped_request
                 .buffer()
                 .catch((error) =>
                     master_context.error_handler(wrapped_request, wrapped_response, error)
                 );
+        }
 
         // Check to ensure some middlewares have been bound
         if (master_context.#middlewares.length > 0) {
@@ -427,6 +455,20 @@ class Server {
      */
     get fast_buffers() {
         return this.#unsafe_buffers;
+    }
+
+    /**
+     * Returns Maximum number of bytes allowed in incoming body content length.
+     */
+    get max_body_length() {
+        return this.#max_body_length;
+    }
+
+    /**
+     * Returns whether HyperExpress will abruptly close incoming requests with bad data.
+     */
+    get fast_abort() {
+        return this.#fast_abort;
     }
 }
 
