@@ -47,7 +47,15 @@ function async_for_each(items, handler, cursor = 0, final) {
     return final(); // Resolve master promise
 }
 
-function http_post_headers({ host, port, path, method = 'GET', body, headers = {} }) {
+function http_post_headers({
+    host,
+    port,
+    path,
+    method = 'GET',
+    body,
+    headers = {},
+    silence_errors = false,
+}) {
     return new Promise((resolve, reject) => {
         const request = HTTP.request({
             host,
@@ -67,7 +75,7 @@ function http_post_headers({ host, port, path, method = 'GET', body, headers = {
             })
         );
 
-        request.on('error', reject);
+        if (!silence_errors) request.on('error', reject);
     });
 }
 

@@ -79,7 +79,7 @@ async function test_request_object() {
     const body_size = 10 * 1024 * 1024;
     log(
         'REQUEST',
-        `Generating A Large ${body_size.toLocaleString()} Characters Size Body To Simulate Large Payload...`
+        `Generating A Large ${body_size.toLocaleString()} Characters Size Body To Simulate Too-Large Large Payload...`
     );
 
     let group = 'REQUEST';
@@ -91,7 +91,8 @@ async function test_request_object() {
     let query1 = random_string(10);
     let query2 = random_string(10);
     let query = `?query1=${query1}&query2=${query2}`;
-    let body_test_value = await crypto_random(body_size);
+    let too_large_body_value = await crypto_random(body_size);
+    let body_test_value = too_large_body_value.substr(0, too_large_body_value.length / 2);
     let fetch_body = JSON.stringify({
         test_value: body_test_value,
     });
@@ -115,6 +116,19 @@ async function test_request_object() {
         },
         body: fetch_body,
     };
+
+    // Perform Too Large Body Rejection Test
+    const too_large_response = await fetch(base + url, {
+        method: test_method,
+        body: too_large_body_value,
+    });
+
+    // Assert rejection status code as 413 Too Large Payload
+    assert_log(
+        group,
+        'Too Large Body 413 HTTP Code Reject',
+        () => too_large_response.status === 413
+    );
 
     // Perform HTTP Request To Endpoint
     let req_start_time = Date.now();

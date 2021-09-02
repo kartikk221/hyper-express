@@ -203,7 +203,7 @@ class Response {
      * @param {String} body Optional
      * @returns {Boolean} Boolean (true || false)
      */
-    send(body) {
+    send(body, close_connection = false) {
         if (!this.#completed) {
             // Trigger session closure if a session is preset in request object
             let session = this.#wrapped_request.session;
@@ -212,10 +212,15 @@ class Response {
 
             // Mark request as completed and end request using uWS.Response.end()
             this.#completed = true;
-            this.#raw_response.end(body);
+            this.#raw_response.end(body, close_connection);
             return true;
         }
+
         return false;
+    }
+
+    close() {
+        if (!this.#completed) this.#raw_response.close();
     }
 
     /**
