@@ -11,7 +11,6 @@
   "dependencies": {
     "autocannon": "^7.4.0",
     "express": "^4.17.1",
-    "fastify": "^3.15.1",
-    "hyper-express": "^2.0.6"
+    "fastify": "^3.15.1"
   }
 }

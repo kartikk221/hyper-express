@@ -1,4 +1,4 @@
-const HyperExpress = require('hyper-express');
+const HyperExpress = require('../../index.js');
 const test_server = new HyperExpress.Server();
 const simple_html = require('../tests/simple_html.js');
 

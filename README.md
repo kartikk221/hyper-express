@@ -44,6 +44,7 @@ npm i hyper-express
       - [Example: Create server instance](#example-create-server-instance)
       - [Example: Retrieving properties and JSON body](#example-retrieving-properties-and-json-body)
       - [Example: Forbidden request scenario utilizing multiple response methods](#example-forbidden-request-scenario-utilizing-multiple-response-methods)
+      - [Example: Using Global & Route/Method Specific Middlewares](#example-using-global--routemethod-specific-middlewares)
       - [Example: Initializing & Binding A Session Engine](#example-initializing--binding-a-session-engine)
       - [Example: Initiating and storing visits in a session](#example-initiating-and-storing-visits-in-a-session)
       - [Example: Initializing and using a new Websocket Route](#example-initializing-and-using-a-new-websocket-route)
@@ -145,11 +146,46 @@ webserver.post('/api/v1/delete_user/:id', async (request, response) => {
 });
 ```
 
+#### Example: Using Global & Route/Method Specific Middlewares
+```javascript
+// Assume webserver is a HyperExpress.Server instance
+
+// Bind a global middleware
+// These are executed on all requests in the order they are bound with .use() calls
+// These also execute before route/method specific middlewares as they are global
+webserver.use((request, response, next) => {
+    // Do some asynchronous stuff
+    some_asynchronous_call((data) => {
+        // you can assign values onto the request and response objects to be accessed later
+        request.some_data = data;
+        
+        // We're all done, so let's move on
+        return next();
+    });
+});
+
+const specific_middleware1 = (request, response, next) => {
+    console.log('route specific middleware 1 ran!');
+    return next();
+};
+
+const specific_middleware2 = (request, response, next) => {
+    console.log('route specific middleware 2 ran!');
+    return next();
+};
+
+// Bind a route/method specific middleware
+// Middlewares are executed in the order they are specified in the middlewares Array
+webserver.get('/', {
+    middlewares: [specific_middleware1, specific_middleware2]
+}, (request, response) => {
+    // Handle your request as you normally would here
+    return response.send('Hello World');
+});
+```
+
 #### Example: Initializing & Binding A Session Engine
 ```javascript
-const HyperExpress = require('hyper-express');
-const webserver = new HyperExpress.Server();
-
 // Create new SessionEngine instance
 // Note! You can only bind a single SessionEngine to a webserver instance
 const session_engine = new HyperExpress.SessionEngine({
@@ -168,11 +204,6 @@ const session_engine = new HyperExpress.SessionEngine({
 webserver.set_session_engine(session_engine);
 
 // Add some routes here
-
-// Activate webserver by calling .listen(port, callback);
-Webserver.listen(80)
-.then((socket) => console.log('Webserver started on port 80'))
-.catch((error) => console.log('Failed to start webserver on port 80: '));
 ```
 
 #### Example: Initiating and storing visits in a session
@@ -233,11 +264,6 @@ news_ws_route.handle('message', (ws, message, isBinary) => {
 news_ws_route.handle('close', (ws, code, message) => {
    console.log(ws.user_id + ' has disconnected!'); 
 });
-
-// Activate webserver by calling .listen(port, callback);
-Webserver.listen(80)
-.then((socket) => console.log('Webserver started on port 80'))
-.catch((error) => console.log('Failed to start webserver on port 80: '));
 ```
 
 #### Example: Utilizing Websocket connection
@@ -298,9 +324,14 @@ Below is a breakdown of the `Server` object class generated while creating a new
 * `use(Function: handler)`: Binds a global middleware for all incoming requests.
     * **Handler Parameters:** `(Request: request, Response: response, Function: next) => {}`.
     * **Note** you must call `next()` at the end of your middleware execution.
-* `any(String: pattern, Function: handler)`: Creates an HTTP route on specified pattern. Alias methods are listed below for HTTP method specific routes.
-    * **Handler Parameters:** `(Request: request, Response: response) => {}`.
+* `any(String: pattern, Object: options, Function: handler)`: Creates an HTTP route on specified pattern. Alias methods are listed below for HTTP method specific routes.
     * **Alias Methods:** `get()`, `post()`, `delete()`, `head()`, `options()`, `patch()`, `trace()`, `connect()`.
+    * **Handler Parameters:** `(Request: request, Response: response) => {}`.
+    * `options`[`Object`] (**Optional**)
+      * `middlewares`[`Array`]: Can be used to provide route/method specific middlewares.
+        * **Note!** Route specific middlewares **NOT** supported with `any` method routes.
+        * **Note!** Middlewares are executed in the order provided in `Array` provided.
+        * **Note!** Global middlewares will be executed before route specific middlewares are executed.
     * **Supports** both synchronous and asynchronous handler.
     * **Supports** path parameters with `:` prefix. Example: `/api/v1/users/:action/:id`.
     * **Note** pattern string must be a `strict` match and trailing-slashes will be treated as different paths.

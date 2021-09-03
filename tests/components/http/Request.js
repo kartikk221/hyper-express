@@ -5,6 +5,7 @@ const { fetch, server } = require(root + 'scripts/configuration.js');
 const { webserver } = require(root + 'setup/webserver.js');
 const crypto = require('crypto');
 const endpoint = '/tests/request/:param1/:param2';
+const route_specific_endpoint = '/tests/request-route/';
 const middleware_delay = 100 + Math.floor(Math.random() * 150);
 const middleware_property = random_string(10);
 const base = server.base;
@@ -24,7 +25,6 @@ webserver.use((request, response, next) => {
     // We only want this middleware to run for this request endpoint
     if (request.headers['x-middleware-test-2'] === 'true') {
         request.mproperty2 = middleware_property;
-        return setTimeout((n) => n(), middleware_delay, next);
     }
 
     return next();
@@ -33,6 +33,33 @@ webserver.use((request, response, next) => {
 let last_endpoint_body;
 let last_endpoint_mproperty;
 let last_endpoint_mproperty2;
+let last_endpoint_mproperty3;
+
+const route_specific_middleware = (request, response, next) => {
+    // We only want this middleware to run for this request endpoint
+    if (request.headers['x-middleware-test-3'] === 'true') {
+        request.mproperty3 = middleware_property;
+        return setTimeout((n) => n(), middleware_delay, next);
+    }
+
+    return next();
+};
+
+// Create a temporary specific middleware route
+webserver.get(
+    route_specific_endpoint,
+    {
+        middlewares: [route_specific_middleware],
+    },
+    (request, response) => {
+        // Store mproperty if exists on request object
+        if (request.mproperty3) last_endpoint_mproperty3 = request.mproperty3;
+
+        return response.json({
+            success: true,
+        });
+    }
+);
 
 // Create Backend HTTP Route
 webserver.any(endpoint, async (request, response) => {
@@ -141,12 +168,31 @@ async function test_request_object() {
         'Middleware Execution & Timing Test',
         () => Date.now() - req_start_time > middleware_delay
     );
+
     assert_log(
         group,
         'Middleware Property Binding Test',
         () =>
             last_endpoint_mproperty === middleware_property &&
             last_endpoint_mproperty2 === middleware_property
+    );
+
+    assert_log(
+        group,
+        'Route Specific Middleware Avoidance Test',
+        () => last_endpoint_mproperty3 == undefined
+    );
+
+    await fetch(base + route_specific_endpoint, {
+        headers: {
+            'x-middleware-test-3': 'true',
+        },
+    });
+
+    assert_log(
+        group,
+        'Route Specific Middleware Binding & Property Test',
+        () => last_endpoint_mproperty3 === middleware_property
     );
 
     // Verify .method

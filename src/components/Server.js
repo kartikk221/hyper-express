@@ -11,12 +11,17 @@ class Server {
     #unsafe_buffers = false;
     #fast_abort = false;
     #max_body_length = 250 * 1000;
-    #middlewares = [];
     #handlers = {
         on_not_found: null,
         on_error: (req, res, error) => {
             res.status(500).send('HyperExpress: Uncaught Exception Occured');
             throw error;
+        },
+    };
+
+    #middlewares = {
+        global: {
+            ANY: [],
         },
     };
 
@@ -154,7 +159,60 @@ class Server {
     use(handler) {
         if (typeof handler !== 'function')
             throw new Error('HyperExpress: handler must be a function');
-        this.#middlewares.push(handler);
+
+        // Register a global middleware
+        this._register_middleware('global', 'ANY', handler, true);
+    }
+
+    /**
+     * Registers a middleware onto internal middlewares tree.
+     *
+     * @param {String} route Route pattern for middleware
+     * @param {String} method Route method (Uppercase) for middleware
+     * @param {Array|Function} methods Singular function or an array of functions to store as middlewares
+     * @param {Boolean} push Whether to write over old registered middlewares or push onto the old middlewares array
+     */
+    _register_middleware(route, method, methods, push = true) {
+        if (route !== 'global' && method == 'ANY')
+            throw new Error(
+                'Route specific middlewares not allowed with .any() routes. Please only bind middlewares on method specific routes.'
+            );
+
+        // Initialize route branch in middlewares object
+        if (this.#middlewares[route] == undefined) this.#middlewares[route] = {};
+
+        // Convert singular provided handler function into an Array
+        let handlers;
+        if (typeof methods == 'function') {
+            handlers = [methods];
+        } else if (Array.isArray(methods)) {
+            // Validate methods array contains functions only
+            methods.forEach((method) => {
+                if (typeof method !== 'function')
+                    throw new Error(
+                        '_register_middleware(route, method, methods) -> methods only contain Functions'
+                    );
+            });
+            handlers = methods;
+        } else {
+            throw new Error(
+                '_register_middleware(route, method, methods) -> methods must be a Function or Array'
+            );
+        }
+
+        if (push === true) {
+            // Initialize route:method branch if undefined for push operations
+            if (this.#middlewares[route][method] == undefined) {
+                this.#middlewares[route][method] = handlers;
+            } else {
+                let current = this.#middlewares[route][method];
+                let concatenated = current.concat(handlers);
+                this.#middlewares[route][method] = concatenated;
+            }
+        } else {
+            // We will simply write over any old handlers that were registered to the route:method branch
+            this.#middlewares[route][method] = handlers;
+        }
     }
 
     /**
@@ -172,20 +230,53 @@ class Server {
      * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method chains a request/response through all middlewares.
      *
+     * @param {String} route_pattern
      * @param {Request} request - Request Object
      * @param {Response} response - Response Object
      * @param {Function} final - Callback/Chain completion handler
      */
-    _chain_middlewares(request, response, final, cursor = 0) {
+    _chain_middlewares(route_pattern, request, response, final, branch = 'global', cursor = 0) {
         // Break chain if request has been aborted
         if (response.aborted) return;
 
-        // Determine current middleware and execute
-        let current = this.#middlewares[cursor];
-        if (current)
-            return current(request, response, () =>
-                this._chain_middlewares(request, response, final, cursor + 1)
-            );
+        // Global middlewares take precedence over route specific middlewares
+        if (branch === 'global') {
+            // Determine current global middleware and execute
+            let middleware = this.#middlewares['global']['ANY'][cursor];
+            if (middleware)
+                return middleware(request, response, () =>
+                    this._chain_middlewares(
+                        route_pattern,
+                        request,
+                        response,
+                        final,
+                        branch,
+                        cursor + 1
+                    )
+                );
+
+            // Switch to route branch and reset cursor for route specific middlewares execution
+            branch = 'route';
+            cursor = 0;
+        }
+
+        // See if route/method specific middlewares exist and execute
+        let pattern_middlewares = this.#middlewares[route_pattern];
+        if (pattern_middlewares && pattern_middlewares[request.method]) {
+            // Determine current route specific/method middleware and execute
+            let middleware = this.#middlewares[route_pattern][request.method][cursor];
+            if (middleware)
+                return middleware(request, response, () =>
+                    this._chain_middlewares(
+                        route_pattern,
+                        request,
+                        response,
+                        final,
+                        branch,
+                        cursor + 1
+                    )
+                );
+        }
 
         return final();
     }
@@ -227,18 +318,29 @@ class Server {
         // Convert options to handler if options is a function
         if (typeof options == 'function') handler = options;
 
+        // Parse route options if specified by user
+        let route_options = options_type == 'object' ? options : {};
+
+        // Register route specific middlewares
+        if (Array.isArray(route_options.middlewares) && route_options.middlewares.length > 0)
+            this._register_middleware(
+                pattern,
+                method.toUpperCase(),
+                route_options.middlewares,
+                false
+            );
+
         // Pre-parse path parameters key and bind a middleman uWebsockets route for wrapping request/response objects
         let path_parameters_key = operators.parse_path_params(pattern);
-        let route_options = options_type == 'object' ? options : {};
         let route = this.#uws_instance[method](pattern, (response, request) =>
             this._handle_wrapped_request(
+                pattern,
                 request,
                 response,
                 null,
                 handler,
                 path_parameters_key,
-                this,
-                route_options
+                this
             )
         );
 
@@ -252,10 +354,7 @@ class Server {
      * @param {Request} wrapped_request
      * @returns {Boolean} Boolean
      */
-    _pre_parse_body(wrapped_request, options) {
-        // Do not pre-parse if options.pre_parse_body is turned off
-        if (options.pre_parse_body === false) return false;
-
+    _pre_parse_body(wrapped_request) {
         // Determine a content-length and content-type header exists to trigger pre-parsing
         let has_content_type = wrapped_request.headers['content-type'];
         let content_length = +wrapped_request.headers['content-length'];
@@ -266,6 +365,7 @@ class Server {
      * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method is used as a middleman wrapper for request/response objects to bind HyperExpress abstractions.
      *
+     * @param {String} route_pattern
      * @param {Request} request
      * @param {Response} response
      * @param {UWS_SOCKET} socket
@@ -274,13 +374,13 @@ class Server {
      * @param {Server} master_context
      */
     async _handle_wrapped_request(
+        route_pattern,
         request,
         response,
         socket,
         handler,
         path_params_key,
-        master_context,
-        options = {}
+        master_context
     ) {
         // Wrap uWS.Request -> Request
         let wrapped_request = new Request(request, response, path_params_key, master_context);
@@ -289,7 +389,7 @@ class Server {
         let wrapped_response = new Response(wrapped_request, response, socket, this);
 
         // We initiate buffer retrieval as uWS.Request is deallocated after initial synchronous cycle
-        if (this._pre_parse_body(wrapped_request, options)) {
+        if (this._pre_parse_body(wrapped_request)) {
             // Check incoming content-length to ensure it is within max_body_length bounds
             // Abort request with a 413 Payload Too Large status code
             if (+wrapped_request.headers['content-length'] > master_context.max_body_length) {
@@ -311,53 +411,65 @@ class Server {
                 );
         }
 
-        // Check to ensure some middlewares have been bound
-        if (master_context.#middlewares.length > 0) {
-            // Chain through middlewares and trigger user request handler as callback
-            master_context._chain_middlewares(wrapped_request, wrapped_response, () =>
-                master_context._trigger_request_handler(
-                    master_context,
-                    wrapped_request,
-                    wrapped_response,
-                    handler
-                )
-            );
-        } else {
-            // Trigger request handler directly to save on additional anonymous method initialization
-            master_context._trigger_request_handler(
-                master_context,
-                wrapped_request,
-                wrapped_response,
-                handler
-            );
-        }
+        // Pass request to request handler
+        return master_context._trigger_request_handler(
+            route_pattern,
+            master_context,
+            wrapped_request,
+            wrapped_response,
+            handler
+        );
+    }
+
+    /**
+     * Wraps provided handler in a synchronous/asynchrnous catching Promise/try/catch which reports errors to global error handler
+     *
+     * @param {Server} master_context
+     * @param {Request} wrapped_request
+     * @param {Response} wrapped_response
+     * @param {Function} handler
+     * @returns {Promise}
+     */
+    _catchall_execute(master_context, wrapped_request, wrapped_response, handler) {
+        return new Promise((resolve, reject) => {
+            try {
+                resolve(handler());
+            } catch (error) {
+                reject(error);
+            }
+        }).catch((error) => master_context.error_handler(wrapped_request, wrapped_response, error));
     }
 
     /**
      * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * Triggers user specified route handler.
      *
+     * @param {String} route_pattern
      * @param {Server} master_context
      * @param {Request} wrapped_request
      * @param {Response} wrapped_response
      * @param {Function} route_handler
      * @returns {Promise} Promise
      */
-    _trigger_request_handler(master_context, wrapped_request, wrapped_response, route_handler) {
-        // Check to ensure request has not been aborted
-        if (!wrapped_response.aborted)
-            return new Promise((resolve, reject) => {
-                try {
-                    resolve(route_handler(wrapped_request, wrapped_response));
-                } catch (error) {
-                    reject(error);
-                }
-            }).catch((error) =>
-                master_context.error_handler(wrapped_request, wrapped_response, error)
-            );
+    _trigger_request_handler(
+        route_pattern,
+        master_context,
+        wrapped_request,
+        wrapped_response,
+        route_handler
+    ) {
+        master_context._catchall_execute(master_context, wrapped_request, wrapped_response, () =>
+            master_context._chain_middlewares(
+                route_pattern,
+                wrapped_request,
+                wrapped_response,
+                () => route_handler(wrapped_request, wrapped_response)
+            )
+        );
     }
 
     /* Server Route Alias Methods */
+
     any(pattern, options, handler) {
         return this._create_route('any', pattern, options, handler);
     }
@@ -413,6 +525,13 @@ class Server {
     }
 
     /* Safe Server Getters */
+
+    /**
+     * Returns middlewares store/tree used by HyperExpress to route incoming requests through middlewares.
+     */
+    get middlewares() {
+        return this.#middlewares;
+    }
 
     /**
      * Returns global error handler for current Server instance.

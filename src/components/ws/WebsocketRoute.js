@@ -32,6 +32,7 @@ class WebsocketRoute {
         let url_parameters_key = operators.parse_path_params(pattern);
         options.upgrade = (response, request, socket_context) =>
             context._handle_wrapped_request(
+                pattern,
                 request,
                 response,
                 socket_context,
