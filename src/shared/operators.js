@@ -34,7 +34,7 @@ function fill_object(original, target) {
     Object.keys(target).forEach((key) => {
         if (typeof target[key] == 'object') {
             if (original[key] == undefined) original[key] = {};
-            fill_object(target[key], original[key]);
+            fill_object(original[key], target[key]);
         } else {
             original[key] = target[key];
         }
