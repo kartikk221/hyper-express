@@ -233,9 +233,18 @@ class Server {
      * @param {String} route_pattern
      * @param {Request} request - Request Object
      * @param {Response} response - Response Object
-     * @param {Function} final - Callback/Chain completion handler
+     * @param {Function} route_handler - User specified route handler
+     * @param {uWS.Socket} socket_context - uWebsockets.js upgrade request socket context.
      */
-    _chain_middlewares(route_pattern, request, response, final, branch = 'global', cursor = 0) {
+    _chain_middlewares(
+        route_pattern,
+        request,
+        response,
+        route_handler,
+        socket_context,
+        branch = 'global',
+        cursor = 0
+    ) {
         // Break chain if request has been aborted
         if (response.aborted) return;
 
@@ -249,7 +258,8 @@ class Server {
                         route_pattern,
                         request,
                         response,
-                        final,
+                        route_handler,
+                        socket_context,
                         branch,
                         cursor + 1
                     )
@@ -271,14 +281,16 @@ class Server {
                         route_pattern,
                         request,
                         response,
-                        final,
+                        route_handler,
+                        socket_context,
                         branch,
                         cursor + 1
                     )
                 );
         }
 
-        return final();
+        // Trigger user assigned route handler with wrapped request/response objects. Provide socket_context for upgrade requests.
+        return route_handler(request, response, socket_context);
     }
 
     #routes = {
@@ -411,61 +423,23 @@ class Server {
                 );
         }
 
-        // Pass request to request handler
-        return master_context._trigger_request_handler(
-            route_pattern,
-            master_context,
-            wrapped_request,
-            wrapped_response,
-            handler
-        );
-    }
-
-    /**
-     * Wraps provided handler in a synchronous/asynchrnous catching Promise/try/catch which reports errors to global error handler
-     *
-     * @param {Server} master_context
-     * @param {Request} wrapped_request
-     * @param {Response} wrapped_response
-     * @param {Function} handler
-     * @returns {Promise}
-     */
-    _catchall_execute(master_context, wrapped_request, wrapped_response, handler) {
+        // Wrap middlewares & route handler in a Promise to catch async/sync errors
         return new Promise((resolve, reject) => {
             try {
-                resolve(handler());
+                // Call middleware chaining method and pass handler/socket
+                resolve(
+                    master_context._chain_middlewares(
+                        route_pattern,
+                        wrapped_request,
+                        wrapped_response,
+                        handler,
+                        socket
+                    )
+                );
             } catch (error) {
                 reject(error);
             }
         }).catch((error) => master_context.error_handler(wrapped_request, wrapped_response, error));
-    }
-
-    /**
-     * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
-     * Triggers user specified route handler.
-     *
-     * @param {String} route_pattern
-     * @param {Server} master_context
-     * @param {Request} wrapped_request
-     * @param {Response} wrapped_response
-     * @param {Function} route_handler
-     * @returns {Promise} Promise
-     */
-    _trigger_request_handler(
-        route_pattern,
-        master_context,
-        wrapped_request,
-        wrapped_response,
-        route_handler
-    ) {
-        master_context._catchall_execute(master_context, wrapped_request, wrapped_response, () =>
-            master_context._chain_middlewares(
-                route_pattern,
-                wrapped_request,
-                wrapped_response,
-                () => route_handler(wrapped_request, wrapped_response)
-            )
-        );
     }
 
     /* Server Route Alias Methods */
