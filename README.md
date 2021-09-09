@@ -420,6 +420,9 @@ Below is a breakdown of the `response` object made available through the route h
 * `send(String: body)`: Writes specified string body and sends response.
 * `json(Object: body)`: Alias of `send()`. Sets mime type to `json` and sends response.
 * `html(String: body)`: Alias of `send()`. Sets mime type to `html` and sends response.
+* `file(String: path)`: Sends file from specified `path` as response body and sends response.
+  * **Note!** An appropriate `content-type` will automatically be written if no `content-type` header is written by user prior to this method.
+  * **Note!** This method should be avoided for large files as served files are cached in memory and watched for changes to allow for high performance with near instant content reloading.
 * `redirect(String: url)`: Writes 302 header to redirect incoming request to specified url.
 * `throw_error(Error: error)`: Calls global catch-all error handler with specified error.
 
