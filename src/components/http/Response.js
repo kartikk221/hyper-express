@@ -12,6 +12,7 @@ class Response {
     #master_context;
     #upgrade_socket;
     #completed = false;
+    #type_written = false;
     #status_written = false;
 
     constructor(wrapped_request, raw_response, socket, master_context) {
@@ -81,7 +82,10 @@ class Response {
      */
     type(mime_type) {
         let mime_header = mime_types[mime_type] || 'text/plain';
-        if (!this.#completed) this.header('content-type', mime_header);
+        if (!this.#completed) {
+            this.#type_written = true;
+            this.header('content-type', mime_header);
+        }
         this.#status_written = true;
         return this;
     }
@@ -273,7 +277,8 @@ class Response {
      * @param {LiveFile} live_file
      */
     _send_file(live_file) {
-        return this.type(live_file.extension).send(live_file.content);
+        if (!this.#type_written) this.type(live_file.extension);
+        return this.send(live_file.content);
     }
 
     /**
