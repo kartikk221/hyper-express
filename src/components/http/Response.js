@@ -3,6 +3,9 @@ const mime_types = require('../../constants/mime_types.json');
 const cookie = require('cookie');
 const signature = require('cookie-signature');
 
+const LiveFile = require('../features/LiveFile.js');
+const FilePool = {};
+
 class Response {
     #wrapped_request;
     #raw_response;
@@ -168,11 +171,12 @@ class Response {
                 );
 
             // Mark request as completed and call uWS.Response.upgrade() with upgrade_socket
-            this.#completed = true;
             let headers = this.#wrapped_request.headers;
             let sec_key = headers['sec-websocket-key'];
             let sec_protocol = headers['sec-websocket-protocol'];
             let sec_extensions = headers['sec-websocket-extensions'];
+
+            this.#completed = true;
             this.#raw_response.upgrade(
                 user_data,
                 sec_key,
@@ -219,8 +223,15 @@ class Response {
         return false;
     }
 
+    /**
+     * Instantly aborts/closes current request without writing a status response code.
+     * Use this only in extreme situations to abort a request where a proper response is not neccessary.
+     */
     close() {
-        if (!this.#completed) this.#raw_response.close();
+        if (!this.#completed) {
+            this.#completed = true;
+            this.#raw_response.close();
+        }
     }
 
     /**
@@ -231,7 +242,6 @@ class Response {
      */
     redirect(url) {
         if (!this.#completed) return this.status(302).header('location', url).send();
-
         return false;
     }
 
@@ -255,6 +265,38 @@ class Response {
      */
     html(body) {
         return this.type('html').send(body);
+    }
+
+    /**
+     * Sends file content with appropriate content-type header based on file extension from LiveFile.
+     *
+     * @param {LiveFile} live_file
+     */
+    _send_file(live_file) {
+        return this.type(live_file.extension).send(live_file.content);
+    }
+
+    /**
+     * This method can be used to send files.
+     * This method automatically writes the appropriate content-type header.
+     * This method also maintains its own cache pool allowing for fast performance.
+     *
+     * @param {String} path
+     */
+    file(path) {
+        // Send file from local cache pool if available
+        if (FilePool[path]) return this._send_file(FilePool[path]);
+
+        // Create new LiveFile instance in local cache pool for new file path
+        FilePool[path] = new LiveFile({
+            path: path,
+        });
+
+        // Assign error handler to live file
+        FilePool[path].on('error', (error) => this.throw_error(error));
+
+        // Serve file once initial content has been read
+        FilePool[path].once('reload', () => this._send_file(FilePool[path]));
     }
 
     /**

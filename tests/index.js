@@ -22,10 +22,7 @@ const { test_websocket_route } = require('./components/ws/WebsocketRoute.js');
         // Test Websocket & WebsocketRoute Object
         await test_websocket_route();
 
-        log(
-            'TESTING',
-            'Successfully Tested All Specified Tests For HyperExpress!'
-        );
+        log('TESTING', 'Successfully Tested All Specified Tests For HyperExpress!');
         process.exit();
     } catch (error) {
         console.log(error);

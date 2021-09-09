@@ -129,20 +129,20 @@ class Request {
             // Store body into a singular Buffer for most memory efficiency
             let body_buffer;
             let body_cursor = 0;
-            let use_fast_buffers = reference.#master_context.fast_buffers === true;
+            let use_fast_buffers = reference.#master_context.fast_buffers;
 
             // Store incoming buffer chunks into buffers Array
             reference.#raw_response.onData((array_buffer, is_last) => {
-                // Do not process chunk if request has been aborted
+                // Do not process chunks if request has been aborted
                 if (reference.#raw_response.aborted) return;
 
                 // Process current array_buffer chunk into a Buffer
                 let chunk;
                 if (is_last && body_cursor === 0) {
-                    // Create a copy of ArrayBuffer from uWS as it will be deallocated and this is the only chunk
+                    // Create a copy of ArrayBuffer from uWS as it will be deallocated and this is the only received chunk
                     chunk = Buffer.concat([Buffer.from(array_buffer)]);
                 } else {
-                    // Allocate a Buffer for storing incoming body content
+                    // Allocate a fresh Buffer for storing incoming body chunks
                     if (body_buffer == undefined) {
                         // Use appropriate allocation scheme based on user options
                         if (use_fast_buffers) {
@@ -162,7 +162,7 @@ class Request {
 
                 // Trigger final processing on last chunk
                 if (is_last) {
-                    // Cache buffer locally depending on situation
+                    // Cache buffer locally depending on received format type
                     if (body_buffer) {
                         reference.#body_buffer = body_buffer;
                     } else if (chunk) {

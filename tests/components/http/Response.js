@@ -1,8 +1,8 @@
 const root = '../../';
-const { log, assert_log, random_string } = require(root +
-    'scripts/operators.js');
+const { log, assert_log, random_string } = require(root + 'scripts/operators.js');
 const { fetch, server } = require(root + 'scripts/configuration.js');
 const { webserver } = require(root + 'setup/webserver.js');
+const { test_livefile_object } = require(root + 'components/features/LiveFile.js');
 const endpoint = '/tests/response/operators';
 const endpoint_url = server.base + endpoint;
 
@@ -17,12 +17,7 @@ webserver.post(endpoint, async (request, response) => {
             let parameters = operation[1];
             if (Array.isArray(parameters)) {
                 // Support up to 4 multi parameters
-                response[method](
-                    parameters[0],
-                    parameters[1],
-                    parameters[2],
-                    parameters[3]
-                );
+                response[method](parameters[0], parameters[1], parameters[2], parameters[3]);
             } else {
                 response[method](parameters);
             }
@@ -68,11 +63,7 @@ async function test_response_object() {
     let body1 = await response1.text();
 
     // Verify .status()
-    assert_log(
-        group,
-        candidate + '.status()',
-        () => test_status_code === response1.status
-    );
+    assert_log(group, candidate + '.status()', () => test_status_code === response1.status);
 
     // Verify .type()
     assert_log(
@@ -89,52 +80,37 @@ async function test_response_object() {
     );
 
     // Verify .cookie()
-    assert_log(
-        group,
-        candidate + '.cookie() AND ' + candidate + '.delete_cookie()',
-        () => {
-            let cookies = {};
-            response1.headers
-                .get('set-cookie')
-                .split(', ')
-                .forEach((chunk) => {
-                    if (chunk.indexOf('=') > -1) {
-                        chunk = chunk.split('=');
-                        let name = chunk[0];
-                        let value = chunk[1].split(';')[0];
-                        let properties = chunk.join('=').split('; ')[1];
-                        cookies[name] = {
-                            value: value,
-                            properties: properties,
-                        };
-                    }
-                });
+    assert_log(group, candidate + '.cookie() AND ' + candidate + '.delete_cookie()', () => {
+        let cookies = {};
+        response1.headers
+            .get('set-cookie')
+            .split(', ')
+            .forEach((chunk) => {
+                if (chunk.indexOf('=') > -1) {
+                    chunk = chunk.split('=');
+                    let name = chunk[0];
+                    let value = chunk[1].split(';')[0];
+                    let properties = chunk.join('=').split('; ')[1];
+                    cookies[name] = {
+                        value: value,
+                        properties: properties,
+                    };
+                }
+            });
 
-            let test_cookie_test =
-                cookies[cookie_test_name]?.value === cookie_test_value;
-            let delete_cookie_value_test =
-                cookies[test_cookie.name]?.value === '';
-            let delete_cookie_props_test =
-                cookies[test_cookie.name]?.properties === 'Max-Age=0';
-            return (
-                test_cookie_test &&
-                delete_cookie_value_test &&
-                delete_cookie_props_test
-            );
-        }
-    );
+        let test_cookie_test = cookies[cookie_test_name]?.value === cookie_test_value;
+        let delete_cookie_value_test = cookies[test_cookie.name]?.value === '';
+        let delete_cookie_props_test = cookies[test_cookie.name]?.properties === 'Max-Age=0';
+        return test_cookie_test && delete_cookie_value_test && delete_cookie_props_test;
+    });
 
     // Verify .send()
-    assert_log(
-        group,
-        candidate + '.send()',
-        () => body1 === test_html_placeholder
-    );
+    assert_log(group, candidate + '.send()', () => body1 === test_html_placeholder);
 
-    log(
-        group,
-        `Finished Testing ${candidate} In ${Date.now() - start_time}ms\n`
-    );
+    // Test Response.LiveFile object
+    await test_livefile_object();
+
+    log(group, `Finished Testing ${candidate} In ${Date.now() - start_time}ms\n`);
 }
 
 module.exports = {
