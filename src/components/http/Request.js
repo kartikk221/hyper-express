@@ -78,11 +78,12 @@ class Request {
      */
     _path_parameters(parameters_key) {
         if (parameters_key.length > 0) {
-            let path_parameters = this.#path_parameters;
-            let request = this.#raw_request;
-            parameters_key.forEach(
-                (keySet) => (path_parameters[keySet[0]] = request.getParameter(keySet[1]))
-            );
+            let reference = this;
+            parameters_key.forEach((keySet) => {
+                reference.#path_parameters[keySet[0]] = reference.#raw_request.getParameter(
+                    keySet[1]
+                );
+            });
         }
     }
 
@@ -377,7 +378,7 @@ class Request {
      * Returns path parameters from incoming request in Object form {key: value}
      */
     get path_parameters() {
-        return this.#query_parameters;
+        return this.#path_parameters;
     }
 
     /**
