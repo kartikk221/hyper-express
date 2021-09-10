@@ -223,10 +223,17 @@ async function test_request_object() {
     });
 
     // Verify .query_parameters
-    assert_log(group, candidate + '.path_parameters', () => {
+    assert_log(group, candidate + '.query_parameters', () => {
         let query1_test = body.query_parameters.query1 === query1;
         let query2_test = body.query_parameters.query2 === query2;
         return query1_test && query2_test;
+    });
+
+    // Verify .path_parameters
+    assert_log(group, candidate + '.path_parameters', () => {
+        let param1_test = body.path_parameters.param1 === param1;
+        let param2_test = body.path_parameters.param2 === param2;
+        return param1_test && param2_test;
     });
 
     // Verify .cookies
