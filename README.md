@@ -392,9 +392,7 @@ Below is a breakdown of the `response` object made available through the route h
 #### Response Methods
 * `atomic(Function: callback)`: Alias of uWebsockets's `cork(callback)` method.
     * **Usage:** Wrapping multiple response method calls inside this method can improve performance.
-* `status(Number: code)`: Writes HTTP status code for current request.
-    * **Note** this method must be called before any other response/network methods.
-    * **Note** this method can only be called once.
+* `status(Number: code)`: Sets HTTP status response code for current request.
 * `type(String: mime_type)`: Writes correct protocol `content-type` header for specified mime type.
     * **Example:** `response.type('json')` writes `application/json`
     * **Supported:** [Mime Types](./src/constants/mime_types.json)

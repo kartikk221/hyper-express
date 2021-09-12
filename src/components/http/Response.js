@@ -11,9 +11,10 @@ class Response {
     #raw_response;
     #master_context;
     #upgrade_socket;
+    #status_code;
+    #headers;
     #completed = false;
     #type_written = false;
-    #status_written = false;
 
     constructor(wrapped_request, raw_response, socket, master_context) {
         this.#wrapped_request = wrapped_request;
@@ -53,23 +54,15 @@ class Response {
     }
 
     /**
-     * This method is used to write a custom status code.
-     * Note! This method must be called before any other network operations such as
-     * writing headers or writing cookies.
+     * This method is used to set a custom response code.
      *
      * @param {Number} code Example: response.status(403)
      * @returns {Response} Response (Chainable)
      */
     status(code) {
-        // Enforce status() first network method as uWebsockets automatically writes a 200 status code on any other operation
-        if (this.#status_written)
-            throw new Error(
-                'HyperExpress: .status() or .redirect() must be called before any other network actions such as writing headers or cookies.'
-            );
-
         // Match status code Number to a status message and call uWS.Response.writeStatus
         let message = status_codes[code];
-        if (!this.#completed) this.#raw_response.writeStatus(code + ' ' + message);
+        this.#status_code = code + ' ' + message;
         return this;
     }
 
@@ -86,7 +79,6 @@ class Response {
             this.#type_written = true;
             this.header('content-type', mime_header);
         }
-        this.#status_written = true;
         return this;
     }
 
@@ -98,8 +90,15 @@ class Response {
      * @returns {Response} Response (Chainable)
      */
     header(name, value) {
-        if (!this.#completed) this.#raw_response.writeHeader(name, value);
-        this.#status_written = true;
+        // Initialize headers container
+        if (this.#headers == undefined)
+            this.#headers = {
+                keys: [],
+                values: [],
+            };
+
+        this.#headers.keys.push(name);
+        this.#headers.values.push(value);
         return this;
     }
 
@@ -142,7 +141,6 @@ class Response {
         // Serialize cookie options -> set-cookie header and write header
         let header = cookie.serialize(name, value, options);
         this.header('set-cookie', header);
-        this.#status_written = true;
         return this;
     }
 
@@ -217,6 +215,14 @@ class Response {
             let session = this.#wrapped_request.session;
             if (typeof session == 'object' && session.ready)
                 session._perform_closure(this, this.#master_context);
+
+            // Write custom HTTP status if specified
+            if (this.#status_code) this.#raw_response.writeStatus(this.#status_code);
+
+            // Write headers if specified
+            if (this.#headers)
+                for (let i = 0; i < this.#headers.keys.length; i++)
+                    this.#raw_response.writeHeader(this.#headers.keys[i], this.#headers.values[i]);
 
             // Mark request as completed and end request using uWS.Response.end()
             this.#completed = true;
