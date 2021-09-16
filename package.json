@@ -1,6 +1,6 @@
 {
     "name": "hyper-express",
-    "version": "2.5.0",
+    "version": "2.5.1",
     "description": "High performance Node.js webserver with a simple-to-use API powered by uWebsockets.js under the hood.",
     "main": "index.js",
     "scripts": {
@@ -36,7 +36,7 @@
         "cookie": "^0.4.1",
         "cookie-signature": "^1.1.0",
         "query-string": "^7.0.1",
-        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v19.3.0",
+        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v19.4.0",
         "uid-safe": "^2.1.5"
     }
 }
