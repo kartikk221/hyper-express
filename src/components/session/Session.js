@@ -111,7 +111,7 @@ class Session {
 
         // Trigger 'read' event in attempt to read session data for parsed id
         let session_data = await engine_methods.read(session_id);
-        if (typeof session_data == 'object') {
+        if (session_data && typeof session_data == 'object') {
             this.#from_database = true;
             this.#session_data = session_data;
         } else {
@@ -153,13 +153,13 @@ class Session {
      *
      * @returns {Promise} Promise
      */
-    async touch() {
+    touch() {
         // Parse session id and trigger 'touch' event if upon a valid session id
         let session_id = this.id;
         if (typeof session_id !== 'string') return;
 
         let expiry_ts = this.expiry_timestamp;
-        await this.#session_engine._methods.touch(session_id, expiry_ts);
+        return this.#session_engine._methods.touch(session_id, expiry_ts);
     }
 
     /**
@@ -195,7 +195,6 @@ class Session {
             this.#session_data[name] = value;
             this.#persist = true;
         }
-
         return this;
     }
 
@@ -250,7 +249,6 @@ class Session {
             delete this.#session_data[name];
             this.#persist = true;
         }
-
         return this;
     }
 
