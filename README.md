@@ -45,7 +45,7 @@ npm i hyper-express
       - [Example: Retrieving properties and JSON body](#example-retrieving-properties-and-json-body)
       - [Example: Forbidden request scenario utilizing multiple response methods](#example-forbidden-request-scenario-utilizing-multiple-response-methods)
       - [Example: Using Global & Route/Method Specific Middlewares](#example-using-global--routemethod-specific-middlewares)
-      - [Example: Initializing & Binding A Session Engine](#example-initializing--binding-a-session-engine)
+      - [Example: Initializing & Binding A Session Engine With Redis Store Implementation](#example-initializing--binding-a-session-engine-with-redis-store-implementation)
       - [Example: Initiating and storing visits in a session](#example-initiating-and-storing-visits-in-a-session)
       - [Example: Initializing and using a new Websocket Route](#example-initializing-and-using-a-new-websocket-route)
       - [Example: Utilizing Websocket connection](#example-utilizing-websocket-connection)
@@ -184,7 +184,7 @@ webserver.get('/', {
 });
 ```
 
-#### Example: Initializing & Binding A Session Engine
+#### Example: Initializing & Binding A Session Engine With Redis Store Implementation
 ```javascript
 // Create new SessionEngine instance
 // Note! You can only bind a single SessionEngine to a webserver instance
@@ -198,6 +198,31 @@ const session_engine = new HyperExpress.SessionEngine({
         secure: true,
         sameSite: 'strict'
     }
+});
+
+// Bind session engine handlers for storing sessions in Redis store
+
+session_engine.on('read', async (session) => {
+    const data = await redis.get('session:' + session.id);
+    if(typeof data == 'string') return JSON.parse(data);
+});
+
+session_engine.on('touch', async (session) => {
+    return await redis.pexpireat('session:' + session.id, session.expires_at);
+});
+
+session_engine.on('write', async (session) => {
+    const key = 'session:' + session.id;
+
+    // We use redis pipeline to perform two operations in one go
+    return await redis.pipeline()
+    .set(key, JSON.stringify(session.get_all()))
+    .pexpireat(key, session.expires_at)
+    .exec();
+});
+
+session_engine.on('destroy', async (session) => {
+    return await redis.del('session:' + session.id);
 });
 
 // Bind SessionEngine to Webserver instance
@@ -433,7 +458,7 @@ Below is a breakdown of the `SessionEngine` object class generated while creatin
 * `default_duration`[`Number`]: Specifies default cookie and session duration in **milliseconds**.
 * `require_manual_touch`[`Boolean`]: Specifies whether active sessions should be automatically touched upon incoming requests.
 * `cookie_options`[`Object`]: Specifies session cookie options.
-    * `name`:[`String`]: Name of the cookie
+    * `name`[`String`]: Cookie Name
     * `domain`[`String`]: Cookie Domain
     * `path`[`String`]: Cookie Path
     * `secure`[`Boolean`]: Adds Secure Flag
@@ -441,17 +466,13 @@ Below is a breakdown of the `SessionEngine` object class generated while creatin
     * `sameSite`[`Boolean`, `'none'`, `'lax'`, `'strict'`]: Cookie Same-Site Preference
 
 #### SessionEngine Methods
-* `on(String: type, Function: handler)`: Binds an event handler for specified event type.
+* `on(String: type, Function: handler)`: Binds an event handler for specified event `type`.
     * **Note** you must use your own storage implementation in combination with available events below.
-    * [`id`]: Must return a promise that generates and resolves a cryptographically random id.
-        * **Parameters**: `() => {}`.
-        * **Returns:** `Promise` -> `String`.
-        * **Required** before using session engine.
     * [`read`]: Must read and return session data as an `Object` from your storage.
         * **Parameters**: `(Session: session) => {}`.
         * **Expects** A `Promise` which then resolves to an `Object` or `undefined` type.
         * **Required**
-    * Event `touch`: Must update session expiry timestamp in your storage.
+    * [`touch`]: Must update session expiry timestamp in your storage.
         * **Parameters**: `(Session: session) => {}`.
         * **Expects** A `Promise` which is then resolved to `Any` type.
         * **Required**
@@ -464,6 +485,10 @@ Below is a breakdown of the `SessionEngine` object class generated while creatin
         * **Parameters**: `(Session: session) => {}`.
         * **Expects** A `Promise` which then resolves to `Any` type.
         * **Required**
+    * [`id`]: Must return a promise that generates and resolves a cryptographically random id.
+        * **Parameters**: `() => {}`.
+        * **Expects** A `Promise` which then resolves to `String` type.
+        * **Optional**
     * [`cleanup`]: Must clean up expired sessions from your storage.
         * **Parameters**: `() => {}`.
         * **Expects** A `Promise` which then resolves to `Any` type.
