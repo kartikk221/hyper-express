@@ -401,12 +401,12 @@ Below is a breakdown of the `response` object made available through the route h
     * `expiry` specifies the cookie lifetime duration in **milliseconds**.
     * `sign_cookie` is `true` by default.
     * `options`:
-        * `domain`:[`String`]: Cookie Domain
-        * `path`:[`String`]: Cookie Path
-        * `maxAge`:[`Number`]: Max Cookie Age (In Seconds)
-        * `secure`:[`Boolean`]: Adds Secure Flag
-        * `httpOnly`:[`Boolean`]: Adds httpOnly Flag
-        * `sameSite`:[`Boolean`, `'none'`, `'lax'`, `'strict'`]: Cookie Same-Site Preference
+        * `domain`[`String`]: Cookie Domain
+        * `path`[`String`]: Cookie Path
+        * `maxAge`[`Number`]: Max Cookie Age (In Seconds)
+        * `secure`[`Boolean`]: Adds Secure Flag
+        * `httpOnly`[`Boolean`]: Adds httpOnly Flag
+        * `sameSite`[`Boolean`, `'none'`, `'lax'`, `'strict'`]: Cookie Same-Site Preference
         * `secret`:[`String`]: Cryptographically signs cookie value
     * **Note** cookie values are not URL encoded.
 * `delete_cookie(String: name)`: Writes a cookie header to delete/expire specified cookie.
@@ -433,39 +433,42 @@ Below is a breakdown of the `SessionEngine` object class generated while creatin
 * `default_duration`[`Number`]: Specifies default cookie and session duration in **milliseconds**.
 * `require_manual_touch`[`Boolean`]: Specifies whether active sessions should be automatically touched upon incoming requests.
 * `cookie_options`[`Object`]: Specifies session cookie options.
-    * See **Request**->**Methods**->**cookie()** for all cookie options.
+    * `name`:[`String`]: Name of the cookie
+    * `domain`[`String`]: Cookie Domain
+    * `path`[`String`]: Cookie Path
+    * `secure`[`Boolean`]: Adds Secure Flag
+    * `httpOnly`[`Boolean`]: Adds httpOnly Flag
+    * `sameSite`[`Boolean`, `'none'`, `'lax'`, `'strict'`]: Cookie Same-Site Preference
 
 #### SessionEngine Methods
-* `cleanup()`: Triggers `cleanup` event to delete expired sessions from storage.
-* `handle(String: type, Function: handler)`: Binds event handler for specified event type.
+* `on(String: type, Function: handler)`: Binds an event handler for specified event type.
     * **Note** you must use your own storage implementation in combination with available events below.
-    * Event `id`: Must return a promise that generates and resolves a cryptographically random id.
+    * [`id`]: Must return a promise that generates and resolves a cryptographically random id.
         * **Parameters**: `() => {}`.
         * **Returns:** `Promise` -> `String`.
         * **Required** before using session engine.
-    * Event `read`: Must read and return session data as an `Object` from your storage.
-        * **Parameters**: `(String: session_id) => {}`.
-        * **Returns** `Promise` -> `Object` OR `Promise` -> `undefined`.
-        * **Required** before using session engine.
+    * [`read`]: Must read and return session data as an `Object` from your storage.
+        * **Parameters**: `(Session: session) => {}`.
+        * **Expects** A `Promise` which then resolves to an `Object` or `undefined` type.
+        * **Required**
     * Event `touch`: Must update session expiry timestamp in your storage.
-        * **Parameters**: `(String: session_id, Number: expiry_ts) => {}`.
-          * `expiry_ts` must be a timestamp in **milliseconds**.
-        * **Returns:** `Promise` -> `Any`[`Optional`].
-        * **Required** before using session engine.
-    * Event `write`: Must write session data with the updated expiry timestamp to your storage.
-        * **Parameters**: `(String: session_id, Object: data, Number: expiry_ts, Boolean: from_database) => {}`.
-          * `expiry_ts` is a timestamp in **milliseconds**
-          * `from_database` specifies whether was retrieved from your database. Use this to determine whether this operation should be an `INSERT` or `UPDATE` operation in your storage.
-        * **Returns:** `Promise` -> `Any`[`Optional`].
-        * **Required** before using session engine.
-    * Event `destroy`: Must destroy session from your storage.
-        * **Parameters**: `(String: session_id) => {}`.
-        * **Returns:** `Promise` -> `Any`[`Optional`].
-        * **Required** before using session engine.
-    * Event `cleanup`: Must clean up expired sessions from your storage.
+        * **Parameters**: `(Session: session) => {}`.
+        * **Expects** A `Promise` which is then resolved to `Any` type.
+        * **Required**
+    * [`write`]: Must write session data and update expiry timestamp to your storage.
+        * **Parameters**: `(Session: session) => {}`.
+          * You can use `session.fresh` to determine if you need to `INSERT` or `UPDATE` for SQL based implementations.
+        * **Expects** A `Promise` which then resolves to `Any` type.
+        * **Required**
+    * [`destroy`]: Must destroy session from your storage.
+        * **Parameters**: `(Session: session) => {}`.
+        * **Expects** A `Promise` which then resolves to `Any` type.
+        * **Required**
+    * [`cleanup`]: Must clean up expired sessions from your storage.
         * **Parameters**: `() => {}`.
-        * **Returns:** `Promise` -> `Any`[`Optional`].
-        * **Optional** but recommended to centralize session logic.
+        * **Expects** A `Promise` which then resolves to `Any` type.
+        * **Optional**
+* `cleanup()`: Triggers `cleanup` event to delete expired sessions from storage.
 
 ## Session
 Below is a breakdown of the `session` object made available through the `request.session` property in route handler(s) and websocket upgrade event handler(s).
@@ -476,8 +479,9 @@ Below is a breakdown of the `session` object made available through the `request
 | `id`      | `Number` | Raw session id for current request. |
 | `signed_id` | `Number`  | Signed session id for current request. |
 | `ready` | `Boolean`  | Specifies whether session has been started. |
+| `fresh` | `Boolean`  | Specifies whether session is brand new or from database. |
 | `duration` | `Number`  | Duration in **milliseconds** of current session. |
-| `expiry_timestamp` | `Number`  | Expiry timestamp in **milliseconds** of current session. |
+| `expires_at` | `Number`  | Expiry timestamp in **milliseconds** of current session. |
 
 #### Session Methods
 * `generate_id()`: Asynchronously generates and returns a new session id from `'id'` session engine event.
