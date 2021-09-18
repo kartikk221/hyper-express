@@ -1,9 +1,6 @@
 const MemoryStore = require('../scripts/MemoryStore.js');
 const { random_string, log } = require('../scripts/operators.js');
-const {
-    HyperExpress,
-    log_store_events,
-} = require('../scripts/configuration.js');
+const { HyperExpress, log_store_events } = require('../scripts/configuration.js');
 
 function store_log(message) {
     if (!log_store_events) return;
@@ -26,36 +23,36 @@ const session_engine = new HyperExpress.SessionEngine({
 const session_store = new MemoryStore();
 
 // Handle READ events
-session_engine.handle('read', (session_id) => {
-    store_log('READ -> ' + session_id);
-    return session_store.select(session_id);
+session_engine.on('read', (session) => {
+    store_log('READ -> ' + session.id);
+    return session_store.select(session.id);
 });
 
 // Handle WRITE events
-session_engine.handle('write', (session_id, data, expiry_ts, from_db) => {
-    if (from_db) {
-        store_log('UPDATE -> ' + session_id + ' -> ' + expiry_ts);
-        session_store.update(session_id, data, expiry_ts);
+session_engine.on('write', (session) => {
+    if (session.stored) {
+        store_log('UPDATE -> ' + session.id + ' -> ' + session.expires_at);
+        session_store.update(session.id, session.get_all(), session.expires_at);
     } else {
-        store_log('INSERT -> ' + session_id + ' -> ' + expiry_ts);
-        session_store.insert(session_id, data, expiry_ts);
+        store_log('INSERT -> ' + session.id + ' -> ' + session.expires_at);
+        session_store.insert(session.id, session.get_all(), session.expires_at);
     }
 });
 
 // Handle TOUCH events
-session_engine.handle('touch', (session_id, expiry_ts) => {
-    store_log('TOUCH -> ' + session_id + ' -> ' + expiry_ts);
-    session_store.touch(session_id, expiry_ts);
+session_engine.on('touch', (session) => {
+    store_log('TOUCH -> ' + session.id + ' -> ' + session.expires_at);
+    session_store.touch(session.id, session.expires_at);
 });
 
 // Handle DESTROY events
-session_engine.handle('destroy', (session_id) => {
-    store_log('DESTROY -> ' + session_id);
-    session_store.delete(session_id);
+session_engine.on('destroy', (session) => {
+    store_log('DESTROY -> ' + session.id);
+    session_store.delete(session.id);
 });
 
 // Handle CLEANUP events
-session_engine.handle('cleanup', () => {
+session_engine.on('cleanup', () => {
     store_log('CLEANUP -> ALL SESSIONS');
     session_store.cleanup();
 });
