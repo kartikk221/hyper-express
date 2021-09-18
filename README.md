@@ -457,7 +457,7 @@ Below is a breakdown of the `SessionEngine` object class generated while creatin
         * **Required**
     * [`write`]: Must write session data and update expiry timestamp to your storage.
         * **Parameters**: `(Session: session) => {}`.
-          * You can use `session.fresh` to determine if you need to `INSERT` or `UPDATE` for SQL based implementations.
+          * You can use `session.stored` to determine if you need to `INSERT` or `UPDATE` for SQL based implementations.
         * **Expects** A `Promise` which then resolves to `Any` type.
         * **Required**
     * [`destroy`]: Must destroy session from your storage.
@@ -479,7 +479,7 @@ Below is a breakdown of the `session` object made available through the `request
 | `id`      | `Number` | Raw session id for current request. |
 | `signed_id` | `Number`  | Signed session id for current request. |
 | `ready` | `Boolean`  | Specifies whether session has been started. |
-| `fresh` | `Boolean`  | Specifies whether session is brand new or from database. |
+| `stored` | `Boolean`  | Specifies whether session is already stored in database. |
 | `duration` | `Number`  | Duration in **milliseconds** of current session. |
 | `expires_at` | `Number`  | Expiry timestamp in **milliseconds** of current session. |
 
