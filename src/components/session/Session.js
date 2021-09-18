@@ -110,7 +110,7 @@ class Session {
         }
 
         // Trigger 'read' event in attempt to read session data for parsed id
-        let session_data = await engine_methods.read(session_id);
+        let session_data = await engine_methods.read(this);
         if (session_data && typeof session_data == 'object') {
             this.#from_database = true;
             this.#session_data = session_data;
@@ -157,9 +157,7 @@ class Session {
         // Parse session id and trigger 'touch' event if upon a valid session id
         let session_id = this.id;
         if (typeof session_id !== 'string') return;
-
-        let expiry_ts = this.expiry_timestamp;
-        return this.#session_engine._methods.touch(session_id, expiry_ts);
+        return this.#session_engine._methods.touch(this);
     }
 
     /**
@@ -177,7 +175,9 @@ class Session {
         // Retrieve session id and attempt to destroy session by triggering 'destroy' session engine event
         let session_id = this.id;
         if (typeof session_id !== 'string') return;
-        await this.#session_engine._methods.destroy(session_id);
+
+        // Destroy session by calling session engine destroy handler
+        await this.#session_engine._methods.destroy(this);
         this.#session_data = {};
         this.#destroyed = true; // Mark session as destroyed to unset session cookie during request end
     }
@@ -305,12 +305,7 @@ class Session {
             let require_manual_touch = this.#session_engine._manual_touch;
             if (this.#persist) {
                 // Persist session if session state is marked to persist
-                await engine_methods.write(
-                    this.#id,
-                    this.#session_data,
-                    this.expiry_timestamp,
-                    this.#from_database
-                );
+                await engine_methods.write(this);
             } else if (this.#from_database && require_manual_touch !== true) {
                 // touch session unless manual touches are enabled
                 await this.touch();
@@ -380,6 +375,13 @@ class Session {
     }
 
     /**
+     * Returns whether current session was retrieved from a database or is completely fresh and needs to be persisted.
+     */
+    get fresh() {
+        return this.#from_database;
+    }
+
+    /**
      * Returns the current session's duration in milliseconds.
      */
     get duration() {
@@ -391,7 +393,7 @@ class Session {
     /**
      * Returns the expiry timestamp in milliseconds of current session.
      */
-    get expiry_timestamp() {
+    get expires_at() {
         return Date.now() + this.duration;
     }
 }
