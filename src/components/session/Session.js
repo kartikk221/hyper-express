@@ -375,9 +375,10 @@ class Session {
     }
 
     /**
-     * Returns whether current session was retrieved from a database or is completely fresh and needs to be persisted.
+     * Returns whether session has already been stored in database or not.
+     * This is helpful for choosing between INSERT/UPDATE operations for SQL based implementations.
      */
-    get fresh() {
+    get stored() {
         return this.#from_database;
     }
 
