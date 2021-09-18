@@ -438,32 +438,32 @@ Below is a breakdown of the `SessionEngine` object class generated while creatin
 #### SessionEngine Methods
 * `cleanup()`: Triggers `cleanup` event to delete expired sessions from storage.
 * `handle(String: type, Function: handler)`: Binds event handler for specified event type.
-    * **Note** you must use your own storage implementation in combination with events below.
-    * Event `'id'`: Must return a promise that generates and resolves a cryptographically random id.
-        * `handler`: `() => {}`.
+    * **Note** you must use your own storage implementation in combination with available events below.
+    * Event `id`: Must return a promise that generates and resolves a cryptographically random id.
+        * **Parameters**: `() => {}`.
         * **Returns:** `Promise` -> `String`.
         * **Required** before using session engine.
-    * Event `'read'`: Reads and returns session data as an `Object` from storage.
-        * `handler`: `(String: session_id) => {}`.
-        * **Returns:** `Promise` -> `Object`.
+    * Event `read`: Must read and return session data as an `Object` from your storage.
+        * **Parameters**: `(String: session_id) => {}`.
+        * **Returns** `Promise` -> `Object` OR `Promise` -> `undefined`.
         * **Required** before using session engine.
-    * Event `'touch'`: Updates session expiry timestamp in storage.
-        * `handler`: `(String: session_id, Number: expiry_ts) => {}`.
-        * `expiry_ts` must be a timestamp in **milliseconds**.
+    * Event `touch`: Must update session expiry timestamp in your storage.
+        * **Parameters**: `(String: session_id, Number: expiry_ts) => {}`.
+          * `expiry_ts` must be a timestamp in **milliseconds**.
         * **Returns:** `Promise` -> `Any`[`Optional`].
         * **Required** before using session engine.
-    * Event `'write'`: Writes session data with expiry timestamp to storage.
-        * `handler`: `(String: session_id, Object: data, Number: expiry_ts, Boolean: from_database) => {}`.
-        * `expiry_ts` is a timestamp in **milliseconds**
-        * `from_database` specifies whether the session is brand new or retrieved from database.
+    * Event `write`: Must write session data with the updated expiry timestamp to your storage.
+        * **Parameters**: `(String: session_id, Object: data, Number: expiry_ts, Boolean: from_database) => {}`.
+          * `expiry_ts` is a timestamp in **milliseconds**
+          * `from_database` specifies whether was retrieved from your database. Use this to determine whether this operation should be an `INSERT` or `UPDATE` operation in your storage.
         * **Returns:** `Promise` -> `Any`[`Optional`].
         * **Required** before using session engine.
-    * Event `'destroy'`: Destroys session from storage.
-        * `handler`: `(String: session_id) => {}`.
+    * Event `destroy`: Must destroy session from your storage.
+        * **Parameters**: `(String: session_id) => {}`.
         * **Returns:** `Promise` -> `Any`[`Optional`].
         * **Required** before using session engine.
-    * Event `'cleanup'`: Cleans up storage source and deletes expired sessions.
-        * `handler`: `() => {}`.
+    * Event `cleanup`: Must clean up expired sessions from your storage.
+        * **Parameters**: `() => {}`.
         * **Returns:** `Promise` -> `Any`[`Optional`].
         * **Optional** but recommended to centralize session logic.
 
