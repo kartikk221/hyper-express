@@ -13,17 +13,9 @@ class SessionEngine {
         secret: null,
     };
 
-    constructor({
-        signature_secret,
-        cookie_options,
-        default_duration,
-        require_manual_touch,
-    }) {
+    constructor({ signature_secret, cookie_options, default_duration, require_manual_touch }) {
         // Ensure a valid and strong signature secret is provided for best practice
-        if (
-            typeof signature_secret !== 'string' ||
-            signature_secret.length < 10
-        ) {
+        if (typeof signature_secret !== 'string' || signature_secret.length < 10) {
             throw new Error(
                 'HyperExpress: signature_secret must be a string that is atleast 10 characters in length.'
             );
@@ -36,12 +28,10 @@ class SessionEngine {
             operators.fill_object(this.#cookie_options, cookie_options);
 
         // Ensure a valid number is provided for the default_duration
-        if (typeof default_duration == 'number')
-            this.#default_duration = default_duration;
+        if (typeof default_duration == 'number') this.#default_duration = default_duration;
 
         // Ensure a valid boolean value is provided for manual_touch requirement
-        if (typeof require_manual_touch == 'boolean')
-            this.#manual_touch = require_manual_touch;
+        if (typeof require_manual_touch == 'boolean') this.#manual_touch = require_manual_touch;
     }
 
     #methods = {
@@ -60,7 +50,7 @@ class SessionEngine {
      */
     _not_setup_method(action) {
         throw new Error(
-            `HyperExpress: SessionEngine '${action}' is not being handled. Please use instance.handle('${action}', some_handler) to handle this session engine operation.`
+            `HyperExpress: SessionEngine '${action}' is not being handled. Please use instance.on('${action}', some_handler) to handle this session engine operation.`
         );
     }
 
@@ -69,16 +59,14 @@ class SessionEngine {
      *
      * @param {String} type [id, touch, read, write, destroy, cleanup]
      * @param {Function} handler
-     * @returns
+     * @returns {SessionEngine}
      */
-    handle(type, handler) {
+    on(type, handler) {
         if (typeof handler !== 'function')
             throw new Error('HyperExpress: handler must be a function');
 
         if (this.#methods[type] == undefined)
-            throw new Error(
-                `HyperExpress: ${type} is not a valid session engine event.`
-            );
+            throw new Error(`HyperExpress: ${type} is not a valid session engine event.`);
 
         this.#methods[type] = handler;
         return this;
