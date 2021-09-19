@@ -176,8 +176,11 @@ class Session {
         let session_id = this.id;
         if (typeof session_id !== 'string') return;
 
-        // Destroy session by calling session engine destroy handler
-        await this.#session_engine._methods.destroy(this);
+        // Make sure session has been started before we attempt to destroy it
+        if (!this.#ready) await this.start();
+
+        // Destroy session by calling session engine destroy handler if from database
+        if (this.#from_database) await this.#session_engine._methods.destroy(this);
         this.#session_data = {};
         this.#destroyed = true; // Mark session as destroyed to unset session cookie during request end
     }
