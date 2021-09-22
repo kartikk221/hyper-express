@@ -193,11 +193,12 @@ class Session {
      * @returns {Session} Session (Chainable)
      */
     set(name, value) {
-        // Check to ensure the key/value pair is changed and requires a persist request
-        if (this.#session_data[name] !== value) {
-            this.#session_data[name] = value;
-            this.#persist = true;
-        }
+        // Save on write call for when non object values are being set
+        if (value && typeof value !== 'object' && this.#session_data[name] === value) return this;
+
+        // Update value in store and mark session to persist
+        this.#session_data[name] = value;
+        this.#persist = true;
         return this;
     }
 
