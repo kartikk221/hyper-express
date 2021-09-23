@@ -26,6 +26,7 @@ class Response {
     }
 
     /**
+     * @private
      * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method binds an abort handler which will update completed field to lock appropriate operations in Response
      */
@@ -161,6 +162,7 @@ class Response {
     }
 
     /**
+     * @private
      * Executes all registered hooks (callbacks) for specified type.
      *
      * @param {String} type
@@ -223,6 +225,7 @@ class Response {
     }
 
     /**
+     * @private
      * Returns current global byte write offset for the response.
      *
      * @returns {Number}
@@ -324,6 +327,7 @@ class Response {
     }
 
     /**
+     * @private
      * Sends file content with appropriate content-type header based on file extension from LiveFile.
      *
      * @param {LiveFile} live_file

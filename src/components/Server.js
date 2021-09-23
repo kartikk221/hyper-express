@@ -444,45 +444,109 @@ class Server {
 
     /* Server Route Alias Methods */
 
+    /**
+     * @typedef {Object} RouteOptions
+     * @property {Array} middlewares Route specific middlewares
+     */
+
+    /**
+     * @typedef RouteHandler
+     * @type {function(Request, Response):void}
+     */
+
+    /**
+     * @param {String} pattern
+     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteHandler} handler
+     */
     any(pattern, options, handler) {
         return this._create_route('any', pattern, options, handler);
     }
 
+    /**
+     * @param {String} pattern
+     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteHandler} handler
+     */
     get(pattern, options, handler) {
         return this._create_route('get', pattern, options, handler);
     }
 
+    /**
+     * @param {String} pattern
+     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteHandler} handler
+     */
     post(pattern, options, handler) {
         return this._create_route('post', pattern, options, handler);
     }
 
+    /**
+     * @param {String} pattern
+     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteHandler} handler
+     */
     delete(pattern, options, handler) {
         return this._create_route('del', pattern, options, handler);
     }
 
+    /**
+     * @param {String} pattern
+     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteHandler} handler
+     */
     head(pattern, options, handler) {
         return this._create_route('head', pattern, options, handler);
     }
 
+    /**
+     * @param {String} pattern
+     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteHandler} handler
+     */
     options(pattern, options, handler) {
         return this._create_route('options', pattern, options, handler);
     }
 
+    /**
+     * @param {String} pattern
+     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteHandler} handler
+     */
     patch(pattern, options, handler) {
         return this._create_route('patch', pattern, options, handler);
     }
 
+    /**
+     * @param {String} pattern
+     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteHandler} handler
+     */
     trace(pattern, options, handler) {
         return this._create_route('trace', pattern, options, handler);
     }
 
+    /**
+     * @param {String} pattern
+     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteHandler} handler
+     */
     connect(pattern, options, handler) {
         return this._create_route('connect', pattern, options, handler);
     }
 
+    /**
+     * @param {String} pattern
+     * @param {Object} options Websocket route options.
+     * @param {Object} options.compression Specifies permessage-deflate compression to use. Use one of require('hyper-express').compressors presets. Default: compressors.DISABLED
+     * @param {Number} options.idleTimeout Specifies interval to automatically timeout/close idle websocket connection in seconds. Default: 32
+     * @param {Number} options.maxBackPressure Specifies maximum websocket backpressure allowed in character length. Default: (1024 * 1024)
+     * @param {Number} options.maxPayloadLength Specifies maximum length allowed on incoming messages. Default: 32768 (1024 * 32)
+     * @returns {WebsocketRoute} Websocket route object.
+     */
     ws(pattern, options = {}) {
         // Do not allow duplicate routes for performance/stability reasons
-        let method = 'ws';
+        const method = 'ws';
         if (this.#routes[method]?.[pattern])
             throw new Error(
                 `HyperExpress: Failed to create ${method} @ ${pattern} as duplicate routes are not allowed.`

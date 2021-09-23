@@ -43,6 +43,7 @@ class Request {
     }
 
     /**
+     * @private
      * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method parses initial data from uWS.Request and uWS.Response to prevent forbidden
      * stack memory access errors for asynchronous usage
@@ -63,6 +64,7 @@ class Request {
     }
 
     /**
+     * @private
      * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method parses request headers utilizing uWS.Request.forEach((key, value) => {})
      */
@@ -71,6 +73,7 @@ class Request {
     }
 
     /**
+     * @private
      * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method parses path parameters from incoming request using a parameter key
      *
@@ -88,6 +91,7 @@ class Request {
     }
 
     /**
+     * @private
      * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method is used to initiate a Session object on an incoming request.
      *
@@ -125,6 +129,7 @@ class Request {
     /**
      * Initiates body buffer download process.
      *
+     * @private
      * @param {Number} content_length
      * @returns {Promise}
      */
@@ -200,6 +205,7 @@ class Request {
     }
 
     /**
+     * @private
      * Aborts pending body buffer downloads if request is prematurely aborted.
      */
     _abort_buffer() {
@@ -258,6 +264,7 @@ class Request {
     }
 
     /**
+     * @private
      * Parses JSON from provided string. Resolves default_value or throws exception on failure.
      *
      * @param {String} string
