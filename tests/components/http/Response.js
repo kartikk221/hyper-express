@@ -7,8 +7,13 @@ const endpoint = '/tests/response/operators';
 const endpoint_url = server.base + endpoint;
 
 // Create Backend HTTP Route
+const hook_invocations = [];
 webserver.post(endpoint, async (request, response) => {
     let body = await request.json();
+
+    // Test hooks
+    response.hook('abort', () => hook_invocations.push('abort'));
+    response.hook('complete', () => hook_invocations.push('complete'));
 
     // Perform Requested Operations For Testing
     if (Array.isArray(body))
@@ -109,6 +114,13 @@ async function test_response_object() {
 
     // Test Response.LiveFile object
     await test_livefile_object();
+
+    // Verify .hook()
+    assert_log(
+        group,
+        candidate + '.hook()',
+        () => hook_invocations.length == 1 && hook_invocations[0] === 'complete'
+    );
 
     log(group, `Finished Testing ${candidate} In ${Date.now() - start_time}ms\n`);
 }
