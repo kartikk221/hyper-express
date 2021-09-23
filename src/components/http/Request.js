@@ -11,6 +11,7 @@ class Request {
     #master_context;
     #raw_request = null;
     #raw_response = null;
+    #session;
     #method;
     #url;
     #path;
@@ -26,7 +27,6 @@ class Request {
     #headers = {};
     #path_parameters = {};
     #query_parameters;
-    #session;
 
     constructor(raw_request, raw_response, path_parameters_key, master_context) {
         // Pre-parse core data attached to volatile uWebsockets request/response objects
@@ -98,6 +98,17 @@ class Request {
     }
 
     /* Request Methods/Operators */
+
+    /**
+     * Securely signs a value with provided secret and returns the signed value.
+     *
+     * @param {String} string
+     * @param {String} secret
+     * @returns {String} String OR undefined
+     */
+    sign(string, secret) {
+        return signature.sign(string, secret);
+    }
 
     /**
      * Securely unsigns a value with provided secret and returns its original value upon successful verification.
