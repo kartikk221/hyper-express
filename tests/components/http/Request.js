@@ -7,6 +7,8 @@ const crypto = require('crypto');
 const endpoint = '/tests/request/:param1/:param2';
 const route_specific_endpoint = '/tests/request-route/';
 const middleware_delay = 100 + Math.floor(Math.random() * 150);
+const signature_value = random_string(10);
+const signature_secret = random_string(10);
 const middleware_property = random_string(10);
 const base = server.base;
 
@@ -83,6 +85,9 @@ webserver.any(endpoint, async (request, response) => {
         ip: request.ip,
         proxy_ip: request.proxy_ip,
         cookies: request.cookies,
+        signature_check:
+            request.unsign(request.sign(signature_value, signature_secret), signature_secret) ===
+            signature_value,
         body: {
             text: text,
             json: json,
@@ -241,6 +246,13 @@ async function test_request_object() {
         group,
         candidate + '.cookies',
         () => body.cookies[header_test_cookie.name] === header_test_cookie.value
+    );
+
+    // Verify .sign() and .unsign()
+    assert_log(
+        group,
+        `${candidate}.sign() and ${candidate}.unsign()`,
+        () => body.signature_check === true
     );
 
     // Verify .text()
