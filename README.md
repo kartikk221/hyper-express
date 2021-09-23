@@ -394,6 +394,8 @@ Below is a breakdown of the `request` object made available through the route ha
 | `proxy_ip` | `String`  | Remote proxy connection IP. |
 
 #### Request Methods
+* `sign(String: string, String: secret)`: Signs provided string with provided secret.
+    * **Returns** a `String`.
 * `unsign(String: signed_value, String: secret)`: Attempts to unsign provided value with provided secret.
     * **Returns** `String` or `undefined` if signed value is invalid.
 * `buffer()`: Parses body as a Buffer from incoming request.
