@@ -15,6 +15,7 @@ class Response {
     #headers;
     #completed = false;
     #type_written = false;
+    #hooks;
 
     constructor(wrapped_request, raw_response, socket, master_context) {
         this.#wrapped_request = wrapped_request;
@@ -33,6 +34,7 @@ class Response {
         this.#raw_response.onAborted(() => {
             reference.#completed = true;
             reference.#wrapped_request._abort_buffer();
+            reference._call_hooks('abort');
         });
     }
 
@@ -159,6 +161,35 @@ class Response {
     }
 
     /**
+     * Executes all registered hooks (callbacks) for specified type.
+     *
+     * @param {String} type
+     */
+    _call_hooks(type) {
+        if (this.#hooks && this.#hooks[type]) this.#hooks[type].forEach((hook) => hook());
+    }
+
+    /**
+     * Binds a hook (callback) that gets executed based on specified type.
+     * See documentation for supported hook types.
+     *
+     * @param {String} type
+     * @param {Function} callback
+     * @returns {Response} Chainable
+     */
+    hook(type, callback) {
+        // Initialize hooks if they haven't been yet
+        if (this.#hooks == undefined) this.#hooks = {};
+
+        // Initialize hooks array on first invocation
+        if (this.#hooks[type] == undefined) this.#hooks[type] = [];
+
+        // Store hook into individual location
+        this.#hooks[type].push(callback);
+        return this;
+    }
+
+    /**
      * This method is used to upgrade an incoming upgrade HTTP request to a Websocket connection.
      *
      * @param {Object} user_data Store any information about the websocket connection
@@ -192,10 +223,19 @@ class Response {
     }
 
     /**
+     * Returns current global byte write offset for the response.
+     *
+     * @returns {Number}
+     */
+    _write_offset() {
+        return this.#raw_response.getWriteOffset();
+    }
+
+    /**
      * This method can be used to write the body in chunks/parts and .send()
      * must be called to end the request.
      *
-     * @param {String} body
+     * @param {String|Buffer|ArrayBuffer} body
      * @returns {Response} Response (Chainable)
      */
     write(body) {
@@ -206,7 +246,7 @@ class Response {
     /**
      * This method is used to end the current request and send response with specified body and headers.
      *
-     * @param {String} body Optional
+     * @param {String|Buffer|ArrayBuffer} body Optional
      * @returns {Boolean} Boolean (true || false)
      */
     send(body, close_connection = false) {
@@ -224,9 +264,15 @@ class Response {
                 for (let i = 0; i < this.#headers.keys.length; i++)
                     this.#raw_response.writeHeader(this.#headers.keys[i], this.#headers.values[i]);
 
+            // Abort body download buffer just to be safe for large incoming requests
+            this.#wrapped_request._abort_buffer();
+
             // Mark request as completed and end request using uWS.Response.end()
             this.#completed = true;
             this.#raw_response.end(body, close_connection);
+
+            // Call any bound hooks for type 'complete'
+            this._call_hooks('complete');
             return true;
         }
 
@@ -288,9 +334,10 @@ class Response {
     }
 
     /**
-     * This method can be used to send files.
-     * This method automatically writes the appropriate content-type header.
-     * This method also maintains its own cache pool allowing for fast performance.
+     * This method is an alias of send() method except it sends the file at specified path.
+     * This method automatically writes the appropriate content-type header if one has not been specified yet.
+     * This method also maintains its own cache pool in memory allowing for fast performance.
+     * Avoid using this method to a send a large file as it will be kept in memory.
      *
      * @param {String} path
      */
@@ -329,9 +376,16 @@ class Response {
     }
 
     /**
-     * Returns current state of current state in regards to whether the source is still connected.
+     * Returns current state of request in regards to whether the source is still connected.
      */
     get aborted() {
+        return this.#completed;
+    }
+
+    /**
+     * Alias of aborted property as they both represent the same request state in terms of inaccessibility.
+     */
+    get completed() {
         return this.#completed;
     }
 }
