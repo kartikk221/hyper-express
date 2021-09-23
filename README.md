@@ -419,6 +419,11 @@ Below is a breakdown of the `response` object made available through the route h
 #### Response Methods
 * `atomic(Function: callback)`: Alias of uWebsockets's `cork(callback)` method.
     * **Usage:** Wrapping multiple response method calls inside this method can improve performance.
+* `hook(String: type, Function: handler)`: Registers a hook handler for the specified event type.
+  * **Note!** hooks will be called in the order they were registered on the response object. 
+  * **Supported Hook Types:**
+    * [`abort`]: These hooks will get called when the response is aborted.
+    * [`complete`]: These hooks will get called after response has been sent and the request is complete.
 * `status(Number: code)`: Sets HTTP status response code for current request.
 * `type(String: mime_type)`: Writes correct protocol `content-type` header for specified mime type.
     * **Example:** `response.type('json')` writes `application/json`
@@ -440,15 +445,15 @@ Below is a breakdown of the `response` object made available through the route h
 * `upgrade(Object: data)`: Upgrades incoming request to a websocket connection.
     * `data` is optional and can be used to store data attributes on the websocket connection object.
     * **Note** this method can only be used inside the `upgrade` handler of a WebsocketRoute.
-* `write(String: body)`: Writes specified string content to the body.
-    * **Note** the `send()` must still be called to send the response.
-* `send(String: body)`: Writes specified string body and sends response.
+* `redirect(String: url)`: Writes 302 header to redirect incoming request to specified url.
+* `write(String|Buffer|ArrayBuffer: chunk)`: Writes specified chunk as response. Use this method with streams to send response body in chunks.
+    * **Note** the `send()` must still be called to end the request.
+* `send(String|Buffer|ArrayBuffer: body)`: Writes specified body and sends response.
 * `json(Object: body)`: Alias of `send()`. Sets mime type to `json` and sends response.
 * `html(String: body)`: Alias of `send()`. Sets mime type to `html` and sends response.
-* `file(String: path)`: Sends file from specified `path` as response body and sends response.
+* `file(String: path)`: Alias of `send()`. Sets appropriate mime type if one has not been set yet and sends file content at specified path as response body.
   * **Note!** An appropriate `content-type` will automatically be written if no `content-type` header is written by user prior to this method.
   * **Note!** This method should be avoided for large files as served files are cached in memory and watched for changes to allow for high performance with near instant content reloading.
-* `redirect(String: url)`: Writes 302 header to redirect incoming request to specified url.
 * `throw_error(Error: error)`: Calls global catch-all error handler with specified error.
 
 ## SessionEngine
@@ -470,31 +475,32 @@ Below is a breakdown of the `SessionEngine` object class generated while creatin
 #### SessionEngine Methods
 * `on(String: type, Function: handler)`: Binds an event handler for specified event `type`.
     * **Note** you must use your own storage implementation in combination with available events below.
-    * [`read`]: Must read and return session data as an `Object` from your storage.
-        * **Parameters**: `(Session: session) => {}`.
-        * **Expects** A `Promise` which then resolves to an `Object` or `undefined` type.
-        * **Required**
-    * [`touch`]: Must update session expiry timestamp in your storage.
-        * **Parameters**: `(Session: session) => {}`.
-        * **Expects** A `Promise` which is then resolved to `Any` type.
-        * **Required**
-    * [`write`]: Must write session data and update expiry timestamp to your storage.
-        * **Parameters**: `(Session: session) => {}`.
-          * You can use `session.stored` to determine if you need to `INSERT` or `UPDATE` for SQL based implementations.
-        * **Expects** A `Promise` which then resolves to `Any` type.
-        * **Required**
-    * [`destroy`]: Must destroy session from your storage.
-        * **Parameters**: `(Session: session) => {}`.
-        * **Expects** A `Promise` which then resolves to `Any` type.
-        * **Required**
-    * [`id`]: Must return a promise that generates and resolves a cryptographically random id.
-        * **Parameters**: `() => {}`.
-        * **Expects** A `Promise` which then resolves to `String` type.
-        * **Optional**
-    * [`cleanup`]: Must clean up expired sessions from your storage.
-        * **Parameters**: `() => {}`.
-        * **Expects** A `Promise` which then resolves to `Any` type.
-        * **Optional**
+    * **Supported Event Types:**
+        * [`read`]: Must read and return session data as an `Object` from your storage.
+            * **Parameters**: `(Session: session) => {}`.
+            * **Expects** A `Promise` which then resolves to an `Object` or `undefined` type.
+            * **Required**
+        * [`touch`]: Must update session expiry timestamp in your storage.
+            * **Parameters**: `(Session: session) => {}`.
+            * **Expects** A `Promise` which is then resolved to `Any` type.
+            * **Required**
+        * [`write`]: Must write session data and update expiry timestamp to your storage.
+            * **Parameters**: `(Session: session) => {}`.
+              * You can use `session.stored` to determine if you need to `INSERT` or `UPDATE` for SQL based implementations.
+            * **Expects** A `Promise` which then resolves to `Any` type.
+            * **Required**
+        * [`destroy`]: Must destroy session from your storage.
+            * **Parameters**: `(Session: session) => {}`.
+            * **Expects** A `Promise` which then resolves to `Any` type.
+            * **Required**
+        * [`id`]: Must return a promise that generates and resolves a cryptographically random id.
+            * **Parameters**: `() => {}`.
+            * **Expects** A `Promise` which then resolves to `String` type.
+            * **Optional**
+        * [`cleanup`]: Must clean up expired sessions from your storage.
+            * **Parameters**: `() => {}`.
+            * **Expects** A `Promise` which then resolves to `Any` type.
+            * **Optional**
 * `cleanup()`: Triggers `cleanup` event to delete expired sessions from storage.
 
 ## Session
