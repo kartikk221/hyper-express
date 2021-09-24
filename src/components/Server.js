@@ -98,8 +98,8 @@ class Server {
     /**
      * Closes/Halts current HyperExpress Server instance based on provided listen_socket
      *
-     * @param {socket} listen_socket
-     * @returns {Boolean} true || false
+     * @param {socket} listen_socket OPTIONAL
+     * @returns {Boolean}
      */
     close(listen_socket) {
         let socket = listen_socket || this.#listen_socket;
@@ -111,10 +111,15 @@ class Server {
     }
 
     /**
+     * @typedef RouteErrorHandler
+     * @type {function(Request, Response, Error):void}
+     */
+
+    /**
      * Sets a global error handler which will catch most uncaught errors
      * across all routes created on this server instance.
      *
-     * @param {Function} handler
+     * @param {RouteErrorHandler} handler
      */
     set_error_handler(handler) {
         if (typeof handler !== 'function')
@@ -127,7 +132,7 @@ class Server {
      * all incoming requests that are not handled by any existing routes.
      * Note! You must call this method last as it is a catchall route.
      *
-     * @param {Function} handler
+     * @param {RouteHandler} handler
      */
     set_not_found_handler(handler) {
         if (typeof handler !== 'function')
@@ -152,9 +157,14 @@ class Server {
     }
 
     /**
+     * @typedef MiddlewareHandler
+     * @type {function(Request, Response, Function):void}
+     */
+
+    /**
      * Adds a global middleware for all incoming requests.
      *
-     * @param {Function} handler (request, response, next) => {}
+     * @param {MiddlewareHandler} handler (request, response, next) => {}
      */
     use(handler) {
         if (typeof handler !== 'function')
@@ -167,6 +177,7 @@ class Server {
     /**
      * Registers a middleware onto internal middlewares tree.
      *
+     * @private
      * @param {String} route Route pattern for middleware
      * @param {String} method Route method (Uppercase) for middleware
      * @param {Array|Function} methods Singular function or an array of functions to store as middlewares
@@ -216,6 +227,7 @@ class Server {
     }
 
     /**
+     * @private
      * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method binds a cleanup handler which closes the underlying uWS socket.
      */
@@ -230,6 +242,7 @@ class Server {
      * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method chains a request/response through all middlewares.
      *
+     * @private
      * @param {String} route_pattern
      * @param {Request} request - Request Object
      * @param {Response} response - Response Object
@@ -310,6 +323,7 @@ class Server {
      * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method is used to create and bind a uWebsockets route with a middleman wrapper
      *
+     * @private
      * @param {String} method Supported: any, get, post, delete, head, options, patch, put, trace
      * @param {String} pattern Example: "/api/v1"
      * @param {Object} options Route processor options (Optional)
@@ -363,6 +377,7 @@ class Server {
      * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method is used to determine if request body should be pre-parsed in anticipation for future call.
      *
+     * @private
      * @param {Request} wrapped_request
      * @returns {Boolean} Boolean
      */
@@ -377,6 +392,7 @@ class Server {
      * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method is used as a middleman wrapper for request/response objects to bind HyperExpress abstractions.
      *
+     * @private
      * @param {String} route_pattern
      * @param {Request} request
      * @param {Response} response
@@ -446,7 +462,7 @@ class Server {
 
     /**
      * @typedef {Object} RouteOptions
-     * @property {Array} middlewares Route specific middlewares
+     * @property {Array.<MiddlewareHandler>} middlewares Route specific middlewares
      */
 
     /**

@@ -50,6 +50,7 @@ class LiveFile {
      * This method performs a check against last_update timestamp
      * to ensure sufficient time has passed since last watcher update.
      *
+     * @private
      * @param {Boolean} touch
      * @returns {Boolean} Boolean
      */
@@ -61,6 +62,7 @@ class LiveFile {
     }
 
     /**
+     * @private
      * INTERNAL METHOD!
      * This method initiates the FileWatcher used for current live file.
      */
@@ -77,6 +79,7 @@ class LiveFile {
     }
 
     /**
+     * @private
      * INTERNAL METHOD!
      * This method reads/updates content for current live file.
      */
