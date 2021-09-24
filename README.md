@@ -83,20 +83,20 @@ autocannon -c 2500 -d 30 -p 4 http://HOST:PORT/benchmark
 
 ### Environment Specifications
 * __Machine:__ Ubuntu 20.04 | 1 vCPU | 1GB Mem | 32GB Nvme | Vultr @ $6/Month
-* __Node:__ `v15.14.0`
+* __Node:__ `v16.0.0`
 * __Method:__ Two rounds; one to warm-up, one to measure
 * __Response Body:__ Small HTML page with a dynamic timestamp generated with `Date`. See more in [HTML Test](./benchmarks/tests/simple_html.js).
 * __Linux Optimizations:__ None.
 
 ### Benchmark Results
-**Note!** uWebsockets.js and HyperExpress were bottlenecked by the network upload speed of the Vultr instance. While, Fastify and Express were bottlenecked by high CPU usage resulting in a much lower throughput with relatively higher latency numbers. For average use cases, all webservers below can serve requests at lower than **50ms** latency.
+**Note!** uWebsockets.js and HyperExpress were bottlenecked by the network speed of the Vultr instance. While, Fastify and Express were bottlenecked by high CPU usage resulting in a much lower throughput with relatively higher latency numbers. For average use cases, all webservers below can serve requests at lower than **50ms** latency.
 
 |                          | Version | Requests/s | Latency | Throughput/s |
 | :--                      | --:     | :-:        | --:     | --:          |
-| uWebsockets.js           | 19.3.0  | 196,544    | 428 ms   | 106 Mb/s    |
-| HyperExpress             | 2.0.12  | 195,889    | 424 ms   | 106 Mb/s    |
-| Fastify                  | 3.15.1  | 13,472     | 650 ms   | 8 Mb/s      |
-| Express                  | 4.17.1  | 5,284      | 1603 ms   | 3.5 Mb/s      |
+| uWebsockets.js           | 19.4.0  | 197,865    | 398 ms   | 107 Mb/s    |
+| HyperExpress             | 3.1.0  | 196,223    | 403 ms   | 106 Mb/s     |
+| Fastify                  | 3.21.6  | 15,688     | 673 ms   | 9 Mb/s      |
+| Express                  | 4.17.1  | 5,621      | 1685 ms   | 3.8 Mb/s   |
 
 ## Examples
 Below are various examples that make use of most classes and methods in HyperExpress.
