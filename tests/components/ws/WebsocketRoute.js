@@ -1,8 +1,6 @@
 const root = '../../';
-const { log, assert_log, random_string } = require(root +
-    'scripts/operators.js');
-const { fetch, server, WebSocket, log_ws_events } = require(root +
-    'scripts/configuration.js');
+const { log, assert_log, random_string } = require(root + 'scripts/operators.js');
+const { fetch, server, WebSocket, log_ws_events } = require(root + 'scripts/configuration.js');
 const { webserver } = require(root + 'setup/webserver.js');
 const endpoint = '/tests/websocket/connect';
 const endpoint_url = server.base.replace('http:', 'ws:') + endpoint;
@@ -69,6 +67,7 @@ WebsocketRoute.handle('close', (ws, code, message) => {
     delete connection_pool[ws.id];
 });
 
+// Load scenarios
 const { test_invalid_auth } = require('./scenarios/invalid_auth.js');
 const { test_echo_session } = require('./scenarios/echo_session.js');
 

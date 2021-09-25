@@ -377,6 +377,10 @@ Below is a breakdown of the `Server` object class generated while creating a new
 * `ws(String: pattern, Object: options)`: Creates a websocket route on specified pattern.
     * **Returns** a `WebsocketRoute` instance which can be used to handle upgrade and connection events.
     * `options`:
+        * `messageType`[`String`]: Specifies which in which data type to provide incoming websocket messages.
+            * **Default**: `'String'` 
+            * Must be on of [`'String'`, `'Buffer'`, `'ArrayBuffer'`].
+            * **Note!** `ArrayBuffer` is only accessible for the first synchronous execution.
         * `compression`[`Number`]: Specifies permessage-deflate compression to use.
             * **Default**: `'DISABLED'` 
             * Must pass one of the constants from `require('hyper-express').compressors`.
@@ -590,7 +594,7 @@ The `Websocket` object has no inherent properties and only contains the `data` p
     * Only recommended under extreme circumstances.
 * `end(Number: code, String: message)`: Gracefully closes the connection and writes specified code and message.
     * **Note** this method is recommended for most use-cases.
-* `send(String: message, Boolean: isBinary, Boolean: compress)`: Sends specified message over websocket connection.
+* `send(String|Buffer|ArrayBuffer: message, Boolean: isBinary, Boolean: compress)`: Sends specified message over websocket connection.
     * **Returns** `Boolean`
     * **Note** this method returns `false` when sending fails due to built up backpressure.
 * `cork(Function: callback)`: Similar to `Response.atomic()`. Improves network performance for operations.

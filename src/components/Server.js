@@ -552,8 +552,9 @@ class Server {
     }
 
     /**
-     * @param {String} pattern
+     * @param {String} pattern Route pattern on which websocket connections can connect
      * @param {Object} options Websocket route options.
+     * @param {String} options.messageType Specifies the data type in which incoming messages should be provided. Specify one of ['String', 'Buffer', 'FastBuffer', 'ArrayBuffer'].
      * @param {Object} options.compression Specifies permessage-deflate compression to use. Use one of require('hyper-express').compressors presets. Default: compressors.DISABLED
      * @param {Number} options.idleTimeout Specifies interval to automatically timeout/close idle websocket connection in seconds. Default: 32
      * @param {Number} options.maxBackPressure Specifies maximum websocket backpressure allowed in character length. Default: (1024 * 1024)
@@ -569,7 +570,7 @@ class Server {
             );
 
         // Enforce object type on provided options
-        if (typeof options !== 'object')
+        if (options == null || typeof options !== 'object')
             throw new Error('HyperExpress: .ws(pattern, options) -> options must be an Object');
 
         // Create WebsocketRoute instance for specified pattern/options
