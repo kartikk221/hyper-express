@@ -16,7 +16,7 @@ function ws_log(message) {
 const WebsocketRoute = webserver.ws(endpoint);
 
 // Bind UPGRADE event handler
-WebsocketRoute.handle('upgrade', (request, response) => {
+WebsocketRoute.on('upgrade', (request, response) => {
     let parameters = request.query_parameters;
     ws_log('UPGRADE -> ' + JSON.stringify(parameters));
 
@@ -35,7 +35,7 @@ WebsocketRoute.handle('upgrade', (request, response) => {
 });
 
 // Bind OPEN event handler
-WebsocketRoute.handle('open', (ws) => {
+WebsocketRoute.on('open', (ws) => {
     ws_log('OPEN -> ' + JSON.stringify(ws));
     connection_pool[ws.id] = ws;
     // Echo initial data to user for confirmation
@@ -49,7 +49,7 @@ WebsocketRoute.handle('open', (ws) => {
 });
 
 // Bind MESSAGE event handler
-WebsocketRoute.handle('message', (ws, message) => {
+WebsocketRoute.on('message', (ws, message) => {
     ws_log(
         'MESSAGE -> ' +
             JSON.stringify({
@@ -62,7 +62,7 @@ WebsocketRoute.handle('message', (ws, message) => {
 });
 
 // Bind Close Event Handler
-WebsocketRoute.handle('close', (ws, code, message) => {
+WebsocketRoute.on('close', (ws, code, message) => {
     ws_log('CLOSE -> ' + JSON.stringify(ws));
     delete connection_pool[ws.id];
 });
