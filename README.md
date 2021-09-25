@@ -24,6 +24,19 @@ Some of the prominent features implemented are:
 - Built-in Session Engine
 - Cryptographically Secure Cookie Signing/Authentication
 
+## What's Different?
+While there may be other uWebsockets.js based packages available, HyperExpress differentiates itself in the following ways:
+- Instantaneous Request Handling
+    - HyperExpress implements a request handling model similar to fetch where a request is passed almost instantly to the route handler and the request body can be asynchronously dowloaded/accessed. This behavior allows for aborting of a request and potentially saving on memory usage for endpoints that deal with relatively larger body sizes as the body simply won't be downloaded into memory without access.
+- Simple To Use API
+    - HyperExpress implements simple yet understandable methods/properties for its components to allow for clear and concise code that is at many times chainable and asynchronous.
+- Lightweight Package Size
+    - HyperExpress is extremely lightweight while implementing almost all of the core functionalities of a webserver providing users with flexibility.
+- High Maintainability
+    - Whether you decide to develop on your own fork or expand upon HyperExpress through middlewares, You will be greeted with a concise codebase with descriptive logic comments and JSDoc types that allow for high maintainability.
+- MIT License
+    - Some other webserver packages are released under more restrictive licenses and often provide paid "performance efficient" versions of their package. HyperExpress is provided with a flexible MIT licence in which you are free to expand upon the package as you desire while also being able to take advantage of the efficient and maintainable codebase at no cost.
+
 ## Installation
 HyperExpress can be installed using node package manager (`npm`)
 ```
@@ -34,6 +47,7 @@ npm i hyper-express
 - [HyperExpress: High Performance Node.js Webserver](#hyperexpress-high-performance-nodejs-webserver)
       - [Powered by `uWebSockets.js`](#powered-by-uwebsocketsjs)
   - [Motivation](#motivation)
+  - [What's Different?](#whats-different)
   - [Installation](#installation)
   - [Table Of Contents](#table-of-contents)
   - [Benchmarks](#benchmarks)
