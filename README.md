@@ -277,7 +277,7 @@ const news_ws_route = webserver.ws('/api/v1/ws/connect', {
 });
 
 // Handle connection 'upgrade' event
-news_ws_route.handle('upgrade', async (request, response) => {
+news_ws_route.on('upgrade', async (request, response) => {
     // Some asynchronous database calls/verification can be done here
     
     // Reject upgrade request if verification fails
@@ -290,17 +290,17 @@ news_ws_route.handle('upgrade', async (request, response) => {
 });
 
 // Handle connection 'open' event
-news_ws_route.handle('open', (ws) => {
+news_ws_route.on('open', (ws) => {
    console.log(ws.user_id + ' is now connected using websockets!'); 
 });
 
 // Handle connection 'message' event
-news_ws_route.handle('message', (ws, message, isBinary) => {
+news_ws_route.on('message', (ws, message, isBinary) => {
     console.log(ws.user_id + ' sent message: ' + message); 
 });
 
 // Handle connection 'close' event
-news_ws_route.handle('close', (ws, code, message) => {
+news_ws_route.on('close', (ws, code, message) => {
    console.log(ws.user_id + ' has disconnected!'); 
 });
 ```
@@ -309,7 +309,7 @@ news_ws_route.handle('close', (ws, code, message) => {
 ```js
 // Assume HyperExpress and a WebsocketRoute has already been setup/initiated
 
-news_ws_route.handle('message', (ws, message) => {
+news_ws_route.on('message', (ws, message) => {
     ws.send('Acknowleged: ' + message); // Replies with incoming message
 });
 ```
@@ -568,7 +568,7 @@ Below is a breakdown of the `session` object made available through the `request
 Below is a breakdown of the `WebsocketRoute` object class generated and returned when calling `ws()` route method.
 
 #### WebsocketRoute Methods
-* `handle(String: type, Function: handler)`: Binds event handler for specified event type.
+* `on(String: type, Function: handler)`: Binds event handler for specified event type.
     * Event `'upgrade'`: Handles incoming upgrade requests.
         * `handler`: `(Request: request, Response: response, uws_socket: socket) => {}`.
         * **Upgrade** incoming requests using `Request.upgrade(user_data)` method.
