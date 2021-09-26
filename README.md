@@ -438,10 +438,12 @@ Below is a breakdown of the `response` object made available through the route h
 * `atomic(Function: callback)`: Alias of uWebsockets's `cork(callback)` method.
     * **Usage:** Wrapping multiple response method calls inside this method can improve performance.
 * `hook(String: type, Function: handler)`: Registers a hook handler for the specified event type.
-  * **Note!** hooks will be called in the order they were registered on the response object. 
   * **Supported Hook Types:**
     * [`abort`]: These hooks will get called when the response is aborted.
-    * [`complete`]: These hooks will get called after response has been sent and the request is complete.
+    * [`send`]: These hooks will get called right before response is sent. Use this to set any last minute headers and call any last minute `Response` methods.
+    * [`complete`]: These hooks will get called after response has been sent successfully without backpressure.
+  * **Note!** hooks will be called in the order they were registered on the response object.
+  * **Note!** hook handlers should be **synchronous** functions only.
 * `status(Number: code)`: Sets HTTP status response code for current request.
 * `type(String: mime_type)`: Writes correct protocol `content-type` header for specified mime type.
     * **Example:** `response.type('json')` writes `application/json`

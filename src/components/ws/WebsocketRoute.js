@@ -77,7 +77,7 @@ class WebsocketRoute {
     /**
      * This method is used to handle specific events for a websocket route.
      *
-     * @param {String} event Event Name
+     * @param {('upgrade'|'open'|'message'|'drain'|'close')} event Event Name
      * @param {Function} handler Event Handler Function
      */
     on(event, handler) {
@@ -96,7 +96,7 @@ class WebsocketRoute {
      * Alias of .on() method for backwards compatibility.
      * This will be deprecated in the future and move to .on().
      *
-     * @param {String} event Event Name
+     * @param {('upgrade'|'open'|'message'|'drain'|'close')} event Event Name
      * @param {Function} handler Event Handler Function
      */
     handle(event, handler) {

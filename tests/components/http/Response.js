@@ -6,6 +6,13 @@ const { test_livefile_object } = require(root + 'components/features/LiveFile.js
 const endpoint = '/tests/response/operators';
 const endpoint_url = server.base + endpoint;
 
+function send_hook(request, response) {
+    if (typeof request.url == 'string' && !response.completed) {
+        response.header('hook-called', 'send');
+        hook_invocations.push('send');
+    }
+}
+
 // Create Backend HTTP Route
 const hook_invocations = [];
 webserver.post(endpoint, async (request, response) => {
@@ -13,6 +20,7 @@ webserver.post(endpoint, async (request, response) => {
 
     // Test hooks
     response.hook('abort', () => hook_invocations.push('abort'));
+    response.hook('send', send_hook); // Test for function reference based hooks
     response.hook('complete', () => hook_invocations.push('complete'));
 
     // Perform Requested Operations For Testing
@@ -119,7 +127,11 @@ async function test_response_object() {
     assert_log(
         group,
         candidate + '.hook()',
-        () => hook_invocations.length == 1 && hook_invocations[0] === 'complete'
+        () =>
+            hook_invocations.length == 2 &&
+            hook_invocations[0] === 'send' &&
+            hook_invocations[1] === 'complete' &&
+            response1.headers.get('hook-called') === 'send'
     );
 
     log(group, `Finished Testing ${candidate} In ${Date.now() - start_time}ms\n`);

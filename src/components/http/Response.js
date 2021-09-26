@@ -1,3 +1,4 @@
+const Request = require('./Request.js');
 const status_codes = require('../../constants/status_codes.json');
 const mime_types = require('../../constants/mime_types.json');
 const cookie = require('cookie');
@@ -168,18 +169,24 @@ class Response {
      * @param {String} type
      */
     _call_hooks(type) {
-        if (this.#hooks && this.#hooks[type]) this.#hooks[type].forEach((hook) => hook());
+        if (this.#hooks && this.#hooks[type])
+            this.#hooks[type].forEach((hook) => hook(this.#wrapped_request, this));
     }
 
     /**
-     * Binds a hook (callback) that gets executed based on specified type.
+     * @typedef RouteHandler
+     * @type {function(Request, Response):void}
+     */
+
+    /**
+     * Binds a hook (synchronous callback) that gets executed based on specified type.
      * See documentation for supported hook types.
      *
-     * @param {String} type
-     * @param {Function} callback
+     * @param {('abort', 'send', 'complete')} type
+     * @param {RouteHandler} handler
      * @returns {Response} Chainable
      */
-    hook(type, callback) {
+    hook(type, handler) {
         // Initialize hooks if they haven't been yet
         if (this.#hooks == undefined) this.#hooks = {};
 
@@ -187,7 +194,7 @@ class Response {
         if (this.#hooks[type] == undefined) this.#hooks[type] = [];
 
         // Store hook into individual location
-        this.#hooks[type].push(callback);
+        this.#hooks[type].push(handler);
         return this;
     }
 
@@ -250,10 +257,16 @@ class Response {
      * This method is used to end the current request and send response with specified body and headers.
      *
      * @param {String|Buffer|ArrayBuffer} body Optional
-     * @returns {Boolean} Boolean (true || false)
+     * @returns {Boolean} 'false' signifies that the result was not sent due to built up backpressure.
      */
-    send(body, close_connection = false) {
+    send(body, close_connection) {
         if (!this.#completed) {
+            // Abort body download buffer just to be safe for large incoming requests
+            this.#wrapped_request._abort_buffer();
+
+            // Call any bound hooks for type 'send'
+            this._call_hooks('send');
+
             // Trigger session closure if a session is preset in request object
             let session = this.#wrapped_request.session;
             if (typeof session == 'object' && session.ready)
@@ -267,18 +280,15 @@ class Response {
                 for (let i = 0; i < this.#headers.keys.length; i++)
                     this.#raw_response.writeHeader(this.#headers.keys[i], this.#headers.values[i]);
 
-            // Abort body download buffer just to be safe for large incoming requests
-            this.#wrapped_request._abort_buffer();
-
             // Mark request as completed and end request using uWS.Response.end()
             this.#completed = true;
-            this.#raw_response.end(body, close_connection);
+            let result = this.#raw_response.end(body, close_connection);
 
-            // Call any bound hooks for type 'complete'
-            this._call_hooks('complete');
-            return true;
+            // Call any bound hooks for type 'complete' if no backpressure was built up
+            if (result) this._call_hooks('complete');
+
+            return result;
         }
-
         return false;
     }
 
