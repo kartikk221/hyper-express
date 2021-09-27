@@ -1,4 +1,3 @@
-const Request = require('./Request.js');
 const status_codes = require('../../constants/status_codes.json');
 const mime_types = require('../../constants/mime_types.json');
 const cookie = require('cookie');
@@ -174,16 +173,11 @@ class Response {
     }
 
     /**
-     * @typedef RouteHandler
-     * @type {function(Request, Response):void}
-     */
-
-    /**
      * Binds a hook (synchronous callback) that gets executed based on specified type.
      * See documentation for supported hook types.
      *
-     * @param {('abort', 'send', 'complete')} type
-     * @param {RouteHandler} handler
+     * @param {String} type
+     * @param {function(Request, Response):void} handler
      * @returns {Response} Chainable
      */
     hook(type, handler) {
