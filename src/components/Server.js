@@ -11,6 +11,7 @@ class Server {
     #unsafe_buffers = false;
     #fast_abort = false;
     #max_body_length = 250 * 1000;
+    #is_ssl = false;
     #handlers = {
         on_not_found: null,
         on_error: (req, res, error) => {
@@ -56,7 +57,8 @@ class Server {
 
         // Create underlying uWebsockets App or SSLApp to power HyperExpress
         const { cert_file_name, key_file_name } = options;
-        if (cert_file_name && key_file_name) {
+        this.#is_ssl = cert_file_name && key_file_name;
+        if (this.#is_ssl) {
             this.#uws_instance = uWebSockets.SSLApp(options);
         } else {
             this.#uws_instance = uWebSockets.App(options);
@@ -643,6 +645,13 @@ class Server {
      */
     get fast_abort() {
         return this.#fast_abort;
+    }
+
+    /**
+     * Returns whether HyperExpress is running on SSL scheme or not.
+     */
+    get is_ssl() {
+        return this.#is_ssl;
     }
 }
 
