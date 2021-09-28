@@ -7,9 +7,6 @@ const operators = require('../../shared/operators.js');
 // We'll re-use this buffer throughout requests with empty bodies
 const EMPTY_BUFFER = Buffer.from('');
 
-/**
- * @module HyperExpressRequest
- */
 class Request {
     #master_context;
     #raw_request = null;

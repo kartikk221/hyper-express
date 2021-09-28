@@ -1,7 +1,10 @@
 const uWebsockets = require('uWebSockets.js');
+const Route = require('../http/Route.js');
 const operators = require('../../shared/operators.js');
 
 class WebsocketRoute {
+    #route;
+
     // Default options
     #options = {
         idleTimeout: 32,
@@ -32,18 +35,12 @@ class WebsocketRoute {
             this.#methods.message(ws, parser(message), isBinary);
         options.close = (ws, code, message) => this.#methods.close(ws, code, parser(message));
 
+        // Create a Route object to pass along with uws request handler
+        this.#route = new Route(context, 'ws', pattern, this.#methods.upgrade, []);
+
         // Bind passthrough upgrade handler that utilizes same wrapping as normal routes
-        let url_parameters_key = operators.parse_path_params(pattern);
         options.upgrade = (response, request, socket_context) =>
-            context._handle_wrapped_request(
-                pattern,
-                request,
-                response,
-                socket_context,
-                this.#methods.upgrade,
-                url_parameters_key,
-                context
-            );
+            context._handle_uws_request(this.#route, request, response, socket_context);
 
         // Bind a route to the underlying uWS instance
         context.uws_instance.ws(pattern, options);
@@ -89,7 +86,11 @@ class WebsocketRoute {
         if (typeof handler !== 'function')
             throw new Error('HyperExpress: .handle(event, handler) -> handler must be a Function');
 
+        // Store handler into methods object
         this.#methods[event] = handler;
+
+        // Set handler for route object if upgrade handler is changed
+        if (event == 'upgrade') this.#route.set_handler(handler);
     }
 
     /**

@@ -2,6 +2,7 @@ const uWebSockets = require('uWebSockets.js');
 const operators = require('../shared/operators.js');
 const Request = require('./http/Request.js');
 const Response = require('./http/Response.js');
+const Route = require('./http/Route.js');
 const WebsocketRoute = require('./ws/WebsocketRoute.js');
 
 class Server {
@@ -20,11 +21,7 @@ class Server {
         },
     };
 
-    #middlewares = {
-        global: {
-            ANY: [],
-        },
-    };
+    #middlewares = [];
 
     #defaults = {
         cert_file_name: '',
@@ -164,73 +161,25 @@ class Server {
      */
 
     /**
+     * @typedef PromiseMiddlewareHandler
+     * @type {function(Request, Response):Promise}
+     */
+
+    /**
      * Adds a global middleware for all incoming requests.
      *
-     * @param {MiddlewareHandler} handler (request, response, next) => {}
+     * @param {MiddlewareHandler|PromiseMiddlewareHandler} handler (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
      */
     use(handler) {
         if (typeof handler !== 'function')
             throw new Error('HyperExpress: handler must be a function');
 
         // Register a global middleware
-        this._register_middleware('global', 'ANY', handler, true);
-    }
-
-    /**
-     * Registers a middleware onto internal middlewares tree.
-     *
-     * @private
-     * @param {String} route Route pattern for middleware
-     * @param {String} method Route method (Uppercase) for middleware
-     * @param {Array|Function} methods Singular function or an array of functions to store as middlewares
-     * @param {Boolean} push Whether to write over old registered middlewares or push onto the old middlewares array
-     */
-    _register_middleware(route, method, methods, push = true) {
-        if (route !== 'global' && method == 'ANY')
-            throw new Error(
-                'Route specific middlewares not allowed with .any() routes. Please only bind middlewares on method specific routes.'
-            );
-
-        // Initialize route branch in middlewares object
-        if (this.#middlewares[route] == undefined) this.#middlewares[route] = {};
-
-        // Convert singular provided handler function into an Array
-        let handlers;
-        if (typeof methods == 'function') {
-            handlers = [methods];
-        } else if (Array.isArray(methods)) {
-            // Validate methods array contains functions only
-            methods.forEach((method) => {
-                if (typeof method !== 'function')
-                    throw new Error(
-                        '_register_middleware(route, method, methods) -> methods only contain Functions'
-                    );
-            });
-            handlers = methods;
-        } else {
-            throw new Error(
-                '_register_middleware(route, method, methods) -> methods must be a Function or Array'
-            );
-        }
-
-        if (push === true) {
-            // Initialize route:method branch if undefined for push operations
-            if (this.#middlewares[route][method] == undefined) {
-                this.#middlewares[route][method] = handlers;
-            } else {
-                let current = this.#middlewares[route][method];
-                let concatenated = current.concat(handlers);
-                this.#middlewares[route][method] = concatenated;
-            }
-        } else {
-            // We will simply write over any old handlers that were registered to the route:method branch
-            this.#middlewares[route][method] = handlers;
-        }
+        this.#middlewares.push(handler);
     }
 
     /**
      * @private
-     * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method binds a cleanup handler which closes the underlying uWS socket.
      */
     _bind_exit_handler() {
@@ -238,86 +187,6 @@ class Server {
         ['exit', 'SIGINT', 'SIGUSR1', 'SIGUSR2', 'SIGTERM'].forEach((type) =>
             process.once(type, () => reference.close())
         );
-    }
-
-    /**
-     * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
-     * This method chains a request/response through all middlewares.
-     *
-     * @private
-     * @param {String} route_pattern
-     * @param {Request} request - Request Object
-     * @param {Response} response - Response Object
-     * @param {Function} route_handler - User specified route handler
-     * @param {uWS.Socket} socket_context - uWebsockets.js upgrade request socket context.
-     */
-    _chain_middlewares(
-        route_pattern,
-        request,
-        response,
-        route_handler,
-        socket_context,
-        branch = 'global',
-        cursor = 0
-    ) {
-        // Break chain if request has been aborted
-        if (response.aborted) return;
-
-        // Global middlewares take precedence over route specific middlewares
-        if (branch === 'global') {
-            // Determine current global middleware and execute
-            let middleware = this.#middlewares['global']['ANY'][cursor];
-            if (middleware) {
-                // Create a anonymous callback function to for iterating forward
-                const next = () =>
-                    this._chain_middlewares(
-                        route_pattern,
-                        request,
-                        response,
-                        route_handler,
-                        socket_context,
-                        branch,
-                        cursor + 1
-                    );
-
-                // If middleware invocation returns a Promise, bind a then handler to trigger next iterator
-                const output = middleware(request, response, next);
-                if (output instanceof Promise) output.then(next);
-                return;
-            }
-
-            // Switch to route branch and reset cursor for route specific middlewares execution
-            branch = 'route';
-            cursor = 0;
-        }
-
-        // See if route/method specific middlewares exist and execute
-        let pattern_middlewares = this.#middlewares[route_pattern];
-        if (pattern_middlewares && pattern_middlewares[request.method]) {
-            // Determine current route specific/method middleware and execute
-            let middleware = this.#middlewares[route_pattern][request.method][cursor];
-            if (middleware) {
-                // Create a anonymous callback function to for iterating forward
-                const next = () =>
-                    this._chain_middlewares(
-                        route_pattern,
-                        request,
-                        response,
-                        route_handler,
-                        socket_context,
-                        branch,
-                        cursor + 1
-                    );
-
-                // If middleware invocation returns a Promise, bind a then handler to trigger next iterator
-                const output = middleware(request, response, next);
-                if (output instanceof Promise) output.then(next);
-                return;
-            }
-        }
-
-        // Trigger user assigned route handler with wrapped request/response objects. Provide socket_context for upgrade requests.
-        return route_handler(request, response, socket_context);
     }
 
     #routes = {
@@ -334,7 +203,6 @@ class Server {
     };
 
     /**
-     * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method is used to create and bind a uWebsockets route with a middleman wrapper
      *
      * @private
@@ -351,44 +219,33 @@ class Server {
             );
 
         // Do not allow non object type options
-        let options_type = typeof options;
+        const options_type = typeof options;
         if (options_type !== 'object' && options_type !== 'function')
             throw new Error('HyperExpress: Failed to create route as options must be an object.');
 
-        // Convert options to handler if options is a function
+        // The options parameter is optional thus if handler is provided in place of options, use options as the handler
         if (typeof options == 'function') handler = options;
 
         // Parse route options if specified by user
-        let route_options = options_type == 'object' ? options : {};
+        const route_options = options_type == 'object' ? options : {};
 
         // Register route specific middlewares
+        let middlewares = [];
         if (Array.isArray(route_options.middlewares) && route_options.middlewares.length > 0)
-            this._register_middleware(
-                pattern,
-                method.toUpperCase(),
-                route_options.middlewares,
-                false
-            );
+            middlewares = route_options.middlewares;
 
-        // Pre-parse path parameters key and bind a middleman uWebsockets route for wrapping request/response objects
-        let path_parameters_key = operators.parse_path_params(pattern);
-        let route = this.#uws_instance[method](pattern, (response, request) =>
-            this._handle_wrapped_request(
-                pattern,
-                request,
-                response,
-                null,
-                handler,
-                path_parameters_key,
-                this
-            )
+        // Create a Route object to pass along with uws request handler
+        const route = new Route(this, method, pattern, handler, middlewares);
+
+        // Bind uWS.method() route which pipes incoming request/respone to handler
+        this.#uws_instance[method](pattern, (response, request) =>
+            this._handle_uws_request(route, request, response, null)
         );
 
         return (this.#routes[method][pattern] = route);
     }
 
     /**
-     * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method is used to determine if request body should be pre-parsed in anticipation for future call.
      *
      * @private
@@ -403,44 +260,33 @@ class Server {
     }
 
     /**
-     * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
-     * This method is used as a middleman wrapper for request/response objects to bind HyperExpress abstractions.
+     * This method is used to handle incoming uWebsockets response/request objects
+     * by wrapping/translating them into HyperExpress compatible request/response objects.
      *
      * @private
-     * @param {String} route_pattern
+     * @param {Route} route
      * @param {Request} request
      * @param {Response} response
      * @param {UWS_SOCKET} socket
-     * @param {Function} handler
-     * @param {Array} path_params_key
-     * @param {Server} master_context
      */
-    async _handle_wrapped_request(
-        route_pattern,
-        request,
-        response,
-        socket,
-        handler,
-        path_params_key,
-        master_context
-    ) {
+    async _handle_uws_request(route, request, response, socket) {
         // Wrap uWS.Request -> Request
-        let wrapped_request = new Request(request, response, path_params_key, master_context);
+        const wrapped_request = new Request(request, response, route.path_parameters_key, this);
 
         // Wrap uWS.Response -> Response
-        let wrapped_response = new Response(wrapped_request, response, socket, this);
+        const wrapped_response = new Response(wrapped_request, response, socket, this);
 
         // We initiate buffer retrieval as uWS.Request is deallocated after initial synchronous cycle
         if (this._pre_parse_body(wrapped_request)) {
             // Check incoming content-length to ensure it is within max_body_length bounds
             // Abort request with a 413 Payload Too Large status code
-            if (+wrapped_request.headers['content-length'] > master_context.max_body_length) {
+            if (+wrapped_request.headers['content-length'] > this.max_body_length) {
                 // Use fast abort scheme if specified
-                if (master_context.fast_abort === true) return response.close();
+                if (this.fast_abort === true) return response.close();
 
                 // According to uWebsockets developer, we have to drain incoming data before aborting and closing request
-                // Prematurely closing request with a 413 leads to an ECONNRESET in which we lose 413 error from client
-                return response.onData((array_buffer, is_last) => {
+                // Prematurely closing request with a 413 leads to an ECONNRESET in which we lose 413 error from server
+                return response.onData((_, is_last) => {
                     if (is_last) wrapped_response.status(413).send();
                 });
             }
@@ -448,28 +294,65 @@ class Server {
             // Initiate body buffer download
             wrapped_request
                 .buffer()
-                .catch((error) =>
-                    master_context.error_handler(wrapped_request, wrapped_response, error)
-                );
+                .catch((error) => this.error_handler(wrapped_request, wrapped_response, error));
         }
 
         // Wrap middlewares & route handler in a Promise to catch async/sync errors
         return new Promise((resolve, reject) => {
             try {
                 // Call middleware chaining method and pass handler/socket
-                resolve(
-                    master_context._chain_middlewares(
-                        route_pattern,
-                        wrapped_request,
-                        wrapped_response,
-                        handler,
-                        socket
-                    )
-                );
+                resolve(route.app._chain_middlewares(route, wrapped_request, wrapped_response));
             } catch (error) {
                 reject(error);
             }
-        }).catch((error) => master_context.error_handler(wrapped_request, wrapped_response, error));
+        }).catch((error) => this.error_handler(wrapped_request, wrapped_response, error));
+    }
+
+    /**
+     * This method chains a request/response through all middlewares and then calls route handler in end.
+     *
+     * @private
+     * @param {Route} route - Route Object
+     * @param {Request} request - Request Object
+     * @param {Response} response - Response Object
+     */
+    _chain_middlewares(route, request, response, cursor = 0) {
+        // Break chain if request has been aborted
+        if (response.aborted) return;
+
+        // Global middlewares take precedence over route specific middlewares
+        if (this.#middlewares.length > 0) {
+            // Determine current global middleware and execute
+            let middleware = this.#middlewares[cursor];
+            if (middleware) {
+                // Create a anonymous callback function to for iterating forward
+                const next = () => this._chain_middlewares(route, request, response, cursor + 1);
+
+                // If middleware invocation returns a Promise, bind a then handler to trigger next iterator
+                const output = middleware(request, response, next);
+                if (output instanceof Promise) output.then(next);
+                return;
+            }
+        }
+
+        // Execute route specific middlewares if they exist
+        if (route.middlewares.length > 0) {
+            // Determine current route specific/method middleware and execute
+            // Account for global middlewares cursor offset
+            let middleware = route.middlewares[cursor - this.#middlewares.length];
+            if (middleware) {
+                // Create a anonymous callback function to for iterating forward
+                const next = () => this._chain_middlewares(route, request, response, cursor + 1);
+
+                // If middleware invocation returns a Promise, bind a then handler to trigger next iterator
+                const output = middleware(request, response, next);
+                if (output instanceof Promise) output.then(next);
+                return;
+            }
+        }
+
+        // Trigger user assigned route handler with wrapped request/response objects. Provide socket_context for upgrade requests.
+        return route.handler(request, response, response.upgrade_socket);
     }
 
     /* Server Route Alias Methods */

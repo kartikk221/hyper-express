@@ -402,6 +402,13 @@ class Response {
     get completed() {
         return this.#completed;
     }
+
+    /**
+     * Upgrade socket context for upgrade requests.
+     */
+    get upgrade_socket() {
+        return this.#upgrade_socket;
+    }
 }
 
 module.exports = Response;
