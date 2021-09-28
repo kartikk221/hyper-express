@@ -267,8 +267,9 @@ class Server {
         if (branch === 'global') {
             // Determine current global middleware and execute
             let middleware = this.#middlewares['global']['ANY'][cursor];
-            if (middleware)
-                return middleware(request, response, () =>
+            if (middleware) {
+                // Create a anonymous callback function to for iterating forward
+                const next = () =>
                     this._chain_middlewares(
                         route_pattern,
                         request,
@@ -277,8 +278,13 @@ class Server {
                         socket_context,
                         branch,
                         cursor + 1
-                    )
-                );
+                    );
+
+                // If middleware invocation returns a Promise, bind a then handler to trigger next iterator
+                const output = middleware(request, response, next);
+                if (output instanceof Promise) output.then(next);
+                return;
+            }
 
             // Switch to route branch and reset cursor for route specific middlewares execution
             branch = 'route';
@@ -290,8 +296,9 @@ class Server {
         if (pattern_middlewares && pattern_middlewares[request.method]) {
             // Determine current route specific/method middleware and execute
             let middleware = this.#middlewares[route_pattern][request.method][cursor];
-            if (middleware)
-                return middleware(request, response, () =>
+            if (middleware) {
+                // Create a anonymous callback function to for iterating forward
+                const next = () =>
                     this._chain_middlewares(
                         route_pattern,
                         request,
@@ -300,8 +307,13 @@ class Server {
                         socket_context,
                         branch,
                         cursor + 1
-                    )
-                );
+                    );
+
+                // If middleware invocation returns a Promise, bind a then handler to trigger next iterator
+                const output = middleware(request, response, next);
+                if (output instanceof Promise) output.then(next);
+                return;
+            }
         }
 
         // Trigger user assigned route handler with wrapped request/response objects. Provide socket_context for upgrade requests.

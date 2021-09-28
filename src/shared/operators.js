@@ -46,8 +46,19 @@ function fill_object(original, target) {
     return original;
 }
 
+/**
+ * Returns a promise which is resolved after provided delay in milliseconds.
+ *
+ * @param {Number} delay
+ * @returns {Promise}
+ */
+function async_wait(delay) {
+    return new Promise((resolve, reject) => setTimeout((res) => res(), delay, resolve));
+}
+
 module.exports = {
     parse_path_params: parse_path_parameters,
     arr_buff_to_str: array_buffer_to_string,
-    fill_object: fill_object,
+    fill_object,
+    async_wait,
 };

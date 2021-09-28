@@ -360,9 +360,10 @@ Below is a breakdown of the `Server` object class generated while creating a new
 * `set_not_found_handler(Function: handler)`: Binds a global catch-all not found handler that will handle all requests which are not handled by any routes.
     * **Handler Parameters:** `(Request: request, Response: response) => {}`.
 * `set_session_engine(SessionEngine: engine)`: Binds specified session engine to current webserver and populates **request.session** with sessions based on engine settings.
-* `use(Function: handler)`: Binds a global middleware for all incoming requests.
-    * **Handler Parameters:** `(Request: request, Response: response, Function: next) => {}`.
-    * **Note** you must call `next()` at the end of your middleware execution.
+* `use(Function: handler)`: Binds a global middleware for all incoming requests. Supports both `callback` and `Promise` based iteration.
+    * **Callback Example:** `(Request: request, Response: response, Function: next) => {}`.
+    * **Promise Example:** `(Request: request, Response: response) => new Promise((resolve, reject) => { /* Call resolve() in here */ })`.
+    * **Note** you must ensure that each middleware iterates by executing the `callback` or resolving the returned `Promise`.
 * `any(String: pattern, Object: options, Function: handler)`: Creates an HTTP route on specified pattern. Alias methods are listed below for HTTP method specific routes.
     * **Alias Methods:** `get()`, `post()`, `delete()`, `head()`, `options()`, `patch()`, `trace()`, `connect()`.
     * **Handler Parameters:** `(Request: request, Response: response) => {}`.

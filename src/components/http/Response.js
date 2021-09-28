@@ -336,9 +336,15 @@ class Response {
      *
      * @param {LiveFile} live_file
      */
-    _send_file(live_file) {
+    async _send_file(live_file) {
+        // Wait for LiveFile to be ready before serving
+        if (!live_file.is_ready) await live_file.ready();
+
+        // Write appropriate extension type if one has not been written yet
         if (!this.#type_written) this.type(live_file.extension);
-        return this.send(live_file.content);
+
+        // Send response with file buffer as body
+        return this.send(live_file.buffer);
     }
 
     /**
@@ -355,14 +361,14 @@ class Response {
 
         // Create new LiveFile instance in local cache pool for new file path
         FilePool[path] = new LiveFile({
-            path: path,
+            path,
         });
 
         // Assign error handler to live file
         FilePool[path].on('error', (error) => this.throw_error(error));
 
-        // Serve file once initial content has been read
-        FilePool[path].once('reload', () => this._send_file(FilePool[path]));
+        // Serve file as response
+        this._send_file(FilePool[path]);
     }
 
     /**

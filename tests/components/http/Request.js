@@ -23,13 +23,16 @@ webserver.use((request, response, next) => {
     return next();
 });
 
-webserver.use((request, response, next) => {
-    // We only want this middleware to run for this request endpoint
-    if (request.headers['x-middleware-test-2'] === 'true') {
-        request.mproperty2 = middleware_property;
-    }
+// Test Promise returning middlewares support
+webserver.use((request, response) => {
+    return new Promise((resolve, reject) => {
+        // We only want this middleware to run for this request endpoint
+        if (request.headers['x-middleware-test-2'] === 'true') {
+            request.mproperty2 = middleware_property;
+        }
 
-    return next();
+        resolve();
+    });
 });
 
 let last_endpoint_body;
