@@ -108,10 +108,10 @@ autocannon -c 2500 -d 30 -p 4 http://HOST:PORT/benchmark
 
 |                          | Version | Requests/s | Latency | Throughput/s |
 | :--                      | --:     | :-:        | --:     | --:          |
-| uWebsockets.js           | 19.4.0  | 197,865    | 398 ms   | 107 Mb/s    |
-| HyperExpress             | 3.1.0  | 196,223    | 403 ms   | 106 Mb/s     |
-| Fastify                  | 3.21.6  | 15,688     | 673 ms   | 9 Mb/s      |
-| Express                  | 4.17.1  | 5,621      | 1685 ms   | 3.8 Mb/s   |
+| uWebsockets.js           | 19.5.0  | 197,544    | 426 ms  | 106 Mb/s     |
+| HyperExpress             | 4.1.1   | 196,607    | 432 ms  | 106 Mb/s     |
+| Fastify                  | 3.21.6  | 18,258     | 590 ms  | 11 Mb/s      |
+| Express                  | 4.17.1  | 5,630      | 1702 ms | 3.8 Mb/s     |
 
 ## Examples
 Below are various examples that make use of most classes and methods in HyperExpress.
