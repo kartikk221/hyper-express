@@ -77,6 +77,10 @@ class Response {
      * @returns {Response} Response (Chainable)
      */
     type(mime_type) {
+        // Remove leading extension . if specified
+        if (mime_type.startsWith('.')) mime_type = mime_type.substr(1);
+
+        // Determine proper mime type and send response
         let mime_header = mime_types[mime_type] || 'text/plain';
         if (!this.#completed) {
             this.#type_written = true;
@@ -129,8 +133,6 @@ class Response {
         // Convert expiry to a valid Date object or delete expiry altogether
         if (typeof expiry == 'number') {
             options.expires = new Date(Date.now() + expiry);
-        } else {
-            delete options.expires;
         }
 
         // Sign cookie value if signing is enabled and a valid secret is provided
@@ -499,6 +501,89 @@ class Response {
      */
     append(name, values) {
         this.#headers[name] = Array.isArray(values) ? values : [values];
+    }
+
+    /**
+     * ExpressJS: Alias of Response.append()
+     */
+    writeHead(name, values) {
+        return this.append(name, values);
+    }
+
+    /**
+     * ExpressJS: Alias of Response.append()
+     */
+    setHeader(name, values) {
+        return this.append(name, values);
+    }
+
+    /**
+     * ExpressJS: Alias of Response.writeHeaders
+     * @param {Object} headers
+     */
+    setHeaders(headers) {
+        this.writeHeaders(headers);
+    }
+
+    /**
+     * ExpressJS: Writes multiple headers in form of an object
+     * @param {Object} headers
+     */
+    writeHeaders(headers) {
+        Object.keys(headers).forEach((name) => this.header(name, headers[name]));
+    }
+
+    /**
+     * ExpressJS: Writes multiple header values for a single name
+     * @param {String} name
+     * @param {Array} values
+     */
+    writeHeaderValues(name, values) {
+        values.forEach((value) => this.header(name, value));
+    }
+
+    /**
+     * ExpressJS: Returns pending header from this response
+     * @param {String} name
+     * @returns {String|Array|undefined}
+     */
+    getHeader(name) {
+        return this.#headers[name];
+    }
+
+    /**
+     * ExpressJS: Removes header from this response
+     * @param {String} name
+     */
+    removeHeader(name) {
+        delete this.#headers[name];
+    }
+
+    /**
+     * ExpressJS: Alias of Response.cookie()
+     * @param {String} name
+     * @param {String} value
+     * @param {Object} options
+     */
+    setCookie(name, value, options) {
+        return this.cookie(name, value, null, options);
+    }
+
+    /**
+     * ExpressJS: checks if a cookie exists
+     * @param {String} name
+     * @returns {Boolean}
+     */
+    hasCookie(name) {
+        return this.#wrapped_request.cookies[name] !== undefined;
+    }
+
+    /**
+     * ExpressJS: Alias of Response.delete_cookie()
+     * @param {String} name
+     */
+    removeCookie(name) {
+        return this.delete_cookie(name);
     }
 
     /**
