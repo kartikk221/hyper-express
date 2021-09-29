@@ -1,5 +1,4 @@
 const uWebSockets = require('uWebSockets.js');
-const operators = require('../shared/operators.js');
 const Request = require('./http/Request.js');
 const Response = require('./http/Response.js');
 const Route = require('./http/Route.js');

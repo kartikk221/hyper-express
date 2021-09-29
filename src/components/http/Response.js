@@ -254,7 +254,6 @@ class Response {
      * @returns {Boolean} 'false' signifies that the result was not sent due to built up backpressure.
      */
     send(body, close_connection) {
-        const reference = this;
         if (!this.#completed) {
             // Abort body download buffer just to be safe for large incoming requests
             this.#wrapped_request._abort_buffer();
