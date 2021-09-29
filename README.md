@@ -19,10 +19,11 @@ Some of the prominent features implemented are:
 - Simplified HTTP API
 - Simplified Websocket API
 - Asynchronous By Nature
-- Middleware Support
-- Global Handlers
-- Built-in Session Engine
+- Global & Route-Specific Middlewares Support
+- Global Error/Event Handlers
+- Built-in Flexible Session Engine
 - Cryptographically Secure Cookie Signing/Authentication
+- ExpressJS Compatibility Through Shared Methods/Properties
 
 ## What's Different?
 While there may be other uWebsockets.js based packages available, HyperExpress differentiates itself in the following ways:
