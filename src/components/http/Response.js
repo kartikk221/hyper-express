@@ -500,6 +500,7 @@ class Response {
      * @param {String|Array} values
      */
     append(name, values) {
+        if (this.#headers == undefined) this.#headers = {};
         this.#headers[name] = Array.isArray(values) ? values : [values];
     }
 
@@ -548,7 +549,7 @@ class Response {
      * @returns {String|Array|undefined}
      */
     getHeader(name) {
-        return this.#headers[name];
+        return this.#headers ? this.#headers[name] : undefined;
     }
 
     /**
@@ -556,7 +557,7 @@ class Response {
      * @param {String} name
      */
     removeHeader(name) {
-        delete this.#headers[name];
+        if (this.#headers) delete this.#headers[name];
     }
 
     /**
