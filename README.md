@@ -400,6 +400,7 @@ Below is a breakdown of the `Server` object class generated while creating a new
 
 ## Request
 Below is a breakdown of the `request` object made available through the route handler(s) and websocket upgrade event handler(s).
+**Note!** Most [Express](https://github.com/expressjs/express) properties and methods are also implemented for compatibility.
 
 #### Request Properties
 | Property  | Type     | Description                |
@@ -436,6 +437,7 @@ Below is a breakdown of the `request` object made available through the route ha
 
 ## Response
 Below is a breakdown of the `response` object made available through the route handler(s) and websocket upgrade event handler(s).
+**Note!** Most [Express](https://github.com/expressjs/express) properties and methods are also implemented for compatibility.
 
 #### Response Properties
 | Property  | Type     | Description                |
