@@ -1,7 +1,7 @@
-const status_codes = require('../../constants/status_codes.json');
-const mime_types = require('../../constants/mime_types.json');
 const cookie = require('cookie');
 const signature = require('cookie-signature');
+const status_codes = require('../../constants/status_codes.json');
+const mime_types = require('../../constants/mime_types.json');
 
 const LiveFile = require('../features/LiveFile.js');
 const FilePool = {};
@@ -94,14 +94,12 @@ class Response {
      */
     header(name, value) {
         // Initialize headers container
-        if (this.#headers == undefined)
-            this.#headers = {
-                keys: [],
-                values: [],
-            };
+        if (this.#headers == undefined) this.#headers = {};
 
-        this.#headers.keys.push(name);
-        this.#headers.values.push(value);
+        // Initialize headers values array
+        if (this.#headers[name] == undefined) this.#headers[name] = [];
+
+        this.#headers[name].push(value);
         return this;
     }
 
@@ -254,6 +252,7 @@ class Response {
      * @returns {Boolean} 'false' signifies that the result was not sent due to built up backpressure.
      */
     send(body, close_connection) {
+        const reference = this;
         if (!this.#completed) {
             // Abort body download buffer just to be safe for large incoming requests
             this.#wrapped_request._abort_buffer();
@@ -271,8 +270,11 @@ class Response {
 
             // Write headers if specified
             if (this.#headers)
-                for (let i = 0; i < this.#headers.keys.length; i++)
-                    this.#raw_response.writeHeader(this.#headers.keys[i], this.#headers.values[i]);
+                Object.keys(this.#headers).forEach((name) =>
+                    this.#headers[name].forEach((value) =>
+                        this.#raw_response.writeHeader(name, value)
+                    )
+                );
 
             // Mark request as completed and end request using uWS.Response.end()
             this.#completed = true;
@@ -320,6 +322,21 @@ class Response {
     }
 
     /**
+     * This method is an alias of send() method except it accepts an object
+     * and automatically stringifies the passed payload object with a callback name.
+     * Note! This method uses 'callback' query parameter by default but you can specify 'name' to use something else.
+     *
+     * @param {Object} body
+     * @param {String} name
+     * @returns {Boolean} Boolean (true || false)
+     */
+    jsonp(body, name) {
+        let query_parameters = this.#wrapped_request.query_parameters;
+        let method_name = query_parameters.callback || name;
+        return this.type('js').send(`${method_name}(${JSON.stringify(body)})`);
+    }
+
+    /**
      * This method is an alias of send() method except it automatically sets
      * html as the response content type and sends provided html response body.
      *
@@ -335,8 +352,9 @@ class Response {
      * Sends file content with appropriate content-type header based on file extension from LiveFile.
      *
      * @param {LiveFile} live_file
+     * @param {function(Object):void} callback
      */
-    async _send_file(live_file) {
+    async _send_file(live_file, callback) {
         // Wait for LiveFile to be ready before serving
         if (!live_file.is_ready) await live_file.ready();
 
@@ -344,7 +362,10 @@ class Response {
         if (!this.#type_written) this.type(live_file.extension);
 
         // Send response with file buffer as body
-        return this.send(live_file.buffer);
+        this.send(live_file.buffer);
+
+        // Execute callback with cache pool, so user can expire as they wish.
+        if (callback) setImmediate(() => callback(FilePool));
     }
 
     /**
@@ -354,10 +375,11 @@ class Response {
      * Avoid using this method to a send a large file as it will be kept in memory.
      *
      * @param {String} path
+     * @param {function(Object):void} callback Executed after file has been served with the parameter being the cache pool.
      */
-    file(path) {
+    file(path, callback) {
         // Send file from local cache pool if available
-        if (FilePool[path]) return this._send_file(FilePool[path]);
+        if (FilePool[path]) return this._send_file(FilePool[path], callback);
 
         // Create new LiveFile instance in local cache pool for new file path
         FilePool[path] = new LiveFile({
@@ -368,7 +390,38 @@ class Response {
         FilePool[path].on('error', (error) => this.throw_error(error));
 
         // Serve file as response
-        this._send_file(FilePool[path]);
+        this._send_file(FilePool[path], callback);
+    }
+
+    /**
+     * Writes approriate headers to signify that file at path has been attached.
+     *
+     * @param {String} path
+     * @returns {Response}
+     */
+    attachment(path, name) {
+        // Attach a blank content-disposition header when no filename is defined
+        if (path == undefined) return this.header('Content-Disposition', 'attachment');
+
+        // Parses path in to file name and extension to write appropriate attachment headers
+        let chunks = path.split('/');
+        let final_name = name || chunks[chunks.length - 1];
+        let name_chunks = final_name.split('.');
+        let extension = name_chunks[name_chunks.length - 1];
+        return this.header('Content-Disposition', `attachment; filename="${final_name}"`).type(
+            extension
+        );
+    }
+
+    /**
+     * Writes appropriate attachment headers and sends file content for download on user browser.
+     * This method combined Response.attachment() and Response.file() under the hood, so be sure to follow the same guidelines for usage.
+     *
+     * @param {String} path
+     * @param {String} filename
+     */
+    download(path, filename) {
+        return this.attachment(path, filename).file(path);
     }
 
     /**
@@ -408,6 +461,148 @@ class Response {
      */
     get upgrade_socket() {
         return this.#upgrade_socket;
+    }
+
+    /* ExpressJS compatibility properties & methods */
+    /**
+     * Throws a descriptive error when an unsupported ExpressJS property/method is invocated.
+     * @private
+     * @param {String} name
+     */
+    _throw_unsupported(name) {
+        throw new Error(
+            `One of your middlewares or logic tried to call Response.${name} which is unsupported with HyperExpress.`
+        );
+    }
+
+    /**
+     * Unsupported property
+     */
+    get app() {
+        this._throw_unsupported('app()');
+    }
+
+    /**
+     * ExpressJS: Alias of Response.completed
+     */
+    get headersSent() {
+        return this.#completed;
+    }
+
+    locals = {};
+
+    /**
+     * ExpressJS: Appends the specified value to the HTTP response header field.
+     * If the header is not already set, it creates the header with the specified value. The value parameter can be a string or an array.
+     * @param {String} name
+     * @param {String|Array} values
+     */
+    append(name, values) {
+        this.#headers[name] = Array.isArray(values) ? values : [values];
+    }
+
+    /**
+     * ExpressJS: Alias of Response.delete_cookie() method.
+     * @param {String} name
+     */
+    clearCookie(name) {
+        return this.delete_cookie(name);
+    }
+
+    /**
+     * ExpressJS: Alias of Response.send()
+     */
+    end(data) {
+        return this.send(data);
+    }
+
+    /**
+     * Unsupported method
+     */
+    format() {
+        this._throw_unsupported('format()');
+    }
+
+    /**
+     * ExpressJS: Returns the HTTP response header specified by field. The match is case-insensitive.
+     * @param {String} name
+     * @returns {String|Array}
+     */
+    get(name) {
+        let values = this.#headers[name];
+        if (values) return values.length == 0 ? values[0] : values;
+    }
+
+    /**
+     * ExpressJS: Joins the links provided as properties of the parameter to populate the response’s Link HTTP header field.
+     * @param {Object} links
+     */
+    links(links) {
+        if (typeof links !== 'object' || links == null)
+            throw new Error('Response.links(links) -> links must be an Object');
+
+        // Build chunks of links and combine into header spec
+        let chunks = [];
+        Object.keys(links).forEach((rel) => {
+            let url = links[rel];
+            chunks.push(`<${url}>; rel="${rel}"`);
+        });
+        return chunks.join(', ');
+    }
+
+    /**
+     * ExpressJS: Sets the response Location HTTP header to the specified path parameter.
+     * @param {String} path
+     */
+    location(path) {
+        return this.header('location', path);
+    }
+
+    /**
+     * Unsupported method
+     */
+    render() {
+        this._throw_unsupported('render()');
+    }
+
+    /**
+     * ExpressJS: Alias of Response.file()
+     * @param {String} path
+     */
+    sendFile(path) {
+        return this.file(path);
+    }
+
+    /**
+     * ExpressJS: Alias of Response.status()
+     * @param {Number} status_code
+     */
+    sendStatus(status_code) {
+        return this.status(status_code);
+    }
+
+    /**
+     * ExpressJS: Sets the response’s HTTP header field to value. To set multiple fields at once, pass an object as the parameter.
+     * @param {Object} object
+     */
+    set(field, value) {
+        if (typeof field == 'object') {
+            const reference = this;
+            Object.keys(field).forEach((name) => {
+                let value = field[name];
+                reference.#headers = [value];
+            });
+        } else {
+            this.header(field, value);
+        }
+    }
+
+    /**
+     * ExpressJS: Adds the field to the Vary response header, if it is not there already.
+     * @param {String} name
+     */
+    vary(name) {
+        return this.header('Vary', name);
     }
 }
 

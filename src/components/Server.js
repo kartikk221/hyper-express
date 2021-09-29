@@ -9,10 +9,11 @@ class Server {
     #uws_instance = null;
     #listen_socket = null;
     #session_engine = null;
+    #trust_proxy = false;
     #unsafe_buffers = false;
     #fast_abort = false;
-    #max_body_length = 250 * 1000;
     #is_ssl = false;
+    #max_body_length = 250 * 1000;
     #handlers = {
         on_not_found: null,
         on_error: (req, res, error) => {
@@ -32,6 +33,7 @@ class Server {
         fast_buffers: false,
         fast_abort: this.#fast_abort,
         max_body_length: this.#max_body_length,
+        trust_proxy: this.#trust_proxy,
     };
 
     /**
@@ -43,6 +45,7 @@ class Server {
      * @param {Boolean} options.ssl_prefer_low_memory_usage Specifies uWebsockets to prefer lower memory usage while serving SSL
      * @param {Boolean} options.fast_buffers Buffer.allocUnsafe is used when set to true for faster performance.
      * @param {Boolean} options.fast_abort Determines whether HyperExpress will abrubptly close bad requests. This can be much faster but the client does not receive an HTTP status code as it is a premature connection closure.
+     * @param {Boolean} options.trust_proxy Specifies whether to trust incoming request data from intermediate proxy(s)
      * @param {Number} options.max_body_length Maximum body content length allowed in bytes. For Reference: 1kb = 1000 bytes and 1mb = 1000kb.
      */
     constructor(options = this.#defaults) {
@@ -234,8 +237,21 @@ class Server {
         if (Array.isArray(route_options.middlewares) && route_options.middlewares.length > 0)
             middlewares = route_options.middlewares;
 
+        // Determine if we are expecting a specific body type
+        let expect_body =
+            typeof options !== 'function' && typeof options.expect_body == 'string'
+                ? options.expect_body.toLowerCase()
+                : undefined;
+
         // Create a Route object to pass along with uws request handler
-        const route = new Route(this, method, pattern, handler, middlewares);
+        const route = new Route({
+            app: this,
+            method,
+            pattern,
+            handler,
+            middlewares,
+            expect_body,
+        });
 
         // Bind uWS.method() route which pipes incoming request/respone to handler
         this.#uws_instance[method](pattern, (response, request) =>
@@ -249,10 +265,14 @@ class Server {
      * This method is used to determine if request body should be pre-parsed in anticipation for future call.
      *
      * @private
+     * @param {Route} route
      * @param {Request} wrapped_request
      * @returns {Boolean} Boolean
      */
-    _pre_parse_body(wrapped_request) {
+    _pre_parse_body(route, wrapped_request) {
+        // Return true to pre-parsing if we are expecting a specific type of body
+        if (typeof route.expect_body == 'string') return true;
+
         // Determine a content-length and content-type header exists to trigger pre-parsing
         let has_content_type = wrapped_request.headers['content-type'];
         let content_length = +wrapped_request.headers['content-length'];
@@ -277,7 +297,7 @@ class Server {
         const wrapped_response = new Response(wrapped_request, response, socket, this);
 
         // We initiate buffer retrieval as uWS.Request is deallocated after initial synchronous cycle
-        if (this._pre_parse_body(wrapped_request)) {
+        if (this._pre_parse_body(route, wrapped_request)) {
             // Check incoming content-length to ensure it is within max_body_length bounds
             // Abort request with a 413 Payload Too Large status code
             if (+wrapped_request.headers['content-length'] > this.max_body_length) {
@@ -291,10 +311,29 @@ class Server {
                 });
             }
 
-            // Initiate body buffer download
-            wrapped_request
-                .buffer()
-                .catch((error) => this.error_handler(wrapped_request, wrapped_response, error));
+            // Parse body based on one of the expected types and populate request.body property
+            let expect_body = route.expect_body;
+            if (typeof expect_body == 'string') {
+                switch (expect_body) {
+                    case 'text':
+                        wrapped_request.body = await wrapped_request.text();
+                        break;
+                    case 'json':
+                        wrapped_request.body = await wrapped_request.json();
+                        break;
+                    case 'urlencoded':
+                        wrapped_request.body = await wrapped_request.urlencoded();
+                        break;
+                    default:
+                        wrapped_request.body = await wrapped_request.buffer();
+                        break;
+                }
+            } else {
+                // Initiate passive body buffer download without holding up the flow
+                wrapped_request
+                    .buffer()
+                    .catch((error) => this.error_handler(wrapped_request, wrapped_response, error));
+            }
         }
 
         // Wrap middlewares & route handler in a Promise to catch async/sync errors
@@ -547,6 +586,13 @@ class Server {
      */
     get is_ssl() {
         return this.#is_ssl;
+    }
+
+    /**
+     * Returns whether incoming request data from intermediate proxy(s) is trusted.
+     */
+    get trust_proxy() {
+        return this.#trust_proxy;
     }
 }
 

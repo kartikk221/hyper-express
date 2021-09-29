@@ -5,6 +5,7 @@ class Route {
     #method;
     #pattern;
     #handler;
+    #expect_body;
     #middlewares = [];
     #path_parameters_key;
 
@@ -15,12 +16,13 @@ class Route {
      * @param {String} pattern
      * @param {Function} handler
      */
-    constructor(app, method, pattern, handler, middlewares) {
+    constructor({ app, method, pattern, handler, middlewares, expect_body }) {
         this.#app = app;
         this.#method = method.toUpperCase();
         this.#pattern = pattern;
         this.#handler = handler;
         this.#middlewares = middlewares;
+        this.#expect_body = expect_body;
         this.#path_parameters_key = operators.parse_path_params(pattern);
     }
 
@@ -55,6 +57,10 @@ class Route {
 
     get middlewares() {
         return this.#middlewares;
+    }
+
+    get expect_body() {
+        return this.#expect_body;
     }
 
     get path_parameters_key() {

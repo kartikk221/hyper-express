@@ -66,37 +66,48 @@ webserver.get(
     }
 );
 
-// Create Backend HTTP Route
-webserver.any(endpoint, async (request, response) => {
-    let text = await request.text();
-    last_endpoint_body = text;
-    let json = await request.json();
+// Create Backend HTTP Route with expected body of urlencoded to test request.body property
+webserver.any(
+    endpoint,
+    {
+        expect_body: 'urlencoded',
+    },
+    async (request, response) => {
+        let text = await request.text();
+        last_endpoint_body = text;
+        let json = await request.json();
+        let urlencoded = await request.urlencoded();
 
-    // Store mproperty if exists on request object to check for middleware
-    if (request.mproperty) last_endpoint_mproperty = request.mproperty;
-    if (request.mproperty2) last_endpoint_mproperty2 = request.mproperty;
+        // Store mproperty if exists on request object to check for middleware
+        if (request.mproperty) last_endpoint_mproperty = request.mproperty;
+        if (request.mproperty2) last_endpoint_mproperty2 = request.mproperty;
 
-    // Return all possible information about incoming request
-    return response.json({
-        method: request.method,
-        url: request.url,
-        path: request.path,
-        query: request.query,
-        headers: request.headers,
-        path_parameters: request.path_parameters,
-        query_parameters: request.query_parameters,
-        ip: request.ip,
-        proxy_ip: request.proxy_ip,
-        cookies: request.cookies,
-        signature_check:
-            request.unsign(request.sign(signature_value, signature_secret), signature_secret) ===
-            signature_value,
-        body: {
-            text: text,
-            json: json,
-        },
-    });
-});
+        // Return all possible information about incoming request
+        return response.json({
+            method: request.method,
+            url: request.url,
+            path: request.path,
+            path_query: request.path_query,
+            headers: request.headers,
+            path_parameters: request.path_parameters,
+            query_parameters: request.query_parameters,
+            ip: request.ip,
+            proxy_ip: request.proxy_ip,
+            cookies: request.cookies,
+            signature_check:
+                request.unsign(
+                    request.sign(signature_value, signature_secret),
+                    signature_secret
+                ) === signature_value,
+            body: {
+                text,
+                json,
+                urlencoded,
+                pre_parsed: request.body,
+            },
+        });
+    }
+);
 
 function crypto_random(length) {
     return new Promise((resolve, reject) =>
@@ -158,6 +169,14 @@ async function test_request_object() {
         body: too_large_body_value,
     });
 
+    // Perform a request with a urlencoded body to test .urlencoded() method
+    const urlencoded_string = `url1=${param1}&url2=${param2}`;
+    const urlencoded_response = await fetch(base + url, {
+        method: test_method,
+        body: urlencoded_string,
+    });
+    const urlencoded_body = await urlencoded_response.json();
+
     // Assert rejection status code as 413 Too Large Payload
     assert_log(
         group,
@@ -213,7 +232,7 @@ async function test_request_object() {
     assert_log(group, candidate + '.path', () => path === body.path);
 
     // Verify .query
-    assert_log(group, candidate + '.query', () => query.substring(1) === body.query);
+    assert_log(group, candidate + '.query', () => query.substring(1) === body.path_query);
 
     // Verify .ip
     assert_log(group, candidate + '.ip', () => body.ip === '127.0.0.1');
@@ -251,6 +270,15 @@ async function test_request_object() {
         () => body.cookies[header_test_cookie.name] === header_test_cookie.value
     );
 
+    // Verify .body property when options.expect_body is specified for route options
+    assert_log(
+        group,
+        candidate + '.body',
+        () =>
+            JSON.stringify(urlencoded_body.body.pre_parsed) ===
+            JSON.stringify(urlencoded_body.body.urlencoded)
+    );
+
     // Verify .sign() and .unsign()
     assert_log(
         group,
@@ -263,6 +291,12 @@ async function test_request_object() {
 
     // Verify .json()
     assert_log(group, candidate + '.json()', () => JSON.stringify(body.body.json) === options.body);
+
+    // Verify .urlencoded()
+    assert_log(group, candidate + '.urlencoded()', () => {
+        const { url1, url2 } = urlencoded_body.body.urlencoded;
+        return url1 === param1 && url2 === param2;
+    });
 
     log(group, `Finished Testing ${candidate} In ${Date.now() - start_time}ms\n`);
 }

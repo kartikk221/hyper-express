@@ -336,6 +336,8 @@ Below is a breakdown of the `Server` object class generated while creating a new
   * **Note!** Any data in the unsafely allocated buffer will always be written over thus this option is provided for those working with strict regulatory requirements.
 * `fast_abort` [`Boolean`]: Specifies HyperExpress to forcefully/abruptly close incoming request connections with bad conditions such as payload too large. This can significantly improve performance but at the cost of no HTTP status code being received by the sender.
   * **Default:** `false`
+* `trust_proxy` [`Boolean`]: Specifies whether incoming request data from intermediate proxy(s) should be trusted.
+  * **Default:** `false`
 * `max_body_length` [`Number`]: Maximum number of `bytes` allowed for incoming request body size. For reference, **1kb** = **1000 Bytes** and **1mb** = **1000kb**.
   * **Default:** `250 * 1000` or **250kb**
 
@@ -368,6 +370,9 @@ Below is a breakdown of the `Server` object class generated while creating a new
     * **Alias Methods:** `get()`, `post()`, `delete()`, `head()`, `options()`, `patch()`, `trace()`, `connect()`.
     * **Handler Parameters:** `(Request: request, Response: response) => {}`.
     * `options`[`Object`] (**Optional**)
+      * `expect_body`[`String`]: Pre-parses and Populates `Request.body` property with appropriate body for ExpressJS compatibility.
+        * **Note!** This property specification is required for the ExpressJS `Request.body` property to work properly.
+        * **Supported Types** [`raw`, `text`, `json`, `urlencoded`]
       * `middlewares`[`Array`]: Can be used to provide route/method specific middlewares.
         * **Note!** Route specific middlewares **NOT** supported with `any` method routes.
         * **Note!** Middlewares are executed in the order provided in `Array` provided.
@@ -401,9 +406,9 @@ Below is a breakdown of the `request` object made available through the route ha
 | :-------- | :------- | :------------------------- |
 | `raw` | `uWS.Request`  | Underlying uWebsockets.js request object.|
 | `method` | `String`  | Request HTTP method in uppercase. |
-| `url` | `String`  | Full path + query string. |
-| `path` | `String`  | Request path.|
-| `query` | `String`  | Query string without the `?`.|
+| `url` | `String`  | path + path_query string. |
+| `path` | `String`  | Request path without the query.|
+| `path_query` | `String`  | Request query string without the `?`.|
 | `headers` | `Object`  | Request Headers from incoming request. |
 | `cookies` | `Object`  | Request cookies from incoming request. |
 | `session` | `Session`  | Session object made available when a session engine is active. |
@@ -411,6 +416,7 @@ Below is a breakdown of the `request` object made available through the route ha
 | `query_parameters` | `Object`  | Query parameters from incoming request. |
 | `ip` | `String`  | Remote connection IP. |
 | `proxy_ip` | `String`  | Remote proxy connection IP. |
+| `body` | `Mixed`  | Populated when `expect_body` is specified at route creation. |
 
 #### Request Methods
 * `sign(String: string, String: secret)`: Signs provided string with provided secret.
@@ -421,6 +427,8 @@ Below is a breakdown of the `request` object made available through the route ha
     * **Returns** `Promise` which is then resolved to a `Buffer`.
 * `text()`: Parses body as a string from incoming request.
     * **Returns** `Promise` which is then resolved to a `String`.
+* `urlencoded()`: Parses body as an object from incoming urlencoded body.
+    * **Returns** `Promise` which is then resolved to an `Object`.
 * `json(Any: default_value)`: Parses body as a JSON Object from incoming request.
     * **Returns** `Promise` which is then resolved to an `Object` or `typeof default_value`.
     * **Note** this method returns the specified `default_value` if JSON parsing fails instead of throwing an exception. To have this method throw an exception, pass `undefined` for `default_value`.
@@ -471,10 +479,18 @@ Below is a breakdown of the `response` object made available through the route h
     * **Note** the `send()` must still be called to end the request.
 * `send(String|Buffer|ArrayBuffer: body)`: Writes specified body and sends response.
 * `json(Object: body)`: Alias of `send()`. Sets mime type to `json` and sends response.
+* `jsonp(Object: body, String: name)`: Alias of `send()`. Sets mime type to `js` and sends response.
+  * **Note!** This method uses `callback` query parameter as callback name by default if `name` parameter is not specified.
 * `html(String: body)`: Alias of `send()`. Sets mime type to `html` and sends response.
-* `file(String: path)`: Alias of `send()`. Sets appropriate mime type if one has not been set yet and sends file content at specified path as response body.
+* `file(String: path, Function: callback)`: Alias of `send()`. Sets appropriate mime type if one has not been set yet and sends file content at specified path as response body.
+  * **Callback Example**: `(cache_pool) => {}`
+    * `cache_pool` [`Object`]: The callback exposes the underlying cache pool sorted by file paths.
+    * You can expire cache for specific files by doing `delete cache_pool[path]` in the callback.
   * **Note!** An appropriate `content-type` will automatically be written if no `content-type` header is written by user prior to this method.
   * **Note!** This method should be avoided for large files as served files are cached in memory and watched for changes to allow for high performance with near instant content reloading.
+* `attachment(String: path)`: Writes appropriate `Content-Disposition` and `Content-Type` headers for file specified at `path`.
+  * **Note!** this method **only** writes the appropriate headers.
+* `download(String: path, String: filename)`: Alias of `send()`. Sets appropriate attachment headers and mime type if one has not been set yet and sends file content at specified path as response body for browser to download.
 * `throw_error(Error: error)`: Calls global catch-all error handler with specified error.
 
 ## SessionEngine

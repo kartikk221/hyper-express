@@ -36,7 +36,13 @@ class WebsocketRoute {
         options.close = (ws, code, message) => this.#methods.close(ws, code, parser(message));
 
         // Create a Route object to pass along with uws request handler
-        this.#route = new Route(context, 'ws', pattern, this.#methods.upgrade, []);
+        this.#route = new Route({
+            app: context,
+            method: 'ws',
+            pattern,
+            handler: this.#methods.upgrade,
+            middlewares: [],
+        });
 
         // Bind passthrough upgrade handler that utilizes same wrapping as normal routes
         options.upgrade = (response, request, socket_context) =>

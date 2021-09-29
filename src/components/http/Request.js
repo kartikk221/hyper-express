@@ -4,6 +4,12 @@ const signature = require('cookie-signature');
 const querystring = require('query-string');
 const operators = require('../../shared/operators.js');
 
+// ExpressJS compatibility packages
+const accepts = require('accepts');
+const parse_range = require('range-parser');
+const type_is = require('type-is');
+const is_ip = require('net').isIP;
+
 // We'll re-use this buffer throughout requests with empty bodies
 const EMPTY_BUFFER = Buffer.from('');
 
@@ -21,6 +27,7 @@ class Request {
     #body_buffer;
     #body_text;
     #body_json;
+    #body_urlencoded;
     #remote_ip;
     #remote_proxy_ip;
     #cookies;
@@ -139,7 +146,7 @@ class Request {
 
         // Initiate a buffer promise with chunk retrieval process
         let reference = this;
-        this.#buffer_promise = new Promise((resolve, reject) => {
+        this.#buffer_promise = new Promise((resolve) => {
             // Store promise resolve method to allow closure from _abort_buffer() method
             reference.#buffer_resolve = resolve;
 
@@ -177,21 +184,26 @@ class Request {
                 // Iterate body cursor to keep track of incoming chunks
                 body_cursor += array_buffer.byteLength;
 
-                // Trigger final processing on last chunk
+                // Perform final processing on last body chunk
                 if (is_last) {
                     // Cache buffer locally depending on received format type
                     if (body_buffer) {
+                        // Cache compiled buffer of multiple chunks
                         reference.#body_buffer = body_buffer;
                     } else if (chunk) {
+                        // Cache singular buffer when only one chunk is received
                         reference.#body_buffer = chunk;
                     } else {
+                        // Cache an empty buffer as a fallback to signify no body content received
                         reference.#body_buffer = EMPTY_BUFFER;
                     }
 
                     // Abort request with a (400 Bad Request) if downloaded buffer length does not match expected content-length header
                     if (reference.#body_buffer.length !== content_length) {
                         reference.#body_buffer = EMPTY_BUFFER;
-                        reference.#raw_response.status(400).send();
+                        reference.#raw_response
+                            .status(400)
+                            .send('Received body length did not match content length header.');
                     }
 
                     // Mark instance as no longer buffer pending and resolve if request has not been reslolved yet
@@ -232,6 +244,7 @@ class Request {
             return Promise.resolve(this.#body_buffer);
         }
 
+        // Initiate buffer download
         return this._download_buffer(content_length);
     }
 
@@ -289,7 +302,7 @@ class Request {
     }
 
     /**
-     * Asynchronously parses request body as JSON.
+     * Parses and resolves an Object of json values from body.
      * Passing default_value as undefined will lead to the function throwing an exception
      * if JSON parsing fails.
      *
@@ -303,7 +316,7 @@ class Request {
         // Parse and resolve fast if text body is available locally
         if (this.#body_text) {
             this.#body_json = this._parse_json(this.#body_text, default_value);
-            return this.#body_json;
+            return Promise.resolve(this.#body_json);
         }
 
         // Parse Text from incoming request body and cache/resolve Object type
@@ -320,6 +333,23 @@ class Request {
                     resolve(default_value);
                 })
         );
+    }
+
+    /**
+     * Parses and resolves an Object of urlencoded values from body.
+     *
+     * @returns {Promise} Promise(Object: body)
+     */
+    async urlencoded() {
+        // Return from cache if available
+        if (this.#body_urlencoded) return Promise.resolve(this.#body_urlencoded);
+
+        // Retrive text body
+        const text = this.#body_text || (await this.text());
+
+        // Parse text body into object, cache, and resolve
+        this.#body_urlencoded = querystring.parse(text);
+        return this.#body_urlencoded;
     }
 
     /* Request Getters */
@@ -356,7 +386,7 @@ class Request {
     /**
      * Returns query for incoming request without the '?'.
      */
-    get query() {
+    get path_query() {
         return this.#query;
     }
 
@@ -431,6 +461,268 @@ class Request {
             this.#remote_proxy_ip = operators.arr_buff_to_str(this.#remote_proxy_ip);
 
         return this.#remote_proxy_ip;
+    }
+
+    /* ExpressJS compatibility properties & methods */
+
+    /**
+     * ExpressJS: Returns header for specified name.
+     * @param {String} name
+     * @returns {String|undefined}
+     */
+    get(name) {
+        let lowercase = name.toLowerCase();
+        switch (lowercase) {
+            case 'referer':
+            case 'referrer':
+                return this.headers['referer'] || this.headers['referrer'];
+            default:
+                return this.headers[lowercase];
+        }
+    }
+
+    /**
+     * ExpressJS: Alias of .get(name) method.
+     * @param {String} name
+     * @returns {String|undefined}
+     */
+    header(name) {
+        return this.get(name);
+    }
+
+    /**
+     * ExpressJS: Checks if provided types are accepted.
+     * @param {String|Array} types
+     * @returns {String|Array|Boolean}
+     */
+    accepts() {
+        let instance = accepts(this);
+        return instance.types.apply(instance, arguments);
+    }
+
+    /**
+     * ExpressJS: Checks if provided encodings are accepted.
+     * @param {String|Array} encodings
+     * @returns {String|Array}
+     */
+    acceptsEncodings() {
+        let instance = accepts(this);
+        return instance.encodings.apply(instance, arguments);
+    }
+
+    /**
+     * ExpressJS: Checks if provided charsets are accepted
+     * @param {String|Array} charsets
+     * @returns {String|Array}
+     */
+    acceptsCharsets() {
+        let instance = accepts(this);
+        return instance.charsets.apply(instance, arguments);
+    }
+
+    /**
+     * ExpressJS: Checks if provided languages are accepted
+     * @param {String|Array} charsets
+     * @returns {String|Array}
+     */
+    acceptsLanguages() {
+        let instance = accepts(this);
+        return instance.languages.apply(instance, arguments);
+    }
+
+    /**
+     * ExpressJS: Parse Range header field, capping to the given `size`.
+     * @param {Number} size
+     * @param {Object} options
+     * @param {Boolean} options.combine Default: false
+     * @returns {Number|Array}
+     */
+    range(size, options) {
+        let range = this.get('Range');
+        if (!range) return;
+        return parse_range(size, range, options);
+    }
+
+    /**
+     * ExpressJS: Return the value of param `name` when present or `defaultValue`.
+     * @param {String} name
+     * @param {Any} default_value
+     * @returns {String}
+     */
+    param(name, default_value) {
+        let body = this.body;
+        let path_parameters = this.path_parameters;
+        let query_parameters = this.query_parameters;
+
+        if (null != path_parameters[name] && path_parameters.hasOwnProperty(name))
+            return path_parameters[name];
+        if (null != body[name]) return body[name];
+        if (null != query_parameters[name]) return query_parameters[name];
+        return default_value;
+    }
+
+    /**
+     * ExpressJS: Check if the incoming request contains the "Content-Type" header field, and it contains the give mime `type`.
+     * @param {String|Array} types
+     * @returns {String|false|null}
+     */
+    is(types) {
+        // support flattened arguments
+        let arr = types;
+        if (!Array.isArray(types)) {
+            arr = new Array(arguments.length);
+            for (let i = 0; i < arr.length; i++) arr[i] = arguments[i];
+        }
+        return type_is(this, arr);
+    }
+
+    /**
+     * Throws a descriptive error when an unsupported ExpressJS property/method is invocated.
+     * @private
+     * @param {String} name
+     */
+    _throw_unsupported(name) {
+        throw new Error(
+            `One of your middlewares or logic tried to call Request.${name} which is unsupported with HyperExpress.`
+        );
+    }
+
+    /**
+     * Unsupported property
+     */
+    get app() {
+        this._throw_unsupported('app()');
+    }
+
+    /**
+     * ExpressJS: Alias of HyperExpress.Request.path
+     */
+    get baseUrl() {
+        return this.#path;
+    }
+
+    /**
+     * ExpressJS: Alias of HyperExpress.Request.url
+     */
+    get originalUrl() {
+        return this.url;
+    }
+
+    /**
+     * ExpressJS: Alias of HyperExpress.Request.path_parameters
+     */
+    get params() {
+        return this.path_parameters;
+    }
+
+    /**
+     * ExpressJS: Returns query parameters
+     */
+    get query() {
+        return this.query_parameters;
+    }
+
+    /**
+     * Unsupported property
+     */
+    get route() {
+        this._throw_unsupported('route');
+    }
+
+    /**
+     * ExpressJS: Returns the current protocol
+     * @returns {('https'|'http')}
+     */
+    get protocol() {
+        // Resolves x-forwarded-proto header if trust proxy is enabled
+        let trust_proxy = this.#master_context.trust_proxy;
+        let x_forwarded_proto = this.get('X-Forwarded-Proto');
+        if (trust_proxy && x_forwarded_proto)
+            return x_forwarded_proto.indexOf(',') > -1
+                ? x_forwarded_proto.split(',')[0]
+                : x_forwarded_proto;
+
+        // Use HyperExpress/uWS initially defined protocol
+        return this.#master_context.is_ssl ? 'https' : 'http';
+    }
+
+    /**
+     * ExpressJS: Returns true when request is on https protocol
+     * @returns {Boolean}
+     */
+    get secure() {
+        return this.protocol === 'https';
+    }
+
+    /**
+     * ExpressJS: When "trust proxy" is set, trusted proxy addresses + client.
+     * @returns {Array}
+     */
+    get ips() {
+        let client_ip = this.ip;
+        let proxy_ip = this.proxy_ip;
+        let trust_proxy = this.#master_context.trust_proxy;
+        let x_forwarded_for = this.get('X-Forwarded-For');
+        if (trust_proxy && x_forwarded_for) return x_forwarded_for.split(',');
+        return [client_ip, proxy_ip];
+    }
+
+    /**
+     * ExpressJS: Parse the "Host" header field to a hostname.
+     */
+    get hostname() {
+        let trust_proxy = this.#master_context.trust_proxy;
+        let host = this.get('X-Forwarded-Host');
+
+        if (!host || !trust_proxy) {
+            host = this.get('Host');
+        } else if (host.indexOf(',') > -1) {
+            // Note: X-Forwarded-Host is normally only ever a
+            //       single value, but this is to be safe.
+            host = host.substring(0, host.indexOf(',')).trimRight();
+        }
+
+        if (!host) return;
+
+        // IPv6 literal support
+        let offset = host[0] === '[' ? host.indexOf(']') + 1 : 0;
+        let index = host.indexOf(':', offset);
+        return index !== -1 ? host.substring(0, index) : host;
+    }
+
+    /**
+     * ExpressJS: Return subdomains as an array.
+     * @returns {Array}
+     */
+    get subdomains() {
+        let hostname = this.hostname;
+        if (!hostname) return [];
+
+        let offset = 2;
+        let subdomains = !is_ip(hostname) ? hostname.split('.').reverse() : [hostname];
+        return subdomains.slice(offset);
+    }
+
+    /**
+     * Unsupported Property
+     */
+    get fresh() {
+        this._throw_unsupported('fresh');
+    }
+
+    /**
+     * Unsupported Property
+     */
+    get stale() {
+        this._throw_unsupported('stale');
+    }
+
+    /**
+     * ExpressJS: Check if the request was an _XMLHttpRequest_.
+     * @returns {Boolean}
+     */
+    get xhr() {
+        return (this.get('X-Requested-With') || '').toLowerCase() === 'xmlhttprequest';
     }
 }
 
