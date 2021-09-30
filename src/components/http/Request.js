@@ -550,14 +550,17 @@ class Request {
      * @returns {String}
      */
     param(name, default_value) {
+        // Parse three dataset candidates
         let body = this.body;
         let path_parameters = this.path_parameters;
         let query_parameters = this.query_parameters;
 
+        // First check path parameters, body, and finally query_parameters
         if (null != path_parameters[name] && path_parameters.hasOwnProperty(name))
             return path_parameters[name];
         if (null != body[name]) return body[name];
         if (null != query_parameters[name]) return query_parameters[name];
+
         return default_value;
     }
 
@@ -592,6 +595,18 @@ class Request {
      */
     get app() {
         this._throw_unsupported('app()');
+    }
+
+    /**
+     * Returns expected body from route options
+     */
+    get body() {
+        if (this._body == undefined)
+            throw new Error(
+                'Request.body property has not been initialized yet. Please specify expect_body parameter in options when creating a route to populate the Request.body property.'
+            );
+
+        return this._body;
     }
 
     /**

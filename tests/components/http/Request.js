@@ -60,8 +60,16 @@ webserver.get(
         // Store mproperty if exists on request object
         if (request.mproperty3) last_endpoint_mproperty3 = request.mproperty3;
 
+        let body_error;
+        try {
+            request.body;
+        } catch (error) {
+            body_error = error;
+        }
+
         return response.json({
             success: true,
+            body_error: body_error !== undefined,
         });
     }
 );
@@ -210,11 +218,12 @@ async function test_request_object() {
         () => last_endpoint_mproperty3 == undefined
     );
 
-    await fetch(base + route_specific_endpoint, {
+    const middleware_response = await fetch(base + route_specific_endpoint, {
         headers: {
             'x-middleware-test-3': 'true',
         },
     });
+    const middleware_body = await middleware_response.json();
 
     assert_log(
         group,
@@ -276,7 +285,8 @@ async function test_request_object() {
         candidate + '.body',
         () =>
             JSON.stringify(urlencoded_body.body.pre_parsed) ===
-            JSON.stringify(urlencoded_body.body.urlencoded)
+                JSON.stringify(urlencoded_body.body.urlencoded) &&
+            middleware_body.body_error === true
     );
 
     // Verify .sign() and .unsign()

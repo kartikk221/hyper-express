@@ -252,12 +252,14 @@ class Server {
             expect_body,
         });
 
-        // Bind uWS.method() route which pipes incoming request/respone to handler
+        // Bind uWS.method() route which passes incoming request/respone to our handler
         this.#uws_instance[method](pattern, (response, request) =>
             this._handle_uws_request(route, request, response, null)
         );
 
-        return (this.#routes[method][pattern] = route);
+        // Store route in routes tree and return route to invocator
+        this.#routes[method][pattern] = route;
+        return route;
     }
 
     /**
@@ -310,32 +312,31 @@ class Server {
                 });
             }
 
-            // Parse body based on one of the expected types and populate request.body property
-            let expect_body = route.expect_body;
-            if (typeof expect_body == 'string') {
-                switch (expect_body) {
+            // If a body type is expected, parse body based on one of the expected types and populate request.body property
+            if (typeof route.expect_body == 'string') {
+                switch (route.expect_body) {
                     case 'text':
-                        wrapped_request.body = await wrapped_request.text();
+                        wrapped_request._body = await wrapped_request.text();
                         break;
                     case 'json':
-                        wrapped_request.body = await wrapped_request.json();
+                        wrapped_request._body = await wrapped_request.json();
                         break;
                     case 'urlencoded':
-                        wrapped_request.body = await wrapped_request.urlencoded();
+                        wrapped_request._body = await wrapped_request.urlencoded();
                         break;
                     default:
-                        wrapped_request.body = await wrapped_request.buffer();
+                        wrapped_request._body = await wrapped_request.buffer();
                         break;
                 }
             } else {
-                // Initiate passive body buffer download without holding up the flow
+                // Initiate passive body buffer download without holding up the handling flow
                 wrapped_request
                     .buffer()
                     .catch((error) => this.error_handler(wrapped_request, wrapped_response, error));
             }
         }
 
-        // Wrap middlewares & route handler in a Promise to catch async/sync errors
+        // Wrap middlewares & route handler in a promise/try/catch to catch async/sync errors
         return new Promise((resolve, reject) => {
             try {
                 // Call middleware chaining method and pass handler/socket
@@ -355,15 +356,15 @@ class Server {
      * @param {Response} response - Response Object
      */
     _chain_middlewares(route, request, response, cursor = 0) {
-        // Break chain if request has been aborted
+        // Break chain if response has been aborted
         if (response.aborted) return;
 
         // Global middlewares take precedence over route specific middlewares
         if (this.#middlewares.length > 0) {
             // Determine current global middleware and execute
-            let middleware = this.#middlewares[cursor];
+            const middleware = this.#middlewares[cursor];
             if (middleware) {
-                // Create a anonymous callback function to for iterating forward
+                // Create a anonymous callback function for iterating forward in chain
                 const next = () => this._chain_middlewares(route, request, response, cursor + 1);
 
                 // If middleware invocation returns a Promise, bind a then handler to trigger next iterator
@@ -375,9 +376,8 @@ class Server {
 
         // Execute route specific middlewares if they exist
         if (route.middlewares.length > 0) {
-            // Determine current route specific/method middleware and execute
-            // Account for global middlewares cursor offset
-            let middleware = route.middlewares[cursor - this.#middlewares.length];
+            // Determine current route specific/method middleware and execute while accounting for global middlewares cursor offset
+            const middleware = route.middlewares[cursor - this.#middlewares.length];
             if (middleware) {
                 // Create a anonymous callback function to for iterating forward
                 const next = () => this._chain_middlewares(route, request, response, cursor + 1);
@@ -397,7 +397,8 @@ class Server {
 
     /**
      * @typedef {Object} RouteOptions
-     * @property {Array.<MiddlewareHandler>} middlewares Route specific middlewares
+     * @property {Array.<MiddlewareHandler>|Array.<PromiseMiddlewareHandler>} middlewares Route specific middlewares
+     * @property {Boolean} expect_body Pre-parses and populates Request.body with specified body type.
      */
 
     /**
