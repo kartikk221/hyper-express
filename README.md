@@ -486,7 +486,7 @@ Below is a breakdown of the `response` object made available through the route h
   * **Note!** This method uses `callback` query parameter as callback name by default if `name` parameter is not specified.
 * `html(String: body)`: Alias of `send()`. Sets mime type to `html` and sends response.
 * `file(String: path, Function: callback)`: Alias of `send()`. Sets appropriate mime type if one has not been set yet and sends file content at specified path as response body.
-  * **Callback Example**: `(cache_pool) => {}`
+  * **Callback Example**: `(cache_pool) => {/* Your code here */}`
     * `cache_pool` [`Object`]: The callback exposes the underlying cache pool sorted by file paths.
     * You can expire cache for specific files by doing `delete cache_pool[path]` in the callback.
   * **Note!** An appropriate `content-type` will automatically be written if no `content-type` header is written by user prior to this method.

@@ -93,20 +93,28 @@ class Response {
      * This method can be used to write a response header and supports chaining.
      *
      * @param {String} name Header Name
-     * @param {String} value Header Value
+     * @param {String|Array} value Header Value
      * @returns {Response} Response (Chainable)
      */
     header(name, value) {
+        // Call self for all specified values in values array
+        if (Array.isArray(value)) {
+            value.forEach((item) => this.header(name, item));
+            return this;
+        }
+
         // Initialize headers container
         if (this.#headers == undefined) this.#headers = {};
 
-        // Initialize headers values array
+        // Initialize header values as an array to allow for multiple values
         if (this.#headers[name] == undefined) this.#headers[name] = [];
 
+        // Push current header value onto values array
         this.#headers[name].push(value);
         return this;
     }
 
+    #cookies;
     /**
      * This method is used to write a cookie to incoming request.
      * Note! This method utilized .header() therefore it must be called
@@ -140,6 +148,10 @@ class Response {
             value = signature.sign(value, options.secret);
             options.encode = false; // Turn off encoding to prevent loss of signature structure
         }
+
+        // Initialize cookies holder and store cookie value
+        if (this.#cookies == undefined) this.#cookies = {};
+        this.#cookies[name] = value;
 
         // Serialize cookie options -> set-cookie header and write header
         let header = cookie.serialize(name, value, options);
@@ -223,16 +235,6 @@ class Response {
             return true;
         }
         return false;
-    }
-
-    /**
-     * @private
-     * Returns current global byte write offset for the response.
-     *
-     * @returns {Number}
-     */
-    _write_offset() {
-        return this.#raw_response.getWriteOffset();
     }
 
     /**
@@ -333,7 +335,7 @@ class Response {
      */
     jsonp(body, name) {
         let query_parameters = this.#wrapped_request.query_parameters;
-        let method_name = query_parameters.callback || name;
+        let method_name = query_parameters['callback'] || name;
         return this.type('js').send(`${method_name}(${JSON.stringify(body)})`);
     }
 
@@ -493,14 +495,12 @@ class Response {
     locals = {};
 
     /**
-     * ExpressJS: Appends the specified value to the HTTP response header field.
-     * If the header is not already set, it creates the header with the specified value. The value parameter can be a string or an array.
+     * ExpressJS: Alias of header() method
      * @param {String} name
      * @param {String|Array} values
      */
     append(name, values) {
-        if (this.#headers == undefined) this.#headers = {};
-        this.#headers[name] = Array.isArray(values) ? values : [values];
+        return this.header(name, values);
     }
 
     /**
@@ -575,7 +575,7 @@ class Response {
      * @returns {Boolean}
      */
     hasCookie(name) {
-        return this.#wrapped_request.cookies[name] !== undefined;
+        return this.#cookies && this.#cookies[name] !== undefined;
     }
 
     /**
@@ -614,8 +614,10 @@ class Response {
      * @returns {String|Array}
      */
     get(name) {
-        let values = this.#headers[name];
-        if (values) return values.length == 0 ? values[0] : values;
+        if (this.#headers) {
+            let values = this.#headers[name];
+            if (values) return values.length == 0 ? values[0] : values;
+        }
     }
 
     /**
@@ -675,7 +677,7 @@ class Response {
             const reference = this;
             Object.keys(field).forEach((name) => {
                 let value = field[name];
-                reference.#headers = [value];
+                reference.header(field, value);
             });
         } else {
             this.header(field, value);

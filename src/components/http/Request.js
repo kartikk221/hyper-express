@@ -44,7 +44,6 @@ class Request {
         // Execute requesr operators for pre-parsing common access data
         // Attach session engine and parse path parameters based on specification
         this._request_information();
-        this._request_headers();
         this._path_parameters(path_parameters_key);
         this._load_session_engine(master_context.session_engine);
     }
@@ -68,14 +67,6 @@ class Request {
         this.#url = this.#path + (this.#query ? '?' + this.#query : '');
         this.#remote_ip = response.getRemoteAddressAsText();
         this.#remote_proxy_ip = response.getProxiedRemoteAddressAsText();
-    }
-
-    /**
-     * @private
-     * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
-     * This method parses request headers utilizing uWS.Request.forEach((key, value) => {})
-     */
-    _request_headers() {
         this.#raw_request.forEach((key, value) => (this.#headers[key] = value));
     }
 
@@ -88,12 +79,10 @@ class Request {
      */
     _path_parameters(parameters_key) {
         if (parameters_key.length > 0) {
-            let reference = this;
-            parameters_key.forEach((keySet) => {
-                reference.#path_parameters[keySet[0]] = reference.#raw_request.getParameter(
-                    keySet[1]
-                );
-            });
+            parameters_key.forEach(
+                (keySet) =>
+                    (this.#path_parameters[keySet[0]] = this.#raw_request.getParameter(keySet[1]))
+            );
         }
     }
 
@@ -253,27 +242,13 @@ class Request {
      *
      * @returns {Promise} Promise
      */
-    text() {
+    async text() {
         // Resolve from cache if available
-        if (this.#body_text) return Promise.resolve(this.#body_text);
+        if (this.#body_text) return this.#body_text;
 
-        // Convert and resolve from memory if buffer is available
-        if (this.#body_buffer) {
-            this.#body_text = this.#body_buffer.toString();
-            return Promise.resolve(this.#body_text);
-        }
-
-        // Parse Buffer from incoming request body and cache/resolve string type
-        let reference = this;
-        return new Promise((resolve, reject) =>
-            reference
-                .buffer()
-                .then((buffer) => {
-                    reference.#body_text = buffer.toString();
-                    resolve(reference.#body_text);
-                })
-                .catch(reject)
-        );
+        // Retrieve body buffer, convert to string, cache and resolve
+        this.#body_text = (this.#body_buffer || (await this.buffer())).toString();
+        return this.#body_text;
     }
 
     /**
@@ -287,9 +262,6 @@ class Request {
     _parse_json(string, default_value) {
         // Unsafely parse JSON as we do not have a default_value
         if (default_value == undefined) return JSON.parse(string);
-
-        // Resolve default_value if string is empty and thus invalid
-        if (string == '') return default_value;
 
         // Safely parse JSON as we have a default_value
         let json;
@@ -309,30 +281,14 @@ class Request {
      * @param {Any} default_value Default: {}
      * @returns {Promise} Promise(String: body)
      */
-    json(default_value = {}) {
+    async json(default_value = {}) {
         // Return from cache if available
-        if (this.#body_json) return Promise.resolve(this.#body_json);
+        if (this.#body_json) return this.#body_json;
 
-        // Parse and resolve fast if text body is available locally
-        if (this.#body_text) {
-            this.#body_json = this._parse_json(this.#body_text, default_value);
-            return Promise.resolve(this.#body_json);
-        }
-
-        // Parse Text from incoming request body and cache/resolve Object type
-        let reference = this;
-        return new Promise((resolve, reject) =>
-            reference
-                .text()
-                .then((text) => {
-                    reference.#body_json = reference._parse_json(text, default_value);
-                    resolve(reference.#body_json);
-                })
-                .catch((error) => {
-                    if (default_value == undefined) return reject(error);
-                    resolve(default_value);
-                })
-        );
+        // Retrieve body as text, safely parse json, cache and resolve
+        let text = this.#body_text || (await this.text());
+        this.#body_json = this._parse_json(text, default_value);
+        return this.#body_json;
     }
 
     /**
@@ -342,13 +298,10 @@ class Request {
      */
     async urlencoded() {
         // Return from cache if available
-        if (this.#body_urlencoded) return Promise.resolve(this.#body_urlencoded);
+        if (this.#body_urlencoded) return this.#body_urlencoded;
 
-        // Retrive text body
-        const text = this.#body_text || (await this.text());
-
-        // Parse text body into object, cache, and resolve
-        this.#body_urlencoded = querystring.parse(text);
+        // Retrive text body, parse as a query string, cache and resolve
+        this.#body_urlencoded = querystring.parse(this.#body_text || (await this.text()));
         return this.#body_urlencoded;
     }
 
@@ -405,13 +358,8 @@ class Request {
         if (this.#cookies) return this.#cookies;
 
         // Parse cookies from Cookie header and cache results
-        let cookie_header = this.#headers.cookie;
-        if (typeof cookie_header == 'string') {
-            this.#cookies = cookie.parse(cookie_header);
-        } else {
-            this.#cookies = {};
-        }
-
+        let header = this.#headers['cookie'];
+        this.#cookies = header ? cookie.parse(header) : {};
         return this.#cookies;
     }
 
@@ -601,6 +549,7 @@ class Request {
      * Returns expected body from route options
      */
     get body() {
+        // Ensure body has been initialized from internal handler through expect_body route option
         if (this._body == undefined)
             throw new Error(
                 'Request.body property has not been initialized yet. Please specify expect_body parameter in options when creating a route to populate the Request.body property.'
