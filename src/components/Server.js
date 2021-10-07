@@ -354,20 +354,30 @@ class Server {
      * @param {Route} route - Route Object
      * @param {Request} request - Request Object
      * @param {Response} response - Response Object
+     * @param {Error} error - Error or Extended Error Object
      */
-    _chain_middlewares(route, request, response, cursor = 0) {
+    _chain_middlewares(route, request, response, cursor = 0, error) {
         // Break chain if response has been aborted
         if (response.aborted) return;
 
-        // Global middlewares take precedence over route specific middlewares
-        if (this.#middlewares.length > 0) {
+        // Trigger error handler if an error was provided by a middleware
+        if (error instanceof Error) return response.throw_error(error);
+
+        // Determine next callback based on if either global or route middlewares exist
+        const has_global_middlewares = this.#middlewares.length > 0;
+        const has_route_middlewares = route.middlewares.length > 0;
+        const next =
+            has_global_middlewares || has_route_middlewares
+                ? (err) => this._chain_middlewares(route, request, response, cursor + 1, err)
+                : undefined;
+
+        // Execute global middlewares first as they take precedence over route specific middlewares
+        if (has_global_middlewares) {
             // Determine current global middleware and execute
             const middleware = this.#middlewares[cursor];
             if (middleware) {
-                // Create a anonymous callback function for iterating forward in chain
-                const next = () => this._chain_middlewares(route, request, response, cursor + 1);
-
                 // If middleware invocation returns a Promise, bind a then handler to trigger next iterator
+                response._track_middleware_cursor(cursor);
                 const output = middleware(request, response, next);
                 if (output instanceof Promise) output.then(next);
                 return;
@@ -375,14 +385,12 @@ class Server {
         }
 
         // Execute route specific middlewares if they exist
-        if (route.middlewares.length > 0) {
+        if (has_route_middlewares) {
             // Determine current route specific/method middleware and execute while accounting for global middlewares cursor offset
             const middleware = route.middlewares[cursor - this.#middlewares.length];
             if (middleware) {
-                // Create a anonymous callback function to for iterating forward
-                const next = () => this._chain_middlewares(route, request, response, cursor + 1);
-
                 // If middleware invocation returns a Promise, bind a then handler to trigger next iterator
+                response._track_middleware_cursor(cursor);
                 const output = middleware(request, response, next);
                 if (output instanceof Promise) output.then(next);
                 return;

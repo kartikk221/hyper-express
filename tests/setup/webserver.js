@@ -9,6 +9,10 @@ const test_server = new HyperExpress.Server({
 
 // Bind error handler for catch-all logging
 test_server.set_error_handler((request, response, error) => {
+    // Handle expected errors with their appropriate callbacks
+    if (typeof request.expected_error == 'function') return request.expected_error();
+
+    // Treat as global error and log to console
     log(
         'UNCAUGHT_ERROR_REQUEST',
         `${request.method} | ${request.url}\n ${JSON.stringify(request.headers, null, 2)}`

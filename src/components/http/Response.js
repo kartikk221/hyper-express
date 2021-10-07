@@ -8,6 +8,7 @@ const FilePool = {};
 
 class Response {
     #wrapped_request;
+    #middleware_cursor;
     #raw_response;
     #master_context;
     #upgrade_socket;
@@ -37,6 +38,27 @@ class Response {
             reference.#wrapped_request._abort_buffer();
             reference._call_hooks('abort');
         });
+    }
+
+    /**
+     * Tracks middleware cursor position over a request's lifetime.
+     * This is so we can detect any double middleware iterations and throw an error.
+     * @private
+     * @param {Number} position - Cursor position
+     */
+    _track_middleware_cursor(position) {
+        // Initialize cursor on first invocation
+        if (this.#middleware_cursor == undefined) return (this.#middleware_cursor = position);
+
+        // Check if position is greater than last cursor and update
+        if (position > this.#middleware_cursor) return (this.#middleware_cursor = position);
+
+        // If position is not greater than last cursor then we likely have a double middleware execution
+        this.throw_error(
+            new Error(
+                'HyperExpress: Double middleware execution detected! You have a bug where one of your middlewares is calling both the next() callback and also resolving from a Promise/async callback. You must only use one of these not both.'
+            )
+        );
     }
 
     /* Response Methods/Operators */

@@ -71,10 +71,8 @@ class Request {
     }
 
     /**
-     * @private
-     * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method parses path parameters from incoming request using a parameter key
-     *
+     * @private
      * @param {Array} parameters_key [[key, index], ...]
      */
     _path_parameters(parameters_key) {
@@ -87,10 +85,8 @@ class Request {
     }
 
     /**
-     * @private
-     * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
      * This method is used to initiate a Session object on an incoming request.
-     *
+     * @private
      * @param {SessionEngine} session_engine
      */
     _load_session_engine(session_engine) {

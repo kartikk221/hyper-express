@@ -367,6 +367,7 @@ Below is a breakdown of the `Server` object class generated while creating a new
     * **Callback Example:** `(Request: request, Response: response, Function: next) => {}`.
     * **Promise Example:** `(Request: request, Response: response) => new Promise((resolve, reject) => { /* Call resolve() in here */ })`.
     * **Note** you must ensure that each middleware iterates by executing the `callback` or resolving the returned `Promise`.
+    * **Note** calling `next(new Error(...))` or resolving/rejecting with an `Error` will call the global error handler.
 * `any(String: pattern, Object: options, Function: handler)`: Creates an HTTP route on specified pattern. Alias methods are listed below for HTTP method specific routes.
     * **Alias Methods:** `get()`, `post()`, `delete()`, `head()`, `options()`, `patch()`, `trace()`, `connect()`.
     * **Handler Parameters:** `(Request: request, Response: response) => {}`.

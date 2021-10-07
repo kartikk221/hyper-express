@@ -3,6 +3,8 @@ const { log, assert_log, random_string, http_post_headers } = require(root +
     'scripts/operators.js');
 const { fetch, server } = require(root + 'scripts/configuration.js');
 const { webserver } = require(root + 'setup/webserver.js');
+const { test_middleware_double_iteration } = require('./scenarios/middleware_double_iteration.js');
+const { test_middleware_iteration_error } = require('./scenarios/middleware_iteration_error');
 const crypto = require('crypto');
 const endpoint = '/tests/request/:param1/:param2';
 const route_specific_endpoint = '/tests/request-route/';
@@ -223,13 +225,19 @@ async function test_request_object() {
             'x-middleware-test-3': 'true',
         },
     });
-    const middleware_body = await middleware_response.json();
 
+    const middleware_body = await middleware_response.json();
     assert_log(
         group,
         'Route Specific Middleware Binding & Property Test',
         () => last_endpoint_mproperty3 === middleware_property
     );
+
+    // Test double iteration violation for middlewares
+    await test_middleware_double_iteration();
+
+    // Test simulated middleware iteration error
+    await test_middleware_iteration_error();
 
     // Verify .method
     assert_log(group, candidate + '.method', () => test_method === body.method);
