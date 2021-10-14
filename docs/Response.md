@@ -35,9 +35,9 @@ Below is a breakdown of the `response` object made available through the route/m
         * `secret`:[`String`]: Cryptographically signs cookie value
     * **Note** cookie values are not URL encoded.
 * `delete_cookie(String: name)`: Writes a cookie header to delete/expire specified cookie.
-* `upgrade(Object: data)`: Upgrades incoming request to a websocket connection.
-    * `data` is optional and can be used to store data attributes on the websocket connection object.
-    * **Note** this method can only be used inside the `upgrade` handler of a WebsocketRoute.
+* `upgrade(Object: context)`: Upgrades incoming request to a websocket connection.
+    * **Note** `context` is optional and can be used to store data on the websocket connection object.
+    * **Note** this method can only be used inside an `upgrade` route handler.
 * `redirect(String: url)`: Writes 302 header to redirect incoming request to specified url.
 * `write(String|Buffer|ArrayBuffer: chunk)`: Writes specified chunk as response. Use this method with streams to send response body in chunks.
     * **Note** the `send()` must still be called to end the request.
