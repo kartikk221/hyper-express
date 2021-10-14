@@ -75,10 +75,11 @@ autocannon -c 2500 -d 30 -p 4 http://HOST:PORT/benchmark
 
 |                          | Version | Requests/s | Latency | Throughput/s |
 | :--                      | --:     | :-:        | --:     | --:          |
-| uWebsockets.js           | 19.5.0  | 197,544    | 426 ms  | 106 Mb/s     |
-| HyperExpress             | 4.1.1   | 196,607    | 432 ms  | 106 Mb/s     |
-| Fastify                  | 3.21.6  | 18,258     | 590 ms  | 11 Mb/s      |
-| Express                  | 4.17.1  | 5,630      | 1702 ms | 3.8 Mb/s     |
+| uWebsockets.js           | 20.0.0  | 196,721    | 435 ms  | 106 Mb/s     |
+| HyperExpress             | 5.0.2   | 196,833    | 413 ms  | 106 Mb/s     |
+| NanoExpress              | 5.1.1   | 195,728    | 423 ms  | 106 Mb/s     |
+| Fastify                  | 3.22.0  | 40,898     | 565 ms  | 25 Mb/s      |
+| Express                  | 4.17.1  | 5,791      | 1740 ms | 3.8 Mb/s     |
 
 ## License
 [MIT](./LICENSE)
