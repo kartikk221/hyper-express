@@ -30,7 +30,7 @@ class Server extends Router {
      * @param {Boolean} options.trust_proxy Specifies whether to trust incoming request data from intermediate proxy(s)
      * @param {Number} options.max_body_length Maximum body content length allowed in bytes. For Reference: 1kb = 1000 bytes and 1mb = 1000kb.
      */
-    constructor(options) {
+    constructor(options = {}) {
         // Only accept object as a parameter type for options
         if (options == null || typeof options !== 'object')
             throw new Error(
