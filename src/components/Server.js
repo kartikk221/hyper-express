@@ -166,7 +166,10 @@ class Server extends Router {
 
     /* Server Routes & Middlewares Logic */
 
-    #middlewares = {};
+    #middlewares = {
+        '/': [], // This will contain global middlewares
+    };
+
     #routes = {
         any: {},
         get: {},
