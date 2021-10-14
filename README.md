@@ -44,6 +44,16 @@ HyperExpress can be installed using node package manager (`npm`)
 npm i hyper-express
 ```
 
+## Documentation
+- See [`> [Examples & Snippets]`](./docs/Examples.md) for small and **easy-to-use snippets** with HyperExpress.
+- See [`> [Server]`](./docs/Server.md) for creating a webserver and working with the **Server** component.
+- See [`> [Middlewares]`](./docs/Middlewares.md) for working with global and route-specific **Middlewares** in HyperExpress.
+- See [`> [Router]`](./docs/Router.md) for working with the modular **Router** component.
+- See [`> [Request]`](./docs/Request.md) for working with the **Request** component made available through handlers.
+- See [`> [Response]`](./docs/Response.md) for working with the **Response** component made available through handlers.
+- See [`> [Websocket]`](./docs/Websocket.md) for working with **Websockets** in HyperExpress.
+- See [`> [SessionEngine]`](https://github.com/kartikk221/hyper-express-session) for working with cookie based web **Sessions** in HyperExpress.
+
 ## Benchmarks
 Below benchmark results were derived using the **[autocannon](https://www.npmjs.com/package/autocannon)** HTTP benchmarking utility. The benchmark source code is included in this repository in the benchmarks folder.
 
@@ -69,16 +79,6 @@ autocannon -c 2500 -d 30 -p 4 http://HOST:PORT/benchmark
 | HyperExpress             | 4.1.1   | 196,607    | 432 ms  | 106 Mb/s     |
 | Fastify                  | 3.21.6  | 18,258     | 590 ms  | 11 Mb/s      |
 | Express                  | 4.17.1  | 5,630      | 1702 ms | 3.8 Mb/s     |
-
-## Documentation
-- See [`> [Examples & Snippets]`](./docs/Examples.md) for small and **easy-to-use snippets** with HyperExpress.
-- See [`> [Server]`](./docs/Server.md) for creating a webserver and working with the **Server** component.
-- See [`> [Middlewares]`](./docs/Middlewares.md) for working with global and route-specific **Middlewares** in HyperExpress.
-- See [`> [Router]`](./docs/Router.md) for working with the modular **Router** component.
-- See [`> [Request]`](./docs/Request.md) for working with the **Request** component made available through handlers.
-- See [`> [Response]`](./docs/Response.md) for working with the **Response** component made available through handlers.
-- See [`> [Websocket]`](./docs/Websocket.md) for working with **Websockets** in HyperExpress.
-- See [`> [SessionEngine]`](https://github.com/kartikk221/hyper-express-session) for working with cookie based web **Sessions** in HyperExpress.
 
 ## License
 [MIT](./LICENSE)
