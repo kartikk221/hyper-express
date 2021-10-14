@@ -1,12 +1,11 @@
-const operators = require('../../shared/operators.js');
+const { parse_path_parameters } = require('../../shared/operators.js');
 
 class Route {
     #app;
     #method;
     #pattern;
     #handler;
-    #expect_body;
-    #middlewares = [];
+    #options;
     #path_parameters_key;
 
     /**
@@ -16,25 +15,25 @@ class Route {
      * @param {String} pattern
      * @param {Function} handler
      */
-    constructor({ app, method, pattern, handler, middlewares, expect_body }) {
+    constructor({ app, method, pattern, options, handler }) {
         this.#app = app;
         this.#method = method.toUpperCase();
         this.#pattern = pattern;
         this.#handler = handler;
-        this.#middlewares = middlewares;
-        this.#expect_body = expect_body;
-        this.#path_parameters_key = operators.parse_path_params(pattern);
+        this.#options = options;
+        this.#path_parameters_key = parse_path_parameters(pattern);
     }
 
     /**
-     * Updates the handler for this route.
+     * Binds middleware to this route and sorts middlewares to ensure execution order.
      *
-     * @param {String} handler
+     * @private
+     * @param {Function} handler
      */
-    set_handler(handler) {
-        if (typeof handler !== 'function')
-            throw new Error('Route.set_handler(handler) -> handler must be a Function');
-        this.#handler = handler;
+    use(middleware) {
+        // Store and sort middlewares to ensure proper execution order
+        this.#options.middlewares.push(middleware);
+        this.#options.middlewares.sort((a, b) => a.priority - b.priority);
     }
 
     /* Route Getters */
@@ -55,12 +54,12 @@ class Route {
         return this.#handler;
     }
 
-    get middlewares() {
-        return this.#middlewares;
+    get options() {
+        return this.#options;
     }
 
-    get expect_body() {
-        return this.#expect_body;
+    get middlewares() {
+        return this.#options.middlewares;
     }
 
     get path_parameters_key() {

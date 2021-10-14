@@ -1,0 +1,4 @@
+{
+    "path": "/middlewares/hyper-express-session",
+    "log_store_events": false
+}

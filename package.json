@@ -1,6 +1,6 @@
 {
     "name": "hyper-express",
-    "version": "4.2.0",
+    "version": "5.0.0",
     "description": "High performance Node.js webserver with a simple-to-use API powered by uWebsockets.js under the hood.",
     "main": "index.js",
     "scripts": {
@@ -17,14 +17,14 @@
         "express",
         "expressjs",
         "fast",
-        "session",
         "http-server",
         "https-server",
         "http",
         "https",
-        "high-performance",
         "ws",
-        "websocket"
+        "websocket",
+        "performance",
+        "router"
     ],
     "author": "Kartik Kumar",
     "license": "MIT",

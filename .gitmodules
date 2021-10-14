@@ -1,0 +1,3 @@
+[submodule "middlewares/hyper-express-session"]
+	path = middlewares/hyper-express-session
+	url = git@github.com:kartikk221/hyper-express-session.git

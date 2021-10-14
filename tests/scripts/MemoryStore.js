@@ -22,11 +22,7 @@ class MemoryStore {
     insert(key, data, expiry_ts) {
         // Throw on overwrites
         if (this.#container[key])
-            throw new Error(
-                'MemoryStore: key ' +
-                    key +
-                    ' already exists. Use update() method.'
-            );
+            throw new Error('MemoryStore: key ' + key + ' already exists. Use update() method.');
 
         this.#container[key] = {
             data: data,
@@ -38,23 +34,18 @@ class MemoryStore {
         // Throw on non existent source
         if (this.#container[key] == undefined)
             throw new Error(
-                'MemoryStore: key ' +
-                    key +
-                    ' does not exist in store. Use insert() method.'
+                'MemoryStore: key ' + key + ' does not exist in store. Use insert() method.'
             );
 
         this.#container[key].data = data;
-        if (typeof expiry_ts == 'number')
-            this.#container[key].expiry = expiry_ts;
+        if (typeof expiry_ts == 'number') this.#container[key].expiry = expiry_ts;
     }
 
     touch(key, expiry_ts) {
         // Throw on non existent source
         if (this.#container[key] == undefined)
             throw new Error(
-                'MemoryStore: cannot touch key ' +
-                    key +
-                    ' because it does not exist in store.'
+                'MemoryStore: cannot touch key ' + key + ' because it does not exist in store.'
             );
 
         this.#container[key].expiry = expiry_ts;

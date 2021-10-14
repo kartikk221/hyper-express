@@ -1,9 +1,9 @@
 const uWebsockets = require('uWebSockets.js');
 const Server = require('./src/components/Server.js');
-const SessionEngine = require('./src/components/session/SessionEngine.js');
+const Router = require('./src/components/router/Router.js');
 
 module.exports = {
     Server,
-    SessionEngine,
+    Router,
     compressors: uWebsockets, // This will expose all compressors from uws directly
 };

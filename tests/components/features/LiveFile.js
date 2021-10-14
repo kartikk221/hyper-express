@@ -1,12 +1,11 @@
-const root = '../../';
-const { log, assert_log, random_string } = require(root + 'scripts/operators.js');
-const { fetch, server } = require(root + 'scripts/configuration.js');
-const { webserver } = require(root + 'setup/webserver.js');
+const { assert_log } = require('../../scripts/operators.js');
+const { fetch, server } = require('../../configuration.js');
+const { TEST_SERVER } = require('../Server.js');
 const endpoint = '/tests/response/send-file';
 const endpoint_url = server.base + endpoint;
 
 // Create Backend HTTP Route
-webserver.get(endpoint, async (request, response) => {
+TEST_SERVER.get(endpoint, async (request, response) => {
     // We purposely delay 100ms so cached vs. uncached does not rely too much on system disk
     return response.download('./content/test.html', 'something.html');
 });

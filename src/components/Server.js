@@ -1,38 +1,21 @@
 const uWebSockets = require('uWebSockets.js');
 const Request = require('./http/Request.js');
 const Response = require('./http/Response.js');
-const Route = require('./http/Route.js');
+const Router = require('./router/Router.js');
+const Route = require('./router/Route.js');
 const WebsocketRoute = require('./ws/WebsocketRoute.js');
 
-class Server {
-    #uws_instance = null;
-    #listen_socket = null;
-    #session_engine = null;
-    #trust_proxy = false;
-    #unsafe_buffers = false;
-    #fast_abort = false;
-    #is_ssl = false;
-    #max_body_length = 250 * 1000;
-    #handlers = {
-        on_not_found: null,
-        on_error: (req, res, error) => {
-            res.status(500).send('HyperExpress: Uncaught Exception Occured');
-            throw error;
-        },
-    };
+const { wrap_object } = require('../shared/operators.js');
 
-    #middlewares = [];
-
-    #defaults = {
-        cert_file_name: '',
-        key_file_name: '',
-        passphrase: '',
-        dh_params_file_name: '',
-        ssl_prefer_low_memory_usage: false,
-        fast_buffers: false,
-        fast_abort: this.#fast_abort,
-        max_body_length: this.#max_body_length,
-        trust_proxy: this.#trust_proxy,
+class Server extends Router {
+    #uws_instance;
+    #listen_socket;
+    #options = {
+        trust_proxy: false,
+        unsafe_buffers: false,
+        fast_abort: false,
+        is_ssl: false,
+        max_body_length: 250 * 1000,
     };
 
     /**
@@ -47,69 +30,89 @@ class Server {
      * @param {Boolean} options.trust_proxy Specifies whether to trust incoming request data from intermediate proxy(s)
      * @param {Number} options.max_body_length Maximum body content length allowed in bytes. For Reference: 1kb = 1000 bytes and 1mb = 1000kb.
      */
-    constructor(options = this.#defaults) {
+    constructor(options) {
         // Only accept object as a parameter type for options
-        if (typeof options !== 'object')
+        if (options == null || typeof options !== 'object')
             throw new Error(
                 'HyperExpress: HyperExpress.Server constructor only accepts an object type for the options parameter.'
             );
 
+        // Initialize extended Router instance
+        super();
+
+        // Store options locally for access throughout processing
+        wrap_object(this.#options, options);
+
         // Create underlying uWebsockets App or SSLApp to power HyperExpress
         const { cert_file_name, key_file_name } = options;
-        this.#is_ssl = cert_file_name && key_file_name;
-        if (this.#is_ssl) {
+        this.#options.is_ssl = cert_file_name && key_file_name; // cert and key are required for SSL
+        if (this.#options.is_ssl) {
             this.#uws_instance = uWebSockets.SSLApp(options);
         } else {
             this.#uws_instance = uWebSockets.App(options);
         }
-
-        // Determine which type of buffering scheme to utilize
-        if (options.fast_buffers === true) this.#unsafe_buffers = true;
-
-        // Determine whether HyperExpress should use fast abort scheme
-        if (options.fast_abort === true) this.#fast_abort = true;
-
-        // Determine maximum body length in bytes to allow for incoming requests
-        if (typeof options.max_body_length == 'number' && options.max_body_length > 0)
-            this.#max_body_length = options.max_body_length;
     }
 
     /**
-     * This method is used to intiate the HyperExpress server
+     * @private
+     * This method binds a cleanup handler which closes the uWS server based on listen socket.
+     */
+    _bind_exit_handler() {
+        const reference = this;
+        ['exit', 'SIGINT', 'SIGUSR1', 'SIGUSR2', 'SIGTERM'].forEach((type) =>
+            process.once(type, () => reference.close())
+        );
+    }
+
+    /**
+     * Starts HyperExpress webserver on specified port and host.
      *
      * @param {Number} port
-     * @param {String} host
+     * @param {String} host Optional. Default: 0.0.0.0
      * @returns {Promise} Promise
      */
     listen(port, host = '0.0.0.0') {
-        let reference = this;
+        const reference = this;
         return new Promise((resolve, reject) =>
             reference.#uws_instance.listen(host, port, (listen_socket) => {
                 if (listen_socket) {
                     reference.#listen_socket = listen_socket;
-                    this._bind_exit_handler();
+                    reference._bind_exit_handler();
                     resolve(listen_socket);
                 } else {
-                    reject('NO_SOCKET');
+                    reject('No Socket Received From uWebsockets.js');
                 }
             })
         );
     }
 
     /**
-     * Closes/Halts current HyperExpress Server instance based on provided listen_socket
+     * Stops/Closes HyperExpress webserver instance.
      *
-     * @param {socket} listen_socket OPTIONAL
+     * @param {socket} listen_socket Optional
      * @returns {Boolean}
      */
     close(listen_socket) {
-        let socket = listen_socket || this.#listen_socket;
-        if (socket == null) return false;
-
-        uWebSockets.us_listen_socket_close(socket);
-        this.#listen_socket = null;
-        return true;
+        // Fall back to self listen socket if none provided by user
+        const socket = listen_socket || this.#listen_socket;
+        if (socket) {
+            // Close the listen socket from uWebsockets and nullify the reference
+            uWebSockets.us_listen_socket_close(socket);
+            this.#listen_socket = null;
+            return true;
+        }
+        return false;
     }
+
+    #routes_locked = false;
+    #handlers = {
+        on_not_found: null,
+        on_error: (request, response, error) => {
+            // Throw on default if user has not bound an error handler
+            response.status(500).send('HyperExpress: Uncaught Exception Occured');
+            throw error;
+        },
+    };
 
     /**
      * @typedef RouteErrorHandler
@@ -117,8 +120,7 @@ class Server {
      */
 
     /**
-     * Sets a global error handler which will catch most uncaught errors
-     * across all routes created on this server instance.
+     * Sets a global error handler which will catch most uncaught errors across all routes/middlewares.
      *
      * @param {RouteErrorHandler} handler
      */
@@ -129,9 +131,13 @@ class Server {
     }
 
     /**
-     * Sets a global not found handler which will handle
-     * all incoming requests that are not handled by any existing routes.
-     * Note! You must call this method last as it is a catchall route.
+     * @typedef RouteHandler
+     * @type {function(Request, Response):void}
+     */
+
+    /**
+     * Sets a global not found handler which will handle all requests that are unhandled by any registered route.
+     * Note! This handler must be registered after all routes and routers.
      *
      * @param {RouteHandler} handler
      */
@@ -140,59 +146,28 @@ class Server {
             throw new Error('HyperExpress: handler must be a function');
 
         // Store not_found handler and bind it as a catchall route
-        let should_bind = this.#handlers.on_not_found === null;
-        this.#handlers.on_not_found = handler;
-        if (should_bind)
-            this.any('/*', (request, response) => this.#handlers.on_not_found(request, response));
+        if (this.#handlers.on_not_found === null) {
+            this.#handlers.on_not_found = handler;
+            return setTimeout(
+                (reference) => {
+                    reference.any('/*', (request, response) =>
+                        reference.#handlers.on_not_found(request, response)
+                    );
+                    reference.#routes_locked = true;
+                },
+                0,
+                this
+            );
+        }
+
+        // Do not allow user to re-register not found handler
+        throw new Error('HyperExpress: A Not Found handler has already been registered.');
     }
 
-    /**
-     * Binds a session engine which enables request.session for all requests.
-     *
-     * @param {SessionEngine} session_engine
-     */
-    set_session_engine(session_engine) {
-        if (session_engine?.constructor?.name !== 'SessionEngine')
-            throw new Error('HyperExpress: session_engine must be a SessionEngine instance');
-        this.#session_engine = session_engine;
-    }
+    /* Server Routes & Middlewares Logic */
 
-    /**
-     * @typedef MiddlewareHandler
-     * @type {function(Request, Response, Function):void}
-     */
-
-    /**
-     * @typedef PromiseMiddlewareHandler
-     * @type {function(Request, Response):Promise}
-     */
-
-    /**
-     * Adds a global middleware for all incoming requests.
-     *
-     * @param {MiddlewareHandler|PromiseMiddlewareHandler} handler (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
-     */
-    use(handler) {
-        if (typeof handler !== 'function')
-            throw new Error('HyperExpress: handler must be a function');
-
-        // Register a global middleware
-        this.#middlewares.push(handler);
-    }
-
-    /**
-     * @private
-     * This method binds a cleanup handler which closes the underlying uWS socket.
-     */
-    _bind_exit_handler() {
-        let reference = this;
-        ['exit', 'SIGINT', 'SIGUSR1', 'SIGUSR2', 'SIGTERM'].forEach((type) =>
-            process.once(type, () => reference.close())
-        );
-    }
-
+    #middlewares = {};
     #routes = {
-        ws: {},
         any: {},
         get: {},
         post: {},
@@ -202,65 +177,149 @@ class Server {
         patch: {},
         put: {},
         trace: {},
+        upgrade: {},
+        ws: {},
     };
 
     /**
-     * This method is used to create and bind a uWebsockets route with a middleman wrapper
+     * Binds route to uWS server instance and begins handling incoming requests.
      *
      * @private
-     * @param {String} method Supported: any, get, post, delete, head, options, patch, put, trace
-     * @param {String} pattern Example: "/api/v1"
-     * @param {Object} options Route processor options (Optional)
-     * @param {Function} handler Example: (request, response) => {}
+     * @param {Array} record { method, pattern, options, handler }
      */
-    _create_route(method, pattern, options, handler) {
-        // Do not allow duplicate routes for performance/stability reasons
-        if (this.#routes[method]?.[pattern])
+    _create_route(record) {
+        // Destructure record into route options
+        const reference = this;
+        const { method, pattern, options, handler } = record;
+
+        // Do not allow route creation once it is locked after a not found handler has been bound
+        if (this.#routes_locked === true)
             throw new Error(
-                'HyperExpress: Failed to create route as duplicate routes are not allowed.'
+                `HyperExpress: Routes/Routers must not be created or used after the set_not_found_handler() has been set due to uWebsockets.js's internal router not allowing for this to occur. [${method.toUpperCase()} ${pattern}]`
             );
 
-        // Do not allow non object type options
-        const options_type = typeof options;
-        if (options_type !== 'object' && options_type !== 'function')
-            throw new Error('HyperExpress: Failed to create route as options must be an object.');
+        // Do not allow duplicate routes for performance/stability reasons
+        // We make an exception for 'upgrade' routes as they must replace the default route added by WebsocketRoute
+        if (method !== 'upgrade' && this.#routes[method]?.[pattern])
+            throw new Error(
+                `HyperExpress: Failed to create route as duplicate routes are not allowed. Ensure that you do not have any routers or routes that try to handle requests at the same pattern. [${method.toUpperCase()} ${pattern}]`
+            );
 
-        // The options parameter is optional thus if handler is provided in place of options, use options as the handler
-        if (typeof options == 'function') handler = options;
+        // Process and combine middlewares for routes that support middlewares
+        if (!['ws'].includes(method)) {
+            // Initialize route-specific middlewares if they do not exist
+            if (!Array.isArray(options.middlewares)) options.middlewares = [];
 
-        // Parse route options if specified by user
-        const route_options = options_type == 'object' ? options : {};
+            // Parse middlewares that apply to this route based on execution pattern
+            const middlewares = [];
+            Object.keys(this.#middlewares).forEach((match) => {
+                // Do not match with global middlewares as they are always executed separately
+                if (match == '/') return;
 
-        // Register route specific middlewares
-        let middlewares = [];
-        if (Array.isArray(route_options.middlewares) && route_options.middlewares.length > 0)
-            middlewares = route_options.middlewares;
+                // Store middleware if its execution pattern matches our route pattern
+                if (pattern.startsWith(match))
+                    reference.#middlewares[match].forEach((object) => middlewares.push(object));
+            });
 
-        // Determine if we are expecting a specific body type
-        let expect_body =
-            typeof options !== 'function' && typeof options.expect_body == 'string'
-                ? options.expect_body.toLowerCase()
-                : undefined;
+            // Map all user specified route specific middlewares with a priority of 2
+            options.middlewares = options.middlewares.map((middleware) => ({
+                priority: 2,
+                middleware,
+            }));
 
-        // Create a Route object to pass along with uws request handler
+            // Combine matched middlewares with route middlewares
+            options.middlewares = middlewares.concat(options.middlewares);
+        }
+
+        // Create a Route object to contain route information through handling process
         const route = new Route({
             app: this,
             method,
             pattern,
+            options,
             handler,
-            middlewares,
-            expect_body,
         });
 
-        // Bind uWS.method() route which passes incoming request/respone to our handler
-        this.#uws_instance[method](pattern, (response, request) =>
-            this._handle_uws_request(route, request, response, null)
-        );
+        // Mark route as temporary if specified from options
+        if (options._temporary === true) route._temporary = true;
 
-        // Store route in routes tree and return route to invocator
-        this.#routes[method][pattern] = route;
-        return route;
+        // Handle websocket/upgrade routes separately as they follow a different lifecycle
+        switch (method) {
+            case 'ws':
+                // Create a WebsocketRoute which initializes uWS.ws() route
+                this.#routes[method][pattern] = new WebsocketRoute({
+                    app: this,
+                    pattern,
+                    handler,
+                    options,
+                });
+                break;
+            case 'upgrade':
+                // Throw an error if an upgrade route already exists that was not created by WebsocketRoute
+                const current = this.#routes[method][pattern];
+                if (current && current._temporary !== true)
+                    throw new Error(
+                        `HyperExpress: Failed to create upgrade route as an upgrade route with the same pattern already exists and duplicate routes are not allowed. [${method.toUpperCase()} ${pattern}]`
+                    );
+
+                // Overwrite the upgrade route that exists from WebsocketRoute with this custom route
+                this.#routes[method][pattern] = route;
+
+                // Assign route to companion WebsocketRoute
+                const companion = this.#routes['ws'][pattern];
+                if (companion) companion._set_companion_route(route);
+                break;
+            default:
+                // Store route in routes object for structural tracking
+                this.#routes[method][pattern] = route;
+
+                // Bind uWS.method() route which passes incoming request/respone to our handler
+                return this.#uws_instance[method](pattern, (response, request) =>
+                    this._handle_uws_request(route, request, response, null)
+                );
+        }
     }
+
+    /**
+     * Binds middleware to server instance and distributes over all created routes.
+     *
+     * @private
+     * @param {Object} record
+     */
+    _create_middleware(record) {
+        // Destructure record from Router
+        const reference = this;
+        const { pattern, middleware } = record;
+
+        // Initialize middlewares array for specified pattern
+        if (this.#middlewares[pattern] == undefined) this.#middlewares[pattern] = [];
+
+        // Create a middleware object with an appropriate priority
+        const object = {
+            priority: pattern == '/' ? 0 : 1, // 0 priority are global middlewares
+            middleware,
+        };
+
+        // Store middleware object in its pattern branch
+        this.#middlewares[pattern].push(object);
+
+        // Inject middleware into all routes that match its execution pattern if it is non global
+        const match = pattern.endsWith('/') ? pattern.substr(0, pattern.length - 1) : pattern;
+        if (object.priority !== 0)
+            Object.keys(this.#routes).forEach((method) => {
+                // Ignore ws routes as they are WebsocketRoute components
+                if (method === 'ws') return;
+
+                // Match middleware pattern against all routes with this method
+                const routes = reference.#routes[method];
+                Object.keys(routes).forEach((pattern) => {
+                    // If route's pattern starts with middleware pattern, then use middleware
+                    if (pattern.startsWith(match)) routes[pattern].use(object);
+                });
+            });
+    }
+
+    /* uWS -> Server Request/Response Handling Logic */
 
     /**
      * This method is used to determine if request body should be pre-parsed in anticipation for future call.
@@ -272,11 +331,11 @@ class Server {
      */
     _pre_parse_body(route, wrapped_request) {
         // Return true to pre-parsing if we are expecting a specific type of body
-        if (typeof route.expect_body == 'string') return true;
+        if (typeof route.options.expect_body == 'string') return true;
 
         // Determine a content-length and content-type header exists to trigger pre-parsing
-        let has_content_type = wrapped_request.headers['content-type'];
-        let content_length = +wrapped_request.headers['content-length'];
+        const has_content_type = wrapped_request.headers['content-type'];
+        const content_length = +wrapped_request.headers['content-length'];
         return has_content_type && !isNaN(content_length) && content_length > 0;
     }
 
@@ -292,18 +351,23 @@ class Server {
      */
     async _handle_uws_request(route, request, response, socket) {
         // Wrap uWS.Request -> Request
-        const wrapped_request = new Request(request, response, route.path_parameters_key, this);
+        const wrapped_request = new Request(
+            request,
+            response,
+            route.path_parameters_key,
+            route.app
+        );
 
         // Wrap uWS.Response -> Response
-        const wrapped_response = new Response(wrapped_request, response, socket, this);
+        const wrapped_response = new Response(wrapped_request, response, socket, route.app);
 
         // We initiate buffer retrieval as uWS.Request is deallocated after initial synchronous cycle
         if (this._pre_parse_body(route, wrapped_request)) {
             // Check incoming content-length to ensure it is within max_body_length bounds
             // Abort request with a 413 Payload Too Large status code
-            if (+wrapped_request.headers['content-length'] > this.max_body_length) {
+            if (+wrapped_request.headers['content-length'] > route.app.options.max_body_length) {
                 // Use fast abort scheme if specified
-                if (this.fast_abort === true) return response.close();
+                if (route.app.options.fast_abort === true) return response.close();
 
                 // According to uWebsockets developer, we have to drain incoming data before aborting and closing request
                 // Prematurely closing request with a 413 leads to an ECONNRESET in which we lose 413 error from server
@@ -313,8 +377,8 @@ class Server {
             }
 
             // If a body type is expected, parse body based on one of the expected types and populate request.body property
-            if (typeof route.expect_body == 'string') {
-                switch (route.expect_body) {
+            if (typeof route.options.expect_body == 'string') {
+                switch (route.options.expect_body) {
                     case 'text':
                         wrapped_request._body = await wrapped_request.text();
                         break;
@@ -332,7 +396,9 @@ class Server {
                 // Initiate passive body buffer download without holding up the handling flow
                 wrapped_request
                     .buffer()
-                    .catch((error) => this.error_handler(wrapped_request, wrapped_response, error));
+                    .catch((error) =>
+                        route.app.handlers.on_error(wrapped_request, wrapped_response, error)
+                    );
             }
         }
 
@@ -344,7 +410,7 @@ class Server {
             } catch (error) {
                 reject(error);
             }
-        }).catch((error) => this.error_handler(wrapped_request, wrapped_response, error));
+        }).catch((error) => route.app.handlers.on_error(wrapped_request, wrapped_response, error));
     }
 
     /**
@@ -364,21 +430,21 @@ class Server {
         if (error instanceof Error) return response.throw_error(error);
 
         // Determine next callback based on if either global or route middlewares exist
-        const has_global_middlewares = this.#middlewares.length > 0;
+        const has_global_middlewares = this.#middlewares['/'].length > 0;
         const has_route_middlewares = route.middlewares.length > 0;
         const next =
             has_global_middlewares || has_route_middlewares
-                ? (err) => this._chain_middlewares(route, request, response, cursor + 1, err)
+                ? (err) => route.app._chain_middlewares(route, request, response, cursor + 1, err)
                 : undefined;
 
         // Execute global middlewares first as they take precedence over route specific middlewares
         if (has_global_middlewares) {
             // Determine current global middleware and execute
-            const middleware = this.#middlewares[cursor];
-            if (middleware) {
+            const object = this.#middlewares['/'][cursor];
+            if (object) {
                 // If middleware invocation returns a Promise, bind a then handler to trigger next iterator
                 response._track_middleware_cursor(cursor);
-                const output = middleware(request, response, next);
+                const output = object.middleware(request, response, next);
                 if (output instanceof Promise) output.then(next);
                 return;
             }
@@ -387,220 +453,56 @@ class Server {
         // Execute route specific middlewares if they exist
         if (has_route_middlewares) {
             // Determine current route specific/method middleware and execute while accounting for global middlewares cursor offset
-            const middleware = route.middlewares[cursor - this.#middlewares.length];
-            if (middleware) {
+            const object = route.middlewares[cursor - this.#middlewares['/'].length];
+            if (object) {
                 // If middleware invocation returns a Promise, bind a then handler to trigger next iterator
                 response._track_middleware_cursor(cursor);
-                const output = middleware(request, response, next);
+                const output = object.middleware(request, response, next);
                 if (output instanceof Promise) output.then(next);
                 return;
             }
         }
 
-        // Trigger user assigned route handler with wrapped request/response objects. Provide socket_context for upgrade requests.
+        // Trigger user assigned route handler with wrapped request/response objects.
+        // Provide socket_context for upgrade requests.
         return route.handler(request, response, response.upgrade_socket);
-    }
-
-    /* Server Route Alias Methods */
-
-    /**
-     * @typedef {Object} RouteOptions
-     * @property {Array.<MiddlewareHandler>|Array.<PromiseMiddlewareHandler>} middlewares Route specific middlewares
-     * @property {Boolean} expect_body Pre-parses and populates Request.body with specified body type.
-     */
-
-    /**
-     * @typedef RouteHandler
-     * @type {function(Request, Response):void}
-     */
-
-    /**
-     * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
-     */
-    any(pattern, options, handler) {
-        return this._create_route('any', pattern, options, handler);
-    }
-
-    /**
-     * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
-     */
-    get(pattern, options, handler) {
-        return this._create_route('get', pattern, options, handler);
-    }
-
-    /**
-     * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
-     */
-    post(pattern, options, handler) {
-        return this._create_route('post', pattern, options, handler);
-    }
-
-    /**
-     * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
-     */
-    delete(pattern, options, handler) {
-        return this._create_route('del', pattern, options, handler);
-    }
-
-    /**
-     * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
-     */
-    head(pattern, options, handler) {
-        return this._create_route('head', pattern, options, handler);
-    }
-
-    /**
-     * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
-     */
-    options(pattern, options, handler) {
-        return this._create_route('options', pattern, options, handler);
-    }
-
-    /**
-     * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
-     */
-    patch(pattern, options, handler) {
-        return this._create_route('patch', pattern, options, handler);
-    }
-
-    /**
-     * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
-     */
-    trace(pattern, options, handler) {
-        return this._create_route('trace', pattern, options, handler);
-    }
-
-    /**
-     * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
-     */
-    connect(pattern, options, handler) {
-        return this._create_route('connect', pattern, options, handler);
-    }
-
-    /**
-     * @param {String} pattern Route pattern on which websocket connections can connect
-     * @param {Object} options Websocket route options.
-     * @param {String} options.messageType Specifies the data type in which incoming messages should be provided. Specify one of ['String', 'Buffer', 'ArrayBuffer'].
-     * @param {Object} options.compression Specifies permessage-deflate compression to use. Use one of require('hyper-express').compressors presets. Default: compressors.DISABLED
-     * @param {Number} options.idleTimeout Specifies interval to automatically timeout/close idle websocket connection in seconds. Default: 32
-     * @param {Number} options.maxBackPressure Specifies maximum websocket backpressure allowed in character length. Default: (1024 * 1024)
-     * @param {Number} options.maxPayloadLength Specifies maximum length allowed on incoming messages. Default: 32768 (1024 * 32)
-     * @returns {WebsocketRoute} Websocket route object.
-     */
-    ws(pattern, options = {}) {
-        // Do not allow duplicate routes for performance/stability reasons
-        const method = 'ws';
-        if (this.#routes[method]?.[pattern])
-            throw new Error(
-                `HyperExpress: Failed to create ${method} @ ${pattern} as duplicate routes are not allowed.`
-            );
-
-        // Enforce object type on provided options
-        if (options == null || typeof options !== 'object')
-            throw new Error('HyperExpress: .ws(pattern, options) -> options must be an Object');
-
-        // Create WebsocketRoute instance for specified pattern/options
-        let route = new WebsocketRoute(pattern, options, this);
-        this.#routes[method][pattern] = route;
-        return route;
     }
 
     /* Safe Server Getters */
 
     /**
-     * Returns middlewares store/tree used by HyperExpress to route incoming requests through middlewares.
-     */
-    get middlewares() {
-        return this.#middlewares;
-    }
-
-    /**
-     * Returns global error handler for current Server instance.
-     *
-     * @returns {Function} (request, response, error) => {}
-     */
-    get error_handler() {
-        return this.#handlers.on_error;
-    }
-
-    /**
-     * Returns session engine instance bound to current Server instance.
-     *
-     * @returns {SessionEngine} SessionEngine
-     */
-    get session_engine() {
-        return this.#session_engine;
-    }
-
-    /**
-     * Returns underlying uWebsockets.js Templated App instance.
-     *
-     * @returns {uWS} uWS (uWebsockets)
+     * Underlying uWS instance.
      */
     get uws_instance() {
         return this.#uws_instance;
     }
 
     /**
-     * Returns all routes for current Server instance grouped by handled method.
-     *
-     * @returns {Object} Object
+     * Server instance options.
+     */
+    get options() {
+        return this.#options;
+    }
+
+    /**
+     * Server instance global handlers.
+     */
+    get handlers() {
+        return this.#handlers;
+    }
+
+    /**
+     * Server instance routes.
      */
     get routes() {
         return this.#routes;
     }
 
     /**
-     * Returns whether instance is using unasfe buffers for storing incoming request bodies.
+     * Server instance middlewares.
      */
-    get fast_buffers() {
-        return this.#unsafe_buffers;
-    }
-
-    /**
-     * Returns Maximum number of bytes allowed in incoming body content length.
-     */
-    get max_body_length() {
-        return this.#max_body_length;
-    }
-
-    /**
-     * Returns whether HyperExpress will abruptly close incoming requests with bad data.
-     */
-    get fast_abort() {
-        return this.#fast_abort;
-    }
-
-    /**
-     * Returns whether HyperExpress is running on SSL scheme or not.
-     */
-    get is_ssl() {
-        return this.#is_ssl;
-    }
-
-    /**
-     * Returns whether incoming request data from intermediate proxy(s) is trusted.
-     */
-    get trust_proxy() {
-        return this.#trust_proxy;
+    get middlewares() {
+        return this.#middlewares;
     }
 }
 

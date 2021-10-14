@@ -1,4 +1,22 @@
 /**
+ * Writes values from focus object onto base object.
+ *
+ * @param {Object} obj1 Base Object
+ * @param {Object} obj2 Focus Object
+ */
+function wrap_object(original, target) {
+    Object.keys(target).forEach((key) => {
+        if (typeof target[key] == 'object') {
+            if (Array.isArray(target[key])) return (original[key] = target[key]); // lgtm [js/prototype-pollution-utility]
+            if (original[key] === null || typeof original[key] !== 'object') original[key] = {};
+            wrap_object(original[key], target[key]);
+        } else {
+            original[key] = target[key];
+        }
+    });
+}
+
+/**
  * This method parses route pattern into an array of expected path parameters.
  *
  * @param {String} pattern
@@ -33,19 +51,6 @@ function array_buffer_to_string(array_buffer, encoding = 'utf8') {
     return Buffer.from(array_buffer).toString(encoding);
 }
 
-function fill_object(original, target) {
-    Object.keys(target).forEach((key) => {
-        if (typeof target[key] == 'object') {
-            if (original[key] == undefined) original[key] = {};
-            fill_object(original[key], target[key]);
-        } else {
-            original[key] = target[key];
-        }
-    });
-
-    return original;
-}
-
 /**
  * Returns a promise which is resolved after provided delay in milliseconds.
  *
@@ -56,9 +61,37 @@ function async_wait(delay) {
     return new Promise((resolve, reject) => setTimeout((res) => res(), delay, resolve));
 }
 
+/**
+ * Merges provided relative paths into a singular relative path.
+ *
+ * @param {String} base_path
+ * @param {String} new_path
+ * @returns {String} path
+ */
+function merge_relative_paths(base_path, new_path) {
+    // handle both roots merger case
+    if (base_path == '/' && new_path == '/') return '/';
+
+    // Inject leading slash to new_path
+    if (!new_path.startsWith('/')) new_path = '/' + new_path;
+
+    // handle base root merger case
+    if (base_path == '/') return new_path;
+
+    // handle new path root merger case
+    if (new_path == '/') return base_path;
+
+    // strip away leading slash from base path
+    if (base_path.endsWith('/')) base_path = base_path.substr(0, base_path.length - 1);
+
+    // Merge path and add a slash in between if new_path does not have a starting slash
+    return `${base_path}${new_path}`;
+}
+
 module.exports = {
-    parse_path_params: parse_path_parameters,
-    arr_buff_to_str: array_buffer_to_string,
-    fill_object,
+    parse_path_parameters,
+    array_buffer_to_string,
+    wrap_object,
     async_wait,
+    merge_relative_paths,
 };

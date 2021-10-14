@@ -1,13 +1,13 @@
-const root = '../../../';
-const { log, assert_log, random_string, async_for_each } = require(root + 'scripts/operators.js');
-const { fetch, server } = require(root + 'scripts/configuration.js');
-const { webserver } = require(root + 'setup/webserver.js');
-const { session_store } = require(root + '/setup/session_engine.js');
-const endpoint = '/tests/request/session/visits';
+const { log, assert_log, random_string, async_for_each } = require('../../../scripts/operators.js');
+const { fetch, server } = require('../../../configuration.js');
+const { TEST_SERVER } = require('../../../components/Server.js');
+const { TEST_STORE } = require('../test_engine.js');
+const { path } = require('../configuration.json');
+const endpoint = `${path}/scenarios/visits`;
 const endpoint_url = server.base + endpoint;
 
 // Create Backend HTTP Route
-webserver.post(endpoint, async (request, response) => {
+TEST_SERVER.post(endpoint, async (request, response) => {
     await request.session.start();
     let visits = request.session.get('visits');
 
@@ -19,7 +19,7 @@ webserver.post(endpoint, async (request, response) => {
         visits = undefined;
     }
 
-    if (visits !== undefined) {
+    if (visits) {
         request.session.set('visits', visits);
     } else {
         await request.session.destroy();
@@ -27,17 +27,19 @@ webserver.post(endpoint, async (request, response) => {
 
     return response.json({
         session_id: request.session.id,
-        session: request.session.get_all(),
-        store: session_store.data,
+        session: request.session.get(),
+        store: TEST_STORE.data,
     });
 });
 
 async function test_visits_scenario() {
     // Test session persistence with visits test - VISITS ITERATOR TEST
-    let group = 'SESSION';
-    let candidate = 'HyperExpress.Request.session';
+    let group = 'MIDDLEWARE';
+    let candidate = 'Middleware.SessionEngine.Session';
     let cookies = [];
     let session_expiry = 0;
+
+    TEST_STORE.empty();
     log(group, 'Testing ' + candidate + ' - Visits Test');
     await async_for_each([1, 2, 3, 4, 5, 0, 1, 2, 3, 4], async (value, next) => {
         let response = await fetch(endpoint_url, {
@@ -97,5 +99,5 @@ async function test_visits_scenario() {
 }
 
 module.exports = {
-    test_visits_scenario: test_visits_scenario,
+    test_visits_scenario,
 };

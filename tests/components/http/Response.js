@@ -1,8 +1,7 @@
-const root = '../../';
-const { log, assert_log, random_string } = require(root + 'scripts/operators.js');
-const { fetch, server } = require(root + 'scripts/configuration.js');
-const { webserver } = require(root + 'setup/webserver.js');
-const { test_livefile_object } = require(root + 'components/features/LiveFile.js');
+const { log, assert_log, random_string } = require('../../scripts/operators.js');
+const { HyperExpress, fetch, server } = require('../../configuration.js');
+const { test_livefile_object } = require('../../components/features/LiveFile.js');
+const router = new HyperExpress.Router();
 const endpoint = '/tests/response/operators';
 const endpoint_url = server.base + endpoint;
 
@@ -15,7 +14,7 @@ function send_hook(request, response) {
 
 // Create Backend HTTP Route
 const hook_invocations = [];
-webserver.post(endpoint, async (request, response) => {
+router.post(endpoint, async (request, response) => {
     let body = await request.json();
 
     // Test hooks
@@ -38,6 +37,10 @@ webserver.post(endpoint, async (request, response) => {
 
     if (!response.aborted) return response.send();
 });
+
+// Bind router to webserver
+const { TEST_SERVER } = require('../Server.js');
+TEST_SERVER.use(router);
 
 async function test_response_object() {
     let start_time = Date.now();

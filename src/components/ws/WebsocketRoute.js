@@ -1,67 +1,45 @@
 const uWebsockets = require('uWebSockets.js');
-const Route = require('../http/Route.js');
-const operators = require('../../shared/operators.js');
+const Websocket = require('./Websocket.js');
+const { wrap_object, array_buffer_to_string } = require('../../shared/operators.js');
 
 class WebsocketRoute {
+    #app;
     #route;
-
-    // Default options
+    #pattern;
+    #handler;
+    #message_parser;
     #options = {
-        idleTimeout: 32,
-        messageType: 'String', // ['String', 'Buffer', 'ArrayBuffer']
+        idle_timeout: 32,
+        message_type: 'String',
         compression: uWebsockets.DISABLED,
-        maxBackpressure: 1024 * 1024,
-        maxPayloadLength: 32 * 1024,
+        max_backpressure: 1024 * 1024,
+        max_payload_length: 32 * 1024,
     };
 
-    // Passthrough uWS event handlers from user
-    #methods = {
-        upgrade: (request, response, socket) => response.upgrade(), // By default upgrade all incoming connections
-        open: (ws) => {},
-        message: (ws, message, isBinary) => {},
-        drain: (ws) => {},
-        close: (ws, code, message) => {},
-    };
+    constructor({ app, pattern, handler, options }) {
+        this.#app = app;
+        this.#pattern = pattern;
+        this.#handler = handler;
 
-    constructor(pattern, options, context) {
-        // Wrap passed options over default options object
-        operators.fill_object(this.#options, options);
+        // Wrap local default options with user specified options
+        wrap_object(this.#options, options);
+        this.#message_parser = this._get_message_parser(this.#options.message_type);
 
-        // Bind passthrough handlers to allow for manual assignments
-        const parser = this._get_message_parser();
-        options.open = (ws) => this.#methods.open(ws);
-        options.drain = (ws) => this.#methods.drain(ws);
-        options.message = (ws, message, isBinary) =>
-            this.#methods.message(ws, parser(message), isBinary);
-        options.close = (ws, code, message) => this.#methods.close(ws, code, parser(message));
-
-        // Create a Route object to pass along with uws request handler
-        this.#route = new Route({
-            app: context,
-            method: 'ws',
-            pattern,
-            handler: this.#methods.upgrade,
-            middlewares: [],
-        });
-
-        // Bind passthrough upgrade handler that utilizes same wrapping as normal routes
-        options.upgrade = (response, request, socket_context) =>
-            context._handle_uws_request(this.#route, request, response, socket_context);
-
-        // Bind a route to the underlying uWS instance
-        context.uws_instance.ws(pattern, options);
+        // Load companion upgrade route and initialize uWS.ws() route
+        this._load_companion_route();
+        this._create_uws_route();
     }
 
     /**
+     * Returns a parser that automatically converts uWS ArrayBuffer to specified data type.
      * @private
-     * @returns {Function} Incoming message[ArrayBuffer] parser for uWebsockets handler.
+     * @returns {Function}
      */
-    _get_message_parser() {
-        switch (this.#options.messageType) {
+    _get_message_parser(type) {
+        switch (type) {
             case 'String':
                 // Converts ArrayBuffer -> String
-                return (array_buffer) => operators.arr_buff_to_str(array_buffer);
-
+                return (array_buffer) => array_buffer_to_string(array_buffer);
             case 'Buffer':
                 // Converts & Copies ArrayBuffer -> Buffer
                 // We concat (copy) because ArrayBuffer from uWS is deallocated after initial synchronous execution
@@ -72,47 +50,162 @@ class WebsocketRoute {
             default:
                 // Throw error on invalid type
                 throw new Error(
-                    "ws(options) -> Invalid options.messageType provided. Please provide one of ['String', 'Buffer', 'FastBuffer', 'ArrayBuffer']"
+                    "Invalid WebsocketRoute message_type parameter provided. Must be one of ['String', 'Buffer', 'ArrayBuffer']"
                 );
         }
     }
 
     /**
-     * This method is used to handle specific events for a websocket route.
-     *
-     * @param {('upgrade'|'open'|'message'|'drain'|'close')} event Event Name
-     * @param {Function} handler Event Handler Function
+     * Loads a companion upgrade route from app routes object.
+     * @private
      */
-    on(event, handler) {
-        if (this.#methods[event] == undefined)
-            throw new Error(
-                `HyperExpress: ${event} is not a supported event for a websocket route`
-            );
+    _load_companion_route() {
+        const companion = this.#app.routes['upgrade'][this.#pattern];
+        if (companion) {
+            // Use existing companion route as it is a user assigned route
+            this.#route = companion;
+        } else {
+            // Create and use a temporary default route to allow for healthy upgrade request cycle
+            // Default route will upgrade all incoming requests automatically
+            this.#app._create_route({
+                method: 'upgrade',
+                pattern: this.#pattern,
+                handler: (request, response) => response.upgrade(),
+                options: {
+                    _temporary: true,
+                },
+            });
 
-        if (typeof handler !== 'function')
-            throw new Error('HyperExpress: .handle(event, handler) -> handler must be a Function');
-
-        // Store handler into methods object
-        this.#methods[event] = handler;
-
-        // Set handler for route object if upgrade handler is changed
-        if (event == 'upgrade') this.#route.set_handler(handler);
+            // Store created route locally as Server will not call _set_companion_route
+            // This is because this WebsocketRoute has not been created synchronously yet
+            this.#route = this.#app.routes['upgrade'][this.#pattern];
+        }
     }
 
     /**
-     * Alias of .on() method for backwards compatibility.
-     * This will be deprecated in the future and move to .on().
-     *
-     * @param {('upgrade'|'open'|'message'|'drain'|'close')} event Event Name
-     * @param {Function} handler Event Handler Function
+     * Sets companion upgrade route for incoming upgrade request to traverse through HyperExpress request cycle.
+     * @private
+     * @param {Route} route
      */
-    handle(event, handler) {
-        return this.on(event, handler);
+    _set_companion_route(route) {
+        this.#route = route;
+    }
+
+    /**
+     * Creates a uWs.ws() route will will power this WebsocketRoute instance.
+     * @private
+     */
+    _create_uws_route() {
+        // Destructure and convert HyperExpress options to uWS.ws() route options
+        const { compression, idle_timeout, max_backpressure, max_payload_length } = this.#options;
+        const uws_options = {
+            compression,
+            idleTimeout: idle_timeout,
+            maxBackpressure: max_backpressure,
+            maxPayloadLength: max_payload_length,
+        };
+
+        // Create middleman upgrade route that pipes upgrade requests to HyperExpress request handler
+        uws_options.upgrade = (uws_response, uws_request, socket_context) =>
+            this.#app._handle_uws_request(this.#route, uws_request, uws_response, socket_context);
+
+        // Bind middleman routes to pipe uws events into poly handlers
+        uws_options.open = (ws) => this._on_open(ws);
+        uws_options.ping = (ws, message) => this._on_ping(ws, message);
+        uws_options.pong = (ws, message) => this._on_pong(ws, message);
+        uws_options.drain = (ws) => this._on_drain(ws);
+        uws_options.message = (ws, message, isBinary) => this._on_message(ws, message, isBinary);
+        uws_options.close = (ws, code, message) => this._on_close(ws, code, message);
+
+        // Create uWebsockets instance route
+        this.#app.uws_instance.ws(this.#pattern, uws_options);
+    }
+
+    /**
+     * Handles 'open' event from uWebsockets.js
+     * @private
+     * @param {uWS.Websocket} ws
+     */
+    _on_open(ws) {
+        // Create and attach HyperExpress.Websocket polyfill component to uWS websocket
+        ws.poly = new Websocket(ws);
+
+        // Trigger WebsocketRoute handler on new connection open so user can listen for events
+        this.#handler(ws.poly);
+    }
+
+    /**
+     * Handles 'ping' event from uWebsockets.js
+     * @private
+     * @param {uWS.Websocket} ws
+     * @param {ArrayBuffer} message
+     */
+    _on_ping(ws, message) {
+        // Emit 'ping' event on websocket poly component
+        ws.poly.emit('ping', this.#message_parser(message));
+    }
+
+    /**
+     * Handles 'pong' event from uWebsockets.js
+     * @private
+     * @param {uWS.Websocket} ws
+     * @param {ArrayBuffer} message
+     */
+    _on_pong(ws, message) {
+        // Emit 'pong' event on websocket poly component
+        ws.poly.emit('pong', this.#message_parser(message));
+    }
+
+    /**
+     * Handles 'drain' event from uWebsockets.js
+     * @private
+     * @param {uWS.Websocket} ws
+     */
+    _on_drain(ws) {
+        // Emit 'drain' event on websocket poly component
+        ws.poly.emit('drain');
+    }
+
+    /**
+     * Handles 'message' event from uWebsockets.js
+     * @private
+     * @param {uWS.Websocket} ws
+     * @param {ArrayBuffer} message
+     * @param {Boolean} is_binary
+     */
+    _on_message(ws, message, is_binary) {
+        // Emit 'message' event with parsed message from uWS
+        ws.poly.emit('message', this.#message_parser(message), is_binary);
+    }
+
+    /**
+     * Handles 'close' event from uWebsockets.js
+     * @param {uWS.Websocket} ws
+     * @param {Number} code
+     * @param {ArrayBuffer} message
+     */
+    _on_close(ws, code, message) {
+        // Mark websocket poly component as closed
+        ws.poly._is_closed(true);
+
+        // Emit 'close' event with parsed message
+        ws.poly.emit('close', code, this.#message_parser(message));
     }
 
     /* WebsocketRoute Getters */
-    get _options() {
+
+    /**
+     * WebsocketRoute constructor options
+     */
+    get options() {
         return this.#options;
+    }
+
+    /**
+     * Companion upgrade route for this instance
+     */
+    get upgrade_route() {
+        return this.#route;
     }
 }
 

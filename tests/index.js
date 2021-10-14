@@ -1,14 +1,22 @@
-const { log } = require('./scripts/operators.js');
-const { initiate_http_server } = require('./setup/webserver.js');
+const { log, async_wait } = require('./scripts/operators.js');
 const { test_request_object } = require('./components/http/Request.js');
 const { test_response_object } = require('./components/http/Response.js');
-const { test_session_object } = require('./components/session/Session.js');
 const { test_websocket_route } = require('./components/ws/WebsocketRoute.js');
+const { test_websocket_component } = require('./components/ws/Websocket.js');
+const { test_session_middleware } = require('./middlewares/hyper-express-session/index.js');
 
+const { server } = require('./configuration.js');
+const { TEST_SERVER } = require('./components/Server.js');
 (async () => {
     try {
         // Initiate Test API Webserver
-        await initiate_http_server();
+        await TEST_SERVER.listen(server.port, server.host);
+        log(
+            'TESTING',
+            `Successfully Started HyperExpress HTTP Server @ ${server.host}:${server.port}`
+        );
+
+        await async_wait(100);
 
         // Test Request Object
         await test_request_object();
@@ -16,11 +24,14 @@ const { test_websocket_route } = require('./components/ws/WebsocketRoute.js');
         // Test Response Object
         await test_response_object();
 
-        // Test Session Object
-        await test_session_object();
-
-        // Test Websocket & WebsocketRoute Object
+        // Test WebsocketRoute Object
         await test_websocket_route();
+
+        // Test Websocket Polyfill Object
+        await test_websocket_component();
+
+        // Test SessionEngine Middleware
+        await test_session_middleware();
 
         log('TESTING', 'Successfully Tested All Specified Tests For HyperExpress!');
         process.exit();

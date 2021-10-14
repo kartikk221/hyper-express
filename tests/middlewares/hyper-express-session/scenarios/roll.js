@@ -1,14 +1,13 @@
-const root = '../../../';
-const { log, assert_log, random_string, async_for_each } = require(root +
-    'scripts/operators.js');
-const { fetch, server } = require(root + 'scripts/configuration.js');
-const { webserver } = require(root + 'setup/webserver.js');
-const { session_store } = require(root + '/setup/session_engine.js');
-const endpoint = '/tests/request/session/roll';
+const { log, assert_log, random_string, async_for_each } = require('../../../scripts/operators.js');
+const { fetch, server } = require('../../../configuration.js');
+const { TEST_SERVER } = require('../../../components/Server.js');
+const { TEST_STORE } = require('../test_engine.js');
+const { path } = require('../configuration.json');
+const endpoint = `${path}/scenarios/roll`;
 const endpoint_url = server.base + endpoint;
 
 // Create Backend HTTP Route
-webserver.post(endpoint, async (request, response) => {
+TEST_SERVER.post(endpoint, async (request, response) => {
     await request.session.start();
     if (request.session.get('some_data') == undefined) {
         request.session.set('some_data', random_string(10));
@@ -19,19 +18,19 @@ webserver.post(endpoint, async (request, response) => {
 
     return response.json({
         session_id: request.session.id,
-        session_data: request.session.get_all(),
-        store: session_store.data,
+        session_data: request.session.get(),
+        store: TEST_STORE.data,
     });
 });
 
 async function test_roll_scenario() {
-    let group = 'SESSION';
-    let candidate = 'HyperExpress.Request.session';
+    let group = 'MIDDLEWARE';
+    let candidate = 'Middleware.SessionEngine.Session';
     let cookies = [];
     let last_rolled_id = '';
     log(group, 'Testing ' + candidate + ' - Roll Test');
 
-    session_store.empty();
+    TEST_STORE.empty();
     await async_for_each([0, 0, 1, 0], async (value, next) => {
         let response = await fetch(endpoint_url, {
             method: 'POST',
@@ -56,19 +55,13 @@ async function test_roll_scenario() {
             });
         }
 
-        assert_log(
-            group,
-            candidate + ' Session Roll @ Iterative Scenario ' + value,
-            () => {
-                // Store will always be empty due to lazy persistance and .roll() destroying session during request
-                let store_test =
-                    Object.keys(body.store).length === Math.floor(value);
-                let id_test =
-                    value < 1 ? current_session_id !== last_rolled_id : true;
-                last_rolled_id = current_session_id;
-                return store_test && id_test;
-            }
-        );
+        assert_log(group, candidate + ' Session Roll @ Iterative Scenario ' + value, () => {
+            // Store will always be empty due to lazy persistance and .roll() destroying session during request
+            let store_test = Object.keys(body.store).length === Math.floor(value);
+            let id_test = value < 1 ? current_session_id !== last_rolled_id : true;
+            last_rolled_id = current_session_id;
+            return store_test && id_test;
+        });
 
         next();
     });
@@ -77,5 +70,5 @@ async function test_roll_scenario() {
 }
 
 module.exports = {
-    test_roll_scenario: test_roll_scenario,
+    test_roll_scenario,
 };

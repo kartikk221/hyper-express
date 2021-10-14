@@ -1,6 +1,6 @@
 const FileSystem = require('fs');
 const EventEmitter = require('events');
-const { fill_object, async_wait } = require('../../shared/operators.js');
+const { wrap_object, async_wait } = require('../../shared/operators.js');
 
 class LiveFile extends EventEmitter {
     #name;
@@ -22,7 +22,7 @@ class LiveFile extends EventEmitter {
         super();
 
         // Wrap options object with provided object
-        fill_object(this.#options, options);
+        wrap_object(this.#options, options);
 
         // Determine the name of the file
         const chunks = options.path.split('/');

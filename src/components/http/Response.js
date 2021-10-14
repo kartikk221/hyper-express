@@ -3,7 +3,7 @@ const signature = require('cookie-signature');
 const status_codes = require('../../constants/status_codes.json');
 const mime_types = require('../../constants/mime_types.json');
 
-const LiveFile = require('../features/LiveFile.js');
+const LiveFile = require('../cache/LiveFile.js');
 const FilePool = {};
 
 class Response {
@@ -229,10 +229,9 @@ class Response {
     /**
      * This method is used to upgrade an incoming upgrade HTTP request to a Websocket connection.
      *
-     * @param {Object} user_data Store any information about the websocket connection
-     * @returns {Boolean} Boolean (true || false)
+     * @param {Object} context Store information about the websocket connection
      */
-    upgrade(user_data) {
+    upgrade(context) {
         if (!this.#completed) {
             // Ensure a upgrade_socket exists before upgrading ensuring only upgrade handler requests are handled
             if (this.#upgrade_socket == null)
@@ -240,23 +239,21 @@ class Response {
                     'You cannot upgrade a request that does not come from an upgrade handler. No upgrade socket was found.'
                 );
 
-            // Mark request as completed and call uWS.Response.upgrade() with upgrade_socket
-            let headers = this.#wrapped_request.headers;
-            let sec_key = headers['sec-websocket-key'];
-            let sec_protocol = headers['sec-websocket-protocol'];
-            let sec_extensions = headers['sec-websocket-extensions'];
-
-            this.#completed = true;
+            // Call uWS.Response.upgrade() method with user data, protocol headers and uWS upgrade socket
+            const headers = this.#wrapped_request.headers;
             this.#raw_response.upgrade(
-                user_data,
-                sec_key,
-                sec_protocol,
-                sec_extensions,
+                {
+                    context,
+                },
+                headers['sec-websocket-key'],
+                headers['sec-websocket-protocol'],
+                headers['sec-websocket-extensions'],
                 this.#upgrade_socket
             );
-            return true;
+
+            // Mark request as complete so no more operations can be performed
+            this.#completed = true;
         }
-        return false;
     }
 
     /**
@@ -285,11 +282,6 @@ class Response {
             // Call any bound hooks for type 'send'
             this._call_hooks('send');
 
-            // Trigger session closure if a session is preset in request object
-            let session = this.#wrapped_request.session;
-            if (typeof session == 'object' && session.ready)
-                session._perform_closure(this, this.#master_context);
-
             // Write custom HTTP status if specified
             if (this.#status_code) this.#raw_response.writeStatus(this.#status_code);
 
@@ -307,7 +299,6 @@ class Response {
 
             // Call any bound hooks for type 'complete' if no backpressure was built up
             if (result) this._call_hooks('complete');
-
             return result;
         }
         return false;
@@ -455,7 +446,7 @@ class Response {
      * @param {Error} error Error Class
      */
     throw_error(error) {
-        this.#master_context.error_handler(this.#wrapped_request, this, error);
+        this.#master_context.handlers.on_error(this.#wrapped_request, this, error);
     }
 
     /* Response Getters */

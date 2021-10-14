@@ -1,11 +1,7 @@
-const root = '../../';
-const { log, assert_log, random_string, http_post_headers } = require(root +
-    'scripts/operators.js');
-const { fetch, server } = require(root + 'scripts/configuration.js');
-const { webserver } = require(root + 'setup/webserver.js');
-const { test_middleware_double_iteration } = require('./scenarios/middleware_double_iteration.js');
-const { test_middleware_iteration_error } = require('./scenarios/middleware_iteration_error');
+const { log, assert_log, random_string } = require('../../scripts/operators.js');
+const { HyperExpress, fetch, server } = require('../../configuration.js');
 const crypto = require('crypto');
+const router = new HyperExpress.Router();
 const endpoint = '/tests/request/:param1/:param2';
 const route_specific_endpoint = '/tests/request-route/';
 const middleware_delay = 100 + Math.floor(Math.random() * 150);
@@ -15,7 +11,7 @@ const middleware_property = random_string(10);
 const base = server.base;
 
 // Bind a middlewares for simulating artificial delay on request endpoint
-webserver.use((request, response, next) => {
+router.use((request, response, next) => {
     // We only want this middleware to run for this request endpoint
     if (request.headers['x-middleware-test'] === 'true') {
         request.mproperty = middleware_property;
@@ -26,7 +22,7 @@ webserver.use((request, response, next) => {
 });
 
 // Test Promise returning middlewares support
-webserver.use((request, response) => {
+router.use((request, response) => {
     return new Promise((resolve, reject) => {
         // We only want this middleware to run for this request endpoint
         if (request.headers['x-middleware-test-2'] === 'true') {
@@ -52,8 +48,14 @@ const route_specific_middleware = (request, response, next) => {
     return next();
 };
 
+// Load scenarios and bind router to test server
+const { test_middleware_double_iteration } = require('./scenarios/middleware_double_iteration.js');
+const { test_middleware_iteration_error } = require('./scenarios/middleware_iteration_error');
+const { TEST_SERVER } = require('../Server.js');
+TEST_SERVER.use(router);
+
 // Create a temporary specific middleware route
-webserver.get(
+router.get(
     route_specific_endpoint,
     {
         middlewares: [route_specific_middleware],
@@ -77,7 +79,7 @@ webserver.get(
 );
 
 // Create Backend HTTP Route with expected body of urlencoded to test request.body property
-webserver.any(
+router.any(
     endpoint,
     {
         expect_body: 'urlencoded',

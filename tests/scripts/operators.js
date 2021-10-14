@@ -79,10 +79,15 @@ function http_post_headers({
     });
 }
 
+function async_wait(delay) {
+    return new Promise((resolve, reject) => setTimeout((res) => res(), delay, resolve));
+}
+
 module.exports = {
     log: log,
     random_string: random_string,
     assert_log: assert_log,
     async_for_each: async_for_each,
     http_post_headers: http_post_headers,
+    async_wait: async_wait,
 };

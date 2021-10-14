@@ -1,28 +1,26 @@
-const root = '../../../';
-const { assert_log } = require(root + 'scripts/operators.js');
-const { fetch, server } = require(root + 'scripts/configuration.js');
-const { webserver } = require(root + 'setup/webserver.js');
-const endpoint = '/tests/request/middleware-error';
-const endpoint_url = server.base + endpoint;
+const { assert_log } = require('../../../scripts/operators.js');
+const { HyperExpress, fetch, server } = require('../../../configuration.js');
+const router = new HyperExpress.Router();
+const endpoint = '/tests/request';
+const scenario_endpoint = '/middleware-error';
+const endpoint_url = server.base + endpoint + scenario_endpoint;
 
-const error_middleware = (request, response, next) => {
+router.use(scenario_endpoint, (request, response, next) => {
     // Bind an artificial error handler so we don't treat this as uncaught error
     request.expected_error = () => response.status(501).send('MIDDLEWARE_ERROR');
 
     // Assume some problem occured, so we pass an error to next
     next(new Error('EXPECTED_ERROR'));
-};
+});
 
 // Create Backend HTTP Route
-webserver.get(
-    endpoint,
-    {
-        middlewares: [error_middleware],
-    },
-    async (request, response) => {
-        return response.send('Good');
-    }
-);
+router.get(scenario_endpoint, async (request, response) => {
+    return response.send('Good');
+});
+
+// Bind router to webserver
+const { TEST_SERVER } = require('../../Server.js');
+TEST_SERVER.use(endpoint, router);
 
 async function test_middleware_iteration_error() {
     const group = 'REQUEST';

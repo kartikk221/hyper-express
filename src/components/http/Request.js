@@ -1,8 +1,7 @@
-const Session = require('../session/Session.js');
 const cookie = require('cookie');
 const signature = require('cookie-signature');
 const querystring = require('query-string');
-const operators = require('../../shared/operators.js');
+const { array_buffer_to_string } = require('../../shared/operators.js');
 
 // ExpressJS compatibility packages
 const accepts = require('accepts');
@@ -17,7 +16,6 @@ class Request {
     #master_context;
     #raw_request = null;
     #raw_response = null;
-    #session;
     #method;
     #url;
     #path;
@@ -41,11 +39,9 @@ class Request {
         this.#raw_response = raw_response;
         this.#master_context = master_context;
 
-        // Execute requesr operators for pre-parsing common access data
-        // Attach session engine and parse path parameters based on specification
+        // Execute request operators for pre-parsing common access data
         this._request_information();
         this._path_parameters(path_parameters_key);
-        this._load_session_engine(master_context.session_engine);
     }
 
     /**
@@ -82,15 +78,6 @@ class Request {
                     (this.#path_parameters[keySet[0]] = this.#raw_request.getParameter(keySet[1]))
             );
         }
-    }
-
-    /**
-     * This method is used to initiate a Session object on an incoming request.
-     * @private
-     * @param {SessionEngine} session_engine
-     */
-    _load_session_engine(session_engine) {
-        if (session_engine) this.#session = new Session(session_engine, this);
     }
 
     /* Request Methods/Operators */
@@ -138,7 +125,7 @@ class Request {
             // Store body into a singular Buffer for most memory efficiency
             let body_buffer;
             let body_cursor = 0;
-            let use_fast_buffers = reference.#master_context.fast_buffers;
+            let use_fast_buffers = reference.#master_context.options.fast_buffers;
 
             // Store incoming buffer chunks into buffers Array
             reference.#raw_response.onData((array_buffer, is_last) => {
@@ -360,13 +347,6 @@ class Request {
     }
 
     /**
-     * Returns Session object for incoming request given a SessionEngine has been bound to Server instance.
-     */
-    get session() {
-        return this.#session;
-    }
-
-    /**
      * Returns path parameters from incoming request in Object form {key: value}
      */
     get path_parameters() {
@@ -391,7 +371,7 @@ class Request {
     get ip() {
         // Convert Remote IP to string on first access
         if (typeof this.#remote_ip !== 'string')
-            this.#remote_ip = operators.arr_buff_to_str(this.#remote_ip);
+            this.#remote_ip = array_buffer_to_string(this.#remote_ip);
 
         return this.#remote_ip;
     }
@@ -402,7 +382,7 @@ class Request {
     get proxy_ip() {
         // Convert Remote Proxy IP to string on first access
         if (typeof this.#remote_proxy_ip !== 'string')
-            this.#remote_proxy_ip = operators.arr_buff_to_str(this.#remote_proxy_ip);
+            this.#remote_proxy_ip = array_buffer_to_string(this.#remote_proxy_ip);
 
         return this.#remote_proxy_ip;
     }
@@ -595,7 +575,7 @@ class Request {
      */
     get protocol() {
         // Resolves x-forwarded-proto header if trust proxy is enabled
-        let trust_proxy = this.#master_context.trust_proxy;
+        let trust_proxy = this.#master_context.options.trust_proxy;
         let x_forwarded_proto = this.get('X-Forwarded-Proto');
         if (trust_proxy && x_forwarded_proto)
             return x_forwarded_proto.indexOf(',') > -1
