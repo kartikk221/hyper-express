@@ -49,6 +49,6 @@ Below is a breakdown of the `Server` object class generated while creating a new
     * **Note** `pattern` is treated as a wildcard match by default and does not support `*`/`:param` prefixes.
     * **See** [`> [Router]`](./Router.md) & [`> [Middlewares]`](./Middlewares.md) for full documentation on this method.
 * `any(String: pattern, Object: options, Function: handler)`: Creates an HTTP route on specified pattern. Alias methods are listed below for HTTP method specific routes.
-    * **Alias Methods:** `get()`, `post()`, `delete()`, `head()`, `options()`, `patch()`, `trace()`, `connect()`, `upgrade()`.
+    * **Alias Methods:** `get()`, `post()`, `delete()`, `head()`, `options()`, `patch()`, `trace()`, `connect()`, `upgrade()`, `ws()`.
     * **See** [`> [Router]`](./Router.md) for full documentation on this method.
-    * **See** [`> [Websocket]`](./Websocket.md) for documentation on the `upgrade()` alias method.
+    * **See** [`> [Websocket]`](./Websocket.md) for usage documentation on the `upgrade()` and `ws()` alias method.

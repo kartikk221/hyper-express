@@ -8,7 +8,10 @@ const HyperExpress = require('hyper-express');
 const Server = new HyperExpress.Server();
 const Router = new HyperExpress.Router();
 
-Router.ws('/connect', (ws) => {
+Router.ws('/connect', {
+    idle_timeout: 60,
+    max_payload_length: 32 * 1024
+}, (ws) => {
     console.log(ws.ip + ' is now connected using websockets!');
     ws.on('close', () => console.log(ws.ip + ' has now disconnected!'));
 });
@@ -16,12 +19,15 @@ Router.ws('/connect', (ws) => {
 // Websocket connections can now connect to '/ws/connect'
 Server.use('/ws', Router);
 ```
+**See** [`> [Router]`](./Router.md) for full documentation on the `ws(pattern, options, handler)` route creation method.
 
 #### Intercepting & Handling Upgrade Requests
 By default, all incoming connections are automatically upgraded to a websocket connection. You may authenticate these upgrade requests by creating an `upgrade` route on either a `Router` or `Server` instance.
 ```javascript
 // Assume this code is written in the same file as the above example
-Router.upgrade('/connect', (request, response) => {
+Router.upgrade('/connect', {
+    middlewares: [SOME_MIDDLEWARE] // Middlewares can be used on upgrade methods as well!
+}, (request, response) => {
     // Do some kind of verification here
     // This handler acts the same as all other HTTP handlers
     // All global/route-specific middlewares will run on this route as it is treated like a normal HTTP route
@@ -33,6 +39,7 @@ Router.upgrade('/connect', (request, response) => {
     })
 });
 ```
+**See** [`> [Router]`](./Router.md) for full documentation on the `upgrade(pattern, options, handler)` route creation method.
 
 #### Websocket Properties
 | Property  | Type     | Description                |
