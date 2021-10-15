@@ -1,6 +1,6 @@
-const Request = require('../http/Request.js');
-const Response = require('../http/Response.js');
-const Websocket = require('../ws/Websocket.js');
+const Request = require('../http/Request.js'); // lgtm [js/unused-local-variable]
+const Response = require('../http/Response.js'); // lgtm [js/unused-local-variable]
+const Websocket = require('../ws/Websocket.js'); // lgtm [js/unused-local-variable]
 const { merge_relative_paths } = require('../../shared/operators.js');
 
 class Router {
