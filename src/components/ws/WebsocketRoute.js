@@ -190,6 +190,9 @@ class WebsocketRoute {
 
         // Emit 'close' event with parsed message
         ws.poly.emit('close', code, this.#message_parser(message));
+
+        // De-reference the attached polyfill Websocket component so it can garbage cleaned
+        delete ws.poly;
     }
 
     /* WebsocketRoute Getters */
