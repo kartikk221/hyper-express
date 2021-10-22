@@ -1,7 +1,7 @@
 const cookie = require('cookie');
 const signature = require('cookie-signature');
 const status_codes = require('../../constants/status_codes.json');
-const mime_types = require('../../constants/mime_types.json');
+const mime_types = require('mime-types');
 
 const LiveFile = require('../cache/LiveFile.js');
 const FilePool = {};
@@ -103,7 +103,7 @@ class Response {
         if (mime_type.startsWith('.')) mime_type = mime_type.substr(1);
 
         // Determine proper mime type and send response
-        let mime_header = mime_types[mime_type] || 'text/plain';
+        let mime_header = mime_types.lookup(mime_type) || 'text/plain';
         if (!this.#completed) {
             this.#type_written = true;
             this.header('content-type', mime_header);

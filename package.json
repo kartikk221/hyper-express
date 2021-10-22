@@ -36,6 +36,7 @@
         "accepts": "^1.3.7",
         "cookie": "^0.4.1",
         "cookie-signature": "^1.1.0",
+        "mime-types": "^2.1.33",
         "query-string": "^7.0.1",
         "range-parser": "^1.2.1",
         "type-is": "^1.6.18",

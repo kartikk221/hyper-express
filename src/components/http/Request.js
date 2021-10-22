@@ -210,7 +210,7 @@ class Request {
         if (this.#body_buffer) return Promise.resolve(this.#body_buffer);
 
         // Resolve empty if invalid content-length header detected
-        let content_length = +this.#headers['content-length'];
+        const content_length = +this.#headers['content-length'];
         if (isNaN(content_length) || content_length < 1) {
             this.#body_buffer = EMPTY_BUFFER;
             return Promise.resolve(this.#body_buffer);
