@@ -2,7 +2,7 @@
 const { TEST_SERVER } = require('../../components/Server.js');
 const { TEST_ENGINE } = require('./test_engine.js');
 const { path } = require('./configuration.json');
-TEST_SERVER.use(path, TEST_ENGINE.middleware);
+TEST_SERVER.use(path, TEST_ENGINE);
 
 const { test_brute_scenario } = require('./scenarios/brute.js');
 const { test_duration_scenario } = require('./scenarios/duration.js');

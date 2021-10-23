@@ -167,11 +167,20 @@ class Router {
      * @param {MiddlewareHandler|Router} handler (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
      */
     use(pattern, handler) {
-        const fPattern = typeof pattern == 'string' ? pattern : '/';
-        const fHandler = typeof pattern !== 'string' ? pattern : handler;
-        const isRouter = fHandler.constructor.name === 'Router';
+        const fPattern = typeof pattern == 'string' ? pattern : '/'; // Final Pattern parameter
+        const pHandler = typeof pattern !== 'string' ? pattern : handler; // Parsed Handler parameter
+
+        // Middleware Handler - Attempts to parse middleware property from a hyper-express middleware package
+        const mHandler =
+            typeof pHandler == 'object' && typeof pHandler.middleware == 'function'
+                ? pHandler.middleware
+                : undefined;
+
+        // Final Handler - This is a catchall constant that contains the parsed handler for a middleware
+        const fHandler = mHandler || pHandler; // Prioritize middleware handler with parsed handler as fallback
 
         // Ensure we have a valid handler which is either a router or function
+        const isRouter = fHandler.constructor.name === 'Router';
         if (!isRouter && typeof fHandler !== 'function')
             throw new Error(
                 'Server/Router.use() -> handler must be a Function or Router instance.'
