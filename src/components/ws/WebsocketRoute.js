@@ -186,7 +186,7 @@ class WebsocketRoute {
      */
     _on_close(ws, code, message) {
         // Mark websocket poly component as closed
-        ws.poly._is_closed(true);
+        ws.poly._destroy();
 
         // Emit 'close' event with parsed message
         ws.poly.emit('close', code, this.#message_parser(message));
