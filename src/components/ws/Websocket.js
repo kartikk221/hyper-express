@@ -24,7 +24,7 @@ class Websocket extends EventEmitter {
      * @returns {Websocket}
      */
     atomic(callback) {
-        this.#ws.cork(callback);
+        if (this.#ws) this.#ws.cork(callback);
         return this;
     }
 
@@ -40,7 +40,8 @@ class Websocket extends EventEmitter {
      */
     send(message, is_binary, compress) {
         // Send message through uWS connection
-        return this.#ws.send(message, is_binary, compress);
+        if (this.#ws) return this.#ws.send(message, is_binary, compress);
+        return false;
     }
 
     /**
@@ -51,16 +52,16 @@ class Websocket extends EventEmitter {
      */
     ping(message) {
         // Send ping OPCODE message through uWS connection
-        this.#ws.ping(message);
+        if (this.#ws) this.#ws.ping(message);
     }
 
     /**
-     * Sets component state to closed.
-     * @param {Boolean} state
+     * Destroys this polyfill Websocket component and derefernces the underlying ws object
      * @private
      */
-    _is_closed(state) {
-        this.#closed = state;
+    _destroy() {
+        this.#closed = true;
+        this.#ws = null;
     }
 
     /**
@@ -71,7 +72,7 @@ class Websocket extends EventEmitter {
      */
     close(code, message) {
         // Close websocket using uWS.end() method which gracefully closes connections
-        this.#ws.end(code, message);
+        if (this.#ws) this.#ws.end(code, message);
     }
 
     /**
@@ -80,7 +81,7 @@ class Websocket extends EventEmitter {
      * This will immediately emit the 'close' event.
      */
     destroy() {
-        this.#ws.close();
+        if (this.#ws) this.#ws.close();
     }
 
     /**
@@ -90,7 +91,8 @@ class Websocket extends EventEmitter {
      * @returns {Boolean}
      */
     is_subscribed(topic) {
-        return this.#ws.isSubscribed(topic);
+        if (this.#ws) return this.#ws.isSubscribed(topic);
+        return false;
     }
 
     /**
@@ -101,7 +103,8 @@ class Websocket extends EventEmitter {
      * @returns {Boolean}
      */
     subscribe(topic) {
-        return this.#ws.subscribe(topic);
+        if (this.#ws) return this.#ws.subscribe(topic);
+        return false;
     }
 
     /**
@@ -112,7 +115,8 @@ class Websocket extends EventEmitter {
      * @returns {Boolean}
      */
     unsubscribe(topic) {
-        return this.#ws.unsubscribe(topic);
+        if (this.#ws) return this.#ws.unsubscribe(topic);
+        return false;
     }
 
     /**
@@ -125,7 +129,8 @@ class Websocket extends EventEmitter {
      * @param {Boolean} compress
      */
     publish(topic, message, is_binary, compress) {
-        return this.#ws.publish(topic, message, is_binary, compress);
+        if (this.#ws) return this.#ws.publish(topic, message, is_binary, compress);
+        return false;
     }
 
     /* Websocket Getters */
@@ -168,7 +173,8 @@ class Websocket extends EventEmitter {
      * @returns {Number}
      */
     get buffered() {
-        return this.#ws.getBufferedAmount();
+        if (this.#ws) return this.#ws.getBufferedAmount();
+        return 0;
     }
 
     /**
@@ -176,7 +182,8 @@ class Websocket extends EventEmitter {
      * @returns {Array.<String>}
      */
     get topics() {
-        return this.#ws.getTopics();
+        if (this.#ws) return this.#ws.getTopics();
+        return [];
     }
 }
 
