@@ -53,8 +53,7 @@ npm i hyper-express
 - See [`> [Response]`](./docs/Response.md) for working with the **Response** component made available through handlers.
 - See [`> [Websocket]`](./docs/Websocket.md) for working with **Websockets** in HyperExpress.
 - See [`> [SessionEngine]`](https://github.com/kartikk221/hyper-express-session) for working with cookie based web **Sessions** in HyperExpress.
-- See [`> [LiveDirectory]`](./docs/LiveDirectory.md) for implementing static file/asset serving functionality into HyperExpress.
-
+- See [`> [LiveDirectory]`](./docs/LiveDirectory.md) for implementing **static file/asset** serving functionality into HyperExpress.
 
 ## Benchmarks
 Below benchmark results were derived using the **[autocannon](https://www.npmjs.com/package/autocannon)** HTTP benchmarking utility. The benchmark source code is included in this repository in the benchmarks folder.
