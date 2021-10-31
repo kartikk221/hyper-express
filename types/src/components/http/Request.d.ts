@@ -89,9 +89,17 @@ declare class Request {
      */
     get method(): any;
     /**
+     * Set the full request url for incoming request (path + query).
+     */
+    set url(arg: any);
+    /**
      * Returns full request url for incoming request (path + query).
      */
     get url(): any;
+    /**
+     * Set the path for incoming request.
+     */
+    set path(arg: any);
     /**
      * Returns path for incoming request.
      */
@@ -101,17 +109,25 @@ declare class Request {
      */
     get path_query(): any;
     /**
+     * Set the request headers from incoming request.
+     */
+    set headers(arg: any);
+    /**
      * Returns request headers from incoming request.
      */
-    get headers(): {};
+    get headers(): any;
     /**
      * Returns cookies from incoming request.
      */
     get cookies(): any;
     /**
+     * Set the path parameters from incoming request in Object form {key: value}
+     */
+    set path_parameters(arg: any);
+    /**
      * Returns path parameters from incoming request in Object form {key: value}
      */
-    get path_parameters(): {};
+    get path_parameters(): any;
     /**
      * Returns query parameters from incoming request in Object form {key: value}
      */
@@ -200,7 +216,15 @@ declare class Request {
     /**
      * ExpressJS: Alias of HyperExpress.Request.path
      */
+    set baseUrl(arg: any);
+    /**
+     * ExpressJS: Alias of HyperExpress.Request.path
+     */
     get baseUrl(): any;
+    /**
+     * ExpressJS: Alias of HyperExpress.Request.url
+     */
+    set originalUrl(arg: any);
     /**
      * ExpressJS: Alias of HyperExpress.Request.url
      */
@@ -208,7 +232,15 @@ declare class Request {
     /**
      * ExpressJS: Alias of HyperExpress.Request.path_parameters
      */
-    get params(): {};
+    set params(arg: any);
+    /**
+     * ExpressJS: Alias of HyperExpress.Request.path_parameters
+     */
+    get params(): any;
+    /**
+     * ExpressJS: Returns query parameters
+     */
+    set query(arg: any);
     /**
      * ExpressJS: Returns query parameters
      */

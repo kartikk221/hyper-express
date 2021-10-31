@@ -1,3 +1,4 @@
+/// <reference types="node" />
 export = Router;
 declare class Router {
     /**
@@ -46,15 +47,31 @@ declare class Router {
      * @type {function(Request, Response, Function):void}
      */
     /**
+     * @typedef AsyncMiddlewareHandler
+     * @type {function(Request, Response):Promise}
+     */
+    /**
+     * @typedef HttpMiddlewareHandler
+     * @type {function(http.IncomingMessage, http.ServerResponse, Function):void}
+     */
+    /**
+     * @typedef ExpressMiddlewareHandler
+     * @type {function(express.Request, express.Response, express.NextFunction):void}
+     */
+    /**
+     * @typedef ExpressErrorMiddlewareHandler
+     * @type {function(any, express.Request, express.Response, express.NextFunction):void}
+     */
+    /**
      * Registers a middleware/router with specified path.
      *
-     * @param {String|MiddlewareHandler|Router} pattern
-     * @param {MiddlewareHandler|Router} handler (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
+     * @param {String|MiddlewareHandler|AsyncMiddlewareHandler|HttpMiddlewareHandler|ExpressMiddlewareHandler|ExpressErrorMiddlewareHandler|Router} pattern
+     * @param {MiddlewareHandler|AsyncMiddlewareHandler|HttpMiddlewareHandler|ExpressMiddlewareHandler|ExpressErrorMiddlewareHandler|Router=} handler (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
      */
-    use(pattern: string | Router | ((arg0: Request, arg1: Response, arg2: Function) => void), handler: Router | ((arg0: Request, arg1: Response, arg2: Function) => void)): void;
+    use(pattern: string | Router | ((arg0: Request, arg1: Response, arg2: Function) => void) | ((arg0: Request, arg1: Response) => Promise<any>) | ((arg0: http.IncomingMessage, arg1: http.ServerResponse, arg2: Function) => void) | ((arg0: any, arg1: any, arg2: any) => void) | ((arg0: any, arg1: any, arg2: any, arg3: any) => void), handler?: Router | ((arg0: Request, arg1: Response, arg2: Function) => void) | ((arg0: Request, arg1: Response) => Promise<any>) | ((arg0: http.IncomingMessage, arg1: http.ServerResponse, arg2: Function) => void) | ((arg0: any, arg1: any, arg2: any) => void) | ((arg0: any, arg1: any, arg2: any, arg3: any) => void)): void;
     /**
      * @typedef {Object} RouteOptions
-     * @property {Array.<MiddlewareHandler>|Array.<PromiseMiddlewareHandler>} middlewares Route specific middlewares
+     * @property {Array.<MiddlewareHandler>|Array.<AsyncMiddlewareHandler>} middlewares Route specific middlewares
      * @property {Boolean} expect_body Pre-parses and populates Request.body with specified body type.
      */
     /**
@@ -67,137 +84,137 @@ declare class Router {
      *
      * @param {String} pattern
      * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
+     * @param {RouteHandler=} handler
      */
     any(pattern: string, options: {
         /**
          * Route specific middlewares
          */
-        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | any[];
+        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | ((arg0: Request, arg1: Response) => Promise<any>)[];
         /**
          * Pre-parses and populates Request.body with specified body type.
          */
         expect_body: boolean;
-    } | ((arg0: Request, arg1: Response) => void), handler: (arg0: Request, arg1: Response) => void): any;
+    } | ((arg0: Request, arg1: Response) => void), handler?: (arg0: Request, arg1: Response) => void): any;
     /**
      * Creates an HTTP route that handles GET method requests.
      *
      * @param {String} pattern
      * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
+     * @param {RouteHandler=} handler
      */
     get(pattern: string, options: {
         /**
          * Route specific middlewares
          */
-        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | any[];
+        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | ((arg0: Request, arg1: Response) => Promise<any>)[];
         /**
          * Pre-parses and populates Request.body with specified body type.
          */
         expect_body: boolean;
-    } | ((arg0: Request, arg1: Response) => void), handler: (arg0: Request, arg1: Response) => void): any;
+    } | ((arg0: Request, arg1: Response) => void), handler?: (arg0: Request, arg1: Response) => void): any;
     /**
      * Creates an HTTP route that handles POST method requests.
      *
      * @param {String} pattern
      * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
+     * @param {RouteHandler=} handler
      */
     post(pattern: string, options: {
         /**
          * Route specific middlewares
          */
-        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | any[];
+        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | ((arg0: Request, arg1: Response) => Promise<any>)[];
         /**
          * Pre-parses and populates Request.body with specified body type.
          */
         expect_body: boolean;
-    } | ((arg0: Request, arg1: Response) => void), handler: (arg0: Request, arg1: Response) => void): any;
+    } | ((arg0: Request, arg1: Response) => void), handler?: (arg0: Request, arg1: Response) => void): any;
     /**
      * Creates an HTTP route that handles DELETE method requests.
      *
      * @param {String} pattern
      * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
+     * @param {RouteHandler=} handler
      */
     delete(pattern: string, options: {
         /**
          * Route specific middlewares
          */
-        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | any[];
+        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | ((arg0: Request, arg1: Response) => Promise<any>)[];
         /**
          * Pre-parses and populates Request.body with specified body type.
          */
         expect_body: boolean;
-    } | ((arg0: Request, arg1: Response) => void), handler: (arg0: Request, arg1: Response) => void): any;
+    } | ((arg0: Request, arg1: Response) => void), handler?: (arg0: Request, arg1: Response) => void): any;
     /**
      * Creates an HTTP route that handles HEAD method requests.
      *
      * @param {String} pattern
      * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
+     * @param {RouteHandler=} handler
      */
     head(pattern: string, options: {
         /**
          * Route specific middlewares
          */
-        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | any[];
+        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | ((arg0: Request, arg1: Response) => Promise<any>)[];
         /**
          * Pre-parses and populates Request.body with specified body type.
          */
         expect_body: boolean;
-    } | ((arg0: Request, arg1: Response) => void), handler: (arg0: Request, arg1: Response) => void): any;
+    } | ((arg0: Request, arg1: Response) => void), handler?: (arg0: Request, arg1: Response) => void): any;
     /**
      * Creates an HTTP route that handles OPTIONS method requests.
      *
      * @param {String} pattern
      * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
+     * @param {RouteHandler=} handler
      */
     options(pattern: string, options: {
         /**
          * Route specific middlewares
          */
-        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | any[];
+        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | ((arg0: Request, arg1: Response) => Promise<any>)[];
         /**
          * Pre-parses and populates Request.body with specified body type.
          */
         expect_body: boolean;
-    } | ((arg0: Request, arg1: Response) => void), handler: (arg0: Request, arg1: Response) => void): any;
+    } | ((arg0: Request, arg1: Response) => void), handler?: (arg0: Request, arg1: Response) => void): any;
     /**
      * Creates an HTTP route that handles PATCH method requests.
      *
      * @param {String} pattern
      * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
+     * @param {RouteHandler=} handler
      */
     patch(pattern: string, options: {
         /**
          * Route specific middlewares
          */
-        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | any[];
+        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | ((arg0: Request, arg1: Response) => Promise<any>)[];
         /**
          * Pre-parses and populates Request.body with specified body type.
          */
         expect_body: boolean;
-    } | ((arg0: Request, arg1: Response) => void), handler: (arg0: Request, arg1: Response) => void): any;
+    } | ((arg0: Request, arg1: Response) => void), handler?: (arg0: Request, arg1: Response) => void): any;
     /**
      * Creates an HTTP route that handles TRACE method requests.
      *
      * @param {String} pattern
      * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
+     * @param {RouteHandler=} handler
      */
     trace(pattern: string, options: {
         /**
          * Route specific middlewares
          */
-        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | any[];
+        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | ((arg0: Request, arg1: Response) => Promise<any>)[];
         /**
          * Pre-parses and populates Request.body with specified body type.
          */
         expect_body: boolean;
-    } | ((arg0: Request, arg1: Response) => void), handler: (arg0: Request, arg1: Response) => void): any;
+    } | ((arg0: Request, arg1: Response) => void), handler?: (arg0: Request, arg1: Response) => void): any;
     /**
      * Creates an HTTP route that handles CONNECT method requests.
      *
@@ -209,7 +226,7 @@ declare class Router {
         /**
          * Route specific middlewares
          */
-        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | any[];
+        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | ((arg0: Request, arg1: Response) => Promise<any>)[];
         /**
          * Pre-parses and populates Request.body with specified body type.
          */
@@ -227,7 +244,7 @@ declare class Router {
         /**
          * Route specific middlewares
          */
-        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | any[];
+        middlewares: ((arg0: Request, arg1: Response, arg2: Function) => void)[] | ((arg0: Request, arg1: Response) => Promise<any>)[];
         /**
          * Pre-parses and populates Request.body with specified body type.
          */
@@ -285,4 +302,5 @@ declare class Router {
 }
 import Request = require("../http/Request.js");
 import Response = require("../http/Response.js");
+import http = require("http");
 import Websocket = require("../ws/Websocket.js");

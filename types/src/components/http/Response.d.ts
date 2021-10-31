@@ -1,5 +1,5 @@
 export = Response;
-declare class Response {
+declare class Response extends EventEmitter {
     constructor(wrapped_request: any, raw_response: any, socket: any, master_context: any);
     /**
      * @private
@@ -98,10 +98,11 @@ declare class Response {
     /**
      * This method is used to end the current request and send response with specified body and headers.
      *
-     * @param {String|Buffer|ArrayBuffer} body Optional
+     * @param {String|Buffer|ArrayBuffer=} body Optional
+     * @param {Boolean=} close_connection Optional
      * @returns {Boolean} 'false' signifies that the result was not sent due to built up backpressure.
      */
-    send(body: string | Buffer | ArrayBuffer, close_connection: any): boolean;
+    send(body?: (string | Buffer | ArrayBuffer) | undefined, close_connection?: boolean | undefined): boolean;
     /**
      * Instantly aborts/closes current request without writing a status response code.
      * Use this only in extreme situations to abort a request where a proper response is not neccessary.
@@ -324,3 +325,4 @@ declare class Response {
     vary(name: string): Response;
     #private;
 }
+import { EventEmitter } from "events";

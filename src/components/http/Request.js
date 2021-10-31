@@ -29,7 +29,9 @@ class Request {
     #remote_ip;
     #remote_proxy_ip;
     #cookies;
+    /** @type {*} */
     #headers = {};
+    /** @type {*} */
     #path_parameters = {};
     #query_parameters;
 
@@ -316,10 +318,24 @@ class Request {
     }
 
     /**
+     * Set the full request url for incoming request (path + query).
+     */
+    set url(url) {
+        this.#url = url;
+    }
+
+    /**
      * Returns path for incoming request.
      */
     get path() {
         return this.#path;
+    }
+
+    /**
+     * Set the path for incoming request.
+     */
+    set path(path) {
+        this.#path = path;
     }
 
     /**
@@ -334,6 +350,13 @@ class Request {
      */
     get headers() {
         return this.#headers;
+    }
+
+    /**
+     * Set the request headers from incoming request.
+     */
+    set headers(value) {
+        this.#headers = value;
     }
 
     /**
@@ -354,6 +377,13 @@ class Request {
      */
     get path_parameters() {
         return this.#path_parameters;
+    }
+
+    /**
+     * Set the path parameters from incoming request in Object form {key: value}
+     */
+    set path_parameters(value) {
+        this.#path_parameters = value;
     }
 
     /**
@@ -545,10 +575,24 @@ class Request {
     }
 
     /**
+     * ExpressJS: Alias of HyperExpress.Request.path
+     */
+    set baseUrl(path) {
+        this.#path = path;
+    }
+
+    /**
      * ExpressJS: Alias of HyperExpress.Request.url
      */
     get originalUrl() {
         return this.url;
+    }
+
+    /**
+     * ExpressJS: Alias of HyperExpress.Request.url
+     */
+    set originalUrl(url) {
+        this.url = url;
     }
 
     /**
@@ -559,10 +603,24 @@ class Request {
     }
 
     /**
+     * ExpressJS: Alias of HyperExpress.Request.path_parameters
+     */
+    set params(value) {
+        this.path_parameters = value;
+    }
+
+    /**
      * ExpressJS: Returns query parameters
      */
     get query() {
         return this.query_parameters;
+    }
+
+    /**
+     * ExpressJS: Returns query parameters
+     */
+    set query(value) {
+        this.query_parameters = value;
     }
 
     /**

@@ -2,6 +2,7 @@ const Request = require('../http/Request.js'); // lgtm [js/unused-local-variable
 const Response = require('../http/Response.js'); // lgtm [js/unused-local-variable]
 const Websocket = require('../ws/Websocket.js'); // lgtm [js/unused-local-variable]
 const { merge_relative_paths } = require('../../shared/operators.js');
+const http = require('http');
 
 class Router {
     #is_app = false;
@@ -159,12 +160,28 @@ class Router {
      * @typedef MiddlewareHandler
      * @type {function(Request, Response, Function):void}
      */
+    /**
+     * @typedef AsyncMiddlewareHandler
+     * @type {function(Request, Response):Promise}
+     */
+    /**
+     * @typedef HttpMiddlewareHandler
+     * @type {function(http.IncomingMessage, http.ServerResponse, Function):void}
+     */
+    /**
+     * @typedef ExpressMiddlewareHandler
+     * @type {function(express.Request, express.Response, express.NextFunction):void}
+     */
+    /**
+     * @typedef ExpressErrorMiddlewareHandler
+     * @type {function(any, express.Request, express.Response, express.NextFunction):void}
+     */
 
     /**
      * Registers a middleware/router with specified path.
      *
-     * @param {String|MiddlewareHandler|Router} pattern
-     * @param {MiddlewareHandler|Router} handler (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
+     * @param {String|MiddlewareHandler|AsyncMiddlewareHandler|HttpMiddlewareHandler|ExpressMiddlewareHandler|ExpressErrorMiddlewareHandler|Router} pattern
+     * @param {MiddlewareHandler|AsyncMiddlewareHandler|HttpMiddlewareHandler|ExpressMiddlewareHandler|ExpressErrorMiddlewareHandler|Router=} handler (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
      */
     use(pattern, handler) {
         const fPattern = typeof pattern == 'string' ? pattern : '/'; // Final Pattern parameter
@@ -202,7 +219,7 @@ class Router {
 
     /**
      * @typedef {Object} RouteOptions
-     * @property {Array.<MiddlewareHandler>|Array.<PromiseMiddlewareHandler>} middlewares Route specific middlewares
+     * @property {Array.<MiddlewareHandler>|Array.<AsyncMiddlewareHandler>} middlewares Route specific middlewares
      * @property {Boolean} expect_body Pre-parses and populates Request.body with specified body type.
      */
 
@@ -217,7 +234,7 @@ class Router {
      *
      * @param {String} pattern
      * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
+     * @param {RouteHandler=} handler
      */
     any(pattern, options, handler) {
         return this._register_route('any', pattern, options, handler);
@@ -228,7 +245,7 @@ class Router {
      *
      * @param {String} pattern
      * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
+     * @param {RouteHandler=} handler
      */
     get(pattern, options, handler) {
         return this._register_route('get', pattern, options, handler);
@@ -239,7 +256,7 @@ class Router {
      *
      * @param {String} pattern
      * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
+     * @param {RouteHandler=} handler
      */
     post(pattern, options, handler) {
         return this._register_route('post', pattern, options, handler);
@@ -250,7 +267,7 @@ class Router {
      *
      * @param {String} pattern
      * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
+     * @param {RouteHandler=} handler
      */
     delete(pattern, options, handler) {
         return this._register_route('del', pattern, options, handler);
@@ -261,7 +278,7 @@ class Router {
      *
      * @param {String} pattern
      * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
+     * @param {RouteHandler=} handler
      */
     head(pattern, options, handler) {
         return this._register_route('head', pattern, options, handler);
@@ -272,7 +289,7 @@ class Router {
      *
      * @param {String} pattern
      * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
+     * @param {RouteHandler=} handler
      */
     options(pattern, options, handler) {
         return this._register_route('options', pattern, options, handler);
@@ -283,7 +300,7 @@ class Router {
      *
      * @param {String} pattern
      * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
+     * @param {RouteHandler=} handler
      */
     patch(pattern, options, handler) {
         return this._register_route('patch', pattern, options, handler);
@@ -294,7 +311,7 @@ class Router {
      *
      * @param {String} pattern
      * @param {RouteOptions|RouteHandler} options
-     * @param {RouteHandler} handler
+     * @param {RouteHandler=} handler
      */
     trace(pattern, options, handler) {
         return this._register_route('trace', pattern, options, handler);

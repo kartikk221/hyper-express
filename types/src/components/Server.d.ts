@@ -32,17 +32,17 @@ declare class Server extends Router {
      * Starts HyperExpress webserver on specified port and host.
      *
      * @param {Number} port
-     * @param {String} host Optional. Default: 0.0.0.0
+     * @param {String=} host Optional. Default: 0.0.0.0
      * @returns {Promise} Promise
      */
-    listen(port: number, host?: string): Promise<any>;
+    listen(port: number, host?: string | undefined): Promise<any>;
     /**
      * Stops/Closes HyperExpress webserver instance.
      *
-     * @param {socket} listen_socket Optional
+     * @param {socket=} listen_socket Optional
      * @returns {Boolean}
      */
-    close(listen_socket: any): boolean;
+    close(listen_socket?: any): boolean;
     /**
      * @typedef RouteErrorHandler
      * @type {function(Request, Response, Error):void}

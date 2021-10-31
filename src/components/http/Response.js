@@ -4,9 +4,10 @@ const status_codes = require('../../constants/status_codes.json');
 const mime_types = require('mime-types');
 
 const LiveFile = require('../cache/LiveFile.js');
+const { EventEmitter } = require('../cache/LiveFile.js');
 const FilePool = {};
 
-class Response {
+class Response extends EventEmitter {
     #wrapped_request;
     #middleware_cursor;
     #raw_response;
@@ -19,6 +20,7 @@ class Response {
     #hooks;
 
     constructor(wrapped_request, raw_response, socket, master_context) {
+        super();
         this.#wrapped_request = wrapped_request;
         this.#raw_response = raw_response;
         this.#upgrade_socket = socket || null;
@@ -271,10 +273,11 @@ class Response {
     /**
      * This method is used to end the current request and send response with specified body and headers.
      *
-     * @param {String|Buffer|ArrayBuffer} body Optional
+     * @param {String|Buffer|ArrayBuffer=} body Optional
+     * @param {Boolean=} close_connection Optional
      * @returns {Boolean} 'false' signifies that the result was not sent due to built up backpressure.
      */
-    send(body, close_connection) {
+    send(body, close_connection = false) {
         if (!this.#completed) {
             // Abort body download buffer just to be safe for large incoming requests
             this.#wrapped_request._abort_buffer();
