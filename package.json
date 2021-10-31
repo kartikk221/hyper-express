@@ -3,6 +3,7 @@
     "version": "5.0.7",
     "description": "High performance Node.js webserver with a simple-to-use API powered by uWebsockets.js under the hood.",
     "main": "index.js",
+    "types": "./types/index.d.ts",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1"
     },
@@ -42,5 +43,8 @@
         "type-is": "^1.6.18",
         "uid-safe": "^2.1.5",
         "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.1.0"
+    },
+    "devDependencies": {
+        "typescript": "^4.4.4"
     }
 }

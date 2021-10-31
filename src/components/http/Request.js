@@ -269,7 +269,10 @@ class Request {
         if (this.#body_json) return this.#body_json;
 
         // Retrieve body as text, safely parse json, cache and resolve
-        let text = this.#body_text || (await this.text());
+        let text = this.#body_text;
+        if (!text) {
+            text = await this.text()
+        }
         this.#body_json = this._parse_json(text, default_value);
         return this.#body_json;
     }
