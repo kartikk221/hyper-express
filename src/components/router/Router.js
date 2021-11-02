@@ -246,6 +246,17 @@ class Router {
     }
 
     /**
+     * Creates an HTTP route that handles PUT method requests.
+     *
+     * @param {String} pattern
+     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteHandler} handler
+     */
+    put(pattern, options, handler) {
+        return this._register_route('put', pattern, options, handler);
+    }
+
+    /**
      * Creates an HTTP route that handles DELETE method requests.
      *
      * @param {String} pattern
