@@ -174,7 +174,7 @@ class Server extends Router {
         any: {},
         get: {},
         post: {},
-        delete: {},
+        del: {},
         head: {},
         options: {},
         patch: {},
