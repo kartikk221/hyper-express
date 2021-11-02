@@ -68,7 +68,7 @@ class Server extends Router {
      * Starts HyperExpress webserver on specified port and host.
      *
      * @param {Number} port
-     * @param {String} host Optional. Default: 0.0.0.0
+     * @param {String=} host Optional. Default: 0.0.0.0
      * @returns {Promise} Promise
      */
     listen(port, host = '0.0.0.0') {
@@ -89,7 +89,7 @@ class Server extends Router {
     /**
      * Stops/Closes HyperExpress webserver instance.
      *
-     * @param {socket} listen_socket Optional
+     * @param {uWebSockets.us_listen_socket} [listen_socket] Optional
      * @returns {Boolean}
      */
     close(listen_socket) {
@@ -188,7 +188,7 @@ class Server extends Router {
      * Binds route to uWS server instance and begins handling incoming requests.
      *
      * @private
-     * @param {Array} record { method, pattern, options, handler }
+     * @param {Object} record { method, pattern, options, handler }
      */
     _create_route(record) {
         // Destructure record into route options
@@ -330,7 +330,7 @@ class Server extends Router {
      * @private
      * @param {Route} route
      * @param {Request} wrapped_request
-     * @returns {Boolean} Boolean
+     * @returns {Boolean}
      */
     _pre_parse_body(route, wrapped_request) {
         // Return true to pre-parsing if we are expecting a specific type of body
@@ -350,7 +350,7 @@ class Server extends Router {
      * @param {Route} route
      * @param {Request} request
      * @param {Response} response
-     * @param {UWS_SOCKET} socket
+     * @param {uWebSockets.us_socket_context_t} [socket]
      */
     async _handle_uws_request(route, request, response, socket) {
         // Wrap uWS.Request -> Request
@@ -475,6 +475,7 @@ class Server extends Router {
 
     /**
      * Underlying uWS instance.
+     * @returns {uWebSockets.us_listen_socket}
      */
     get uws_instance() {
         return this.#uws_instance;
@@ -482,6 +483,7 @@ class Server extends Router {
 
     /**
      * Server instance options.
+     * @returns {Object}
      */
     get options() {
         return this.#options;
@@ -489,6 +491,7 @@ class Server extends Router {
 
     /**
      * Server instance global handlers.
+     * @returns {Object}
      */
     get handlers() {
         return this.#handlers;
@@ -496,6 +499,7 @@ class Server extends Router {
 
     /**
      * Server instance routes.
+     * @returns {Object}
      */
     get routes() {
         return this.#routes;
@@ -503,6 +507,7 @@ class Server extends Router {
 
     /**
      * Server instance middlewares.
+     * @returns {Object}
      */
     get middlewares() {
         return this.#middlewares;
