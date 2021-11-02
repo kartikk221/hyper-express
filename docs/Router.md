@@ -40,7 +40,7 @@ webserver.use('/api/v1', api_v1_router);
         * **Example:** A `GET /users/:id` route from a `Router` used with `use('/api/v1', router)` call will be created as `GET /api/v1/users/:id`.
         * **Example:** A middleware assigned directly to a `Router` used with `use('/api', router)` will execute for all routes that begin with `/api`.
 * `any(String: pattern, Object: options, Function: handler)`: Creates an HTTP route on specified pattern. Alias methods are listed below for HTTP method specific routes.
-    * **Alias Methods:** `get()`, `post()`, `delete()`, `head()`, `options()`, `patch()`, `trace()`, `connect()`, `upgrade()`.
+    * **Alias Methods:** `get()`, `post()`, `put() `, `delete()`, `head()`, `options()`, `patch()`, `trace()`, `connect()`, `upgrade()`.
     * **Example Handler**: `(Request: request, Response: response) => {}`.
     * **See** [`> [Websocket]`](./Websocket.md) for usage documentation on the `upgrade()` alias method.
     * **Parameter** `options`[`Object`]: This parameter is **optional** thus you can simply provide a `pattern` and `handler` for simpler code.
