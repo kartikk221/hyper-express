@@ -5,7 +5,10 @@ Below is a breakdown of the `response` object made available through the route/m
 | Property  | Type     | Description                |
 | :-------- | :------- | :------------------------- |
 | `raw` | `uWS.Response`  | Underlying uWebsockets.js response object. |
+| `initiated` | `Boolean`  | Signifies whether the response has been initiated and the status code/headers have been sent. |
 | `aborted` | `Boolean`  | Signifies whether the request has been aborted/completed. |
+| `completed` | `Boolean`  | Alias of `aborted` property. |
+
 
 #### Response Methods
 * `atomic(Function: callback)`: Alias of uWebsockets's `cork(callback)` method.
@@ -40,7 +43,7 @@ Below is a breakdown of the `response` object made available through the route/m
     * **Note** this method can only be used inside an `upgrade` route handler.
 * `redirect(String: url)`: Writes 302 header to redirect incoming request to specified url.
 * `write(String|Buffer|ArrayBuffer: chunk)`: Writes specified chunk as response. Use this method with streams to send response body in chunks.
-    * **Note** the `send()` must still be called to end the request.
+    * **Note** the `send()` must still be called to end the request after writing all chunks.
 * `send(String|Buffer|ArrayBuffer: body)`: Writes specified body and sends response.
 * `json(Object: body)`: Alias of `send()`. Sets mime type to `json` and sends response.
 * `jsonp(Object: body, String: name)`: Alias of `send()`. Sets mime type to `js` and sends response.
