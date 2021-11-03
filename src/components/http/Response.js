@@ -571,11 +571,9 @@ class Response {
     }
 
     /**
-     * Write the headers to uws
+     * Write the headers to the raw uWS response
      *
-     * When streaming the response body, be sure to call sendHeaders before writing the first chunk
-     *
-     * You can not set headers after the headers have been flushed, doing so will throw an error
+     * Changes to headers are ignored after calling sendHeaders
      * @returns {String|Array|undefined}
      */
     sendHeaders() {
@@ -732,9 +730,8 @@ class Response {
     }
 
     /**
-     * Return a {@link Writable} representation of this response
-     * Use {@link pipeline} for standard nodejs backpressure handling
-     *
+     * Get a writable representation of this response
+     * @returns Writable  representation of this response
      */
     asWritable() {
         if(!this.#writable) {

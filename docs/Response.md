@@ -56,4 +56,6 @@ Below is a breakdown of the `response` object made available through the route/m
   * **Note!** this method **only** writes the appropriate headers.
 * `download(String: path, String: filename)`: Alias of `send()`. Sets appropriate attachment headers and mime type if one has not been set yet and sends file content at specified path as response body for browser to download.
 * `throw_error(Error: error)`: Calls global catch-all error handler with specified error.
+* `asWritable()`: Get a stream.Writable representation of the response.
+* `sendHeaders()`: Write the headers to the raw uWS response. Changes to the headers are ignored after this is called.
 * See [ExpressJS](https://github.com/expressjs/express) documentation for more properties/methods that are also implemented for compatibility.
