@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "hyper-express-session": "^1.0.2",
     "node-fetch": "^2.6.1",
     "ws": "^8.2.3"
   }

@@ -1,4 +1,4 @@
-const SessionEngine = require('../../../middlewares/hyper-express-session/index.js');
+const SessionEngine = require('hyper-express-session');
 const MemoryStore = require('../../scripts/MemoryStore.js');
 const { random_string } = require('../../scripts/operators.js');
 

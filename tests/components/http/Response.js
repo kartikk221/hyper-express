@@ -1,3 +1,4 @@
+const { test_writable_response } = require( "./scenarios/writable_response" );
 const { log, assert_log, random_string } = require('../../scripts/operators.js');
 const { HyperExpress, fetch, server } = require('../../configuration.js');
 const { test_livefile_object } = require('../../components/features/LiveFile.js');
@@ -136,6 +137,8 @@ async function test_response_object() {
             hook_invocations[1] === 'complete' &&
             response1.headers.get('hook-called') === 'send'
     );
+
+    await test_writable_response()
 
     log(group, `Finished Testing ${candidate} In ${Date.now() - start_time}ms\n`);
 }

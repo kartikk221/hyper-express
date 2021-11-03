@@ -2,6 +2,7 @@ const cookie = require('cookie');
 const signature = require('cookie-signature');
 const status_codes = require('../../constants/status_codes.json');
 const mime_types = require('mime-types');
+const { Writable } = require( 'stream' )
 
 const LiveFile = require('../cache/LiveFile.js');
 const FilePool = {};
@@ -15,8 +16,10 @@ class Response {
     #status_code;
     #headers;
     #completed = false;
+    #headersSent = false;
     #type_written = false;
     #hooks;
+    #writable;
 
     constructor(wrapped_request, raw_response, socket, master_context) {
         this.#wrapped_request = wrapped_request;
@@ -285,13 +288,7 @@ class Response {
             // Write custom HTTP status if specified
             if (this.#status_code) this.#raw_response.writeStatus(this.#status_code);
 
-            // Write headers if specified
-            if (this.#headers)
-                Object.keys(this.#headers).forEach((name) =>
-                    this.#headers[name].forEach((value) =>
-                        this.#raw_response.writeHeader(name, value)
-                    )
-                );
+            this.sendHeaders()
 
             // Mark request as completed and end request using uWS.Response.end()
             this.#completed = true;
@@ -565,6 +562,35 @@ class Response {
     }
 
     /**
+     * Returns pending header names from this response
+     * @param {String} name
+     * @returns {string[]}
+     */
+    getHeaderNames(name) {
+        return Object.keys(this.#headers)
+    }
+
+    /**
+     * Write the headers to uws
+     *
+     * When streaming the response body, be sure to call sendHeaders before writing the first chunk
+     *
+     * You can not set headers after the headers have been flushed, doing so will throw an error
+     * @returns {String|Array|undefined}
+     */
+    sendHeaders() {
+        if(this.#headersSent) return
+        this.#headersSent = true
+        // Write headers if specified
+        if (this.#headers)
+            Object.keys(this.#headers).forEach((name) =>
+                this.#headers[name].forEach((value) =>
+                    this.#raw_response.writeHeader(name, value)
+                )
+            );
+    }
+
+    /**
      * ExpressJS: Removes header from this response
      * @param {String} name
      */
@@ -703,6 +729,36 @@ class Response {
      */
     vary(name) {
         return this.header('Vary', name);
+    }
+
+    /**
+     * Return a {@link Writable} representation of this response
+     * Use {@link pipeline} for standard nodejs backpressure handling
+     *
+     */
+    asWritable() {
+        if(!this.#writable) {
+            const fullSend = this.send.bind(this)
+            const sendHeaders = this.sendHeaders.bind(this)
+            const thisRes = this
+            this.#writable = new Writable({
+                write: (chunk, encoding, cb) => {
+                    try {
+                        //wait for the first write before sending headers
+                        //otherwise the headers may not be complete
+                        sendHeaders()
+                        thisRes.write(chunk);
+                        cb();
+                    } catch (e) {
+                        cb(e);
+                    }
+                }
+            })
+                .on('finish', fullSend)
+                .on('end', fullSend)
+                .on('error', fullSend);
+        }
+        return this.#writable
     }
 }
 
