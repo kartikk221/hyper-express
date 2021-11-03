@@ -563,10 +563,9 @@ class Response {
 
     /**
      * Returns pending header names from this response
-     * @param {String} name
      * @returns {string[]}
      */
-    getHeaderNames(name) {
+    getHeaderNames() {
         return Object.keys(this.#headers)
     }
 
@@ -574,7 +573,6 @@ class Response {
      * Write the headers to the raw uWS response
      *
      * Changes to headers are ignored after calling sendHeaders
-     * @returns {String|Array|undefined}
      */
     sendHeaders() {
         if(this.#headersSent) return
