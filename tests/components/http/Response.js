@@ -1,6 +1,7 @@
 const { log, assert_log, random_string } = require('../../scripts/operators.js');
 const { HyperExpress, fetch, server } = require('../../configuration.js');
 const { test_livefile_object } = require('../../components/features/LiveFile.js');
+const { test_response_stream_method } = require('./scenarios/response_stream.js');
 const router = new HyperExpress.Router();
 const endpoint = '/tests/response/operators';
 const endpoint_url = server.base + endpoint;
@@ -122,6 +123,9 @@ async function test_response_object() {
 
     // Verify .send()
     assert_log(group, candidate + '.send()', () => body1 === test_html_placeholder);
+
+    // Test Response.stream()
+    await test_response_stream_method();
 
     // Test Response.LiveFile object
     await test_livefile_object();

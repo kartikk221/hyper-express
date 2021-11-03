@@ -2,6 +2,7 @@ const cookie = require('cookie');
 const signature = require('cookie-signature');
 const status_codes = require('../../constants/status_codes.json');
 const mime_types = require('mime-types');
+const stream = require('stream');
 
 const LiveFile = require('../cache/LiveFile.js');
 const FilePool = {};
@@ -14,6 +15,7 @@ class Response {
     #upgrade_socket;
     #status_code;
     #headers;
+    #initiated = false;
     #completed = false;
     #type_written = false;
     #hooks;
@@ -32,7 +34,7 @@ class Response {
      * This method binds an abort handler which will update completed field to lock appropriate operations in Response
      */
     _bind_abort_handler() {
-        let reference = this;
+        const reference = this;
         this.#raw_response.onAborted(() => {
             reference.#completed = true;
             reference.#wrapped_request._abort_buffer();
@@ -85,9 +87,14 @@ class Response {
      * @returns {Response} Response (Chainable)
      */
     status(code) {
+        // Throw expection if a status change is attempted after response has been initiated
+        if (this.initiated)
+            throw new Error(
+                'HyperExpress.Response.status(code) -> HTTP Status Code cannot be changed once a response has been initiated.'
+            );
+
         // Match status code Number to a status message and call uWS.Response.writeStatus
-        let message = status_codes[code];
-        this.#status_code = code + ' ' + message;
+        this.#status_code = code + ' ' + status_codes[code];
         return this;
     }
 
@@ -119,6 +126,12 @@ class Response {
      * @returns {Response} Response (Chainable)
      */
     header(name, value) {
+        // Throw expection if a header write is attempted after response has been initiated
+        if (this.initiated)
+            throw new Error(
+                'HyperExpress.Response.header(name, value) -> Headers cannot be written after a response has already been initiated.'
+            );
+
         // Call self for all specified values in values array
         if (Array.isArray(value)) {
             value.forEach((item) => this.header(name, item));
@@ -257,14 +270,41 @@ class Response {
     }
 
     /**
-     * This method can be used to write the body in chunks/parts and .send()
-     * must be called to end the request.
+     * @private
+     * Initiates response process by writing HTTP status code and then writing the appropriate headers.
+     */
+    _initiate_response() {
+        // Ensure response can only be initiated once to prevent multiple invocations
+        if (this.initiated) return;
+        this.#initiated = true;
+
+        // Write custom HTTP status if specified
+        if (this.#status_code) this.#raw_response.writeStatus(this.#status_code);
+
+        // Write headers if specified
+        if (this.#headers)
+            Object.keys(this.#headers).forEach((name) =>
+                this.#headers[name].forEach((value) => this.#raw_response.writeHeader(name, value))
+            );
+    }
+
+    /**
+     * This method can be used to write the body in chunks.
+     * Note! You must still call the send() method to send the response and complete the request.
      *
-     * @param {String|Buffer|ArrayBuffer} body
+     * @param {String|Buffer|ArrayBuffer} chunk
      * @returns {Response} Response (Chainable)
      */
-    write(body) {
-        if (!this.#completed) this.#raw_response.write(body);
+    write(chunk) {
+        // Ensure response has not been completed
+        if (!this.#completed) {
+            // Ensure response has been initiated before writing chunk
+            this._initiate_response();
+
+            // Write provided chunk to response through uWS.Response.write()
+            this.#raw_response.write(chunk);
+        }
+
         return this;
     }
 
@@ -282,26 +322,82 @@ class Response {
             // Call any bound hooks for type 'send'
             this._call_hooks('send');
 
-            // Write custom HTTP status if specified
-            if (this.#status_code) this.#raw_response.writeStatus(this.#status_code);
-
-            // Write headers if specified
-            if (this.#headers)
-                Object.keys(this.#headers).forEach((name) =>
-                    this.#headers[name].forEach((value) =>
-                        this.#raw_response.writeHeader(name, value)
-                    )
-                );
+            // Initiate response to write status code and headers
+            this._initiate_response();
 
             // Mark request as completed and end request using uWS.Response.end()
             this.#completed = true;
-            let result = this.#raw_response.end(body, close_connection);
+            const result = this.#raw_response.end(body, close_connection);
 
             // Call any bound hooks for type 'complete' if no backpressure was built up
             if (result) this._call_hooks('complete');
             return result;
         }
         return false;
+    }
+
+    /**
+     * @private
+     * Streams individual chunk from a stream and handles backpressure if streaming fails
+     *
+     * @param {stream.Readable} stream
+     * @param {Buffer} chunk
+     * @param {Number} total_size
+     */
+    _stream_chunk(stream, chunk, total_size) {
+        // Attempt to stream the current chunk through uWS.tryEnd
+        const last_offset = this.#raw_response.getWriteOffset();
+        const [sent, finished] = this.#raw_response.tryEnd(chunk, total_size);
+
+        // If streaming has finished, then destroy our readable stream
+        if (finished) {
+            stream.destroy();
+        } else if (!sent) {
+            // Pause the readable stream as we could not fully send this chunk
+            stream.pause();
+
+            // Bind a uWS handler which waits for this response to be writable again
+            const reference = this;
+            this.#raw_response.onWritable((offset) => {
+                // Retry streaming the remaining slice of the failed chunk
+                const remaining = chunk.slice(offset - last_offset);
+                reference._stream_chunk(stream, remaining, total_size);
+            });
+        } else if (stream.isPaused()) {
+            // Resume stream if it has been paused from a previously failed chunk
+            stream.resume();
+        }
+    }
+
+    /**
+     * This method is used to pipe a readable stream as response body and send response.
+     *
+     * @param {stream.Readable} readable A Readable stream which will be piped as response body
+     * @param {Number} total_size Total size of the Readable stream source in bytes
+     */
+    stream(readable, total_size) {
+        // Ensure readable is an instance of a stream.Readable
+        if (!(readable instanceof stream.Readable))
+            throw new Error(
+                'Response.stream(readable, total_size) -> readable must be a Readable stream.'
+            );
+
+        // Ensure a valid total_size number has been provided
+        if (typeof total_size !== 'number' || total_size < 1)
+            throw new Error(
+                'Response.stream(readable, total_size) -> total_size must be a valid Number in bytes.'
+            );
+
+        // Bind a abort hook which will destroy the read stream if request is aborted
+        this.hook('abort', () => {
+            if (!readable.destroyed) readable.destroy();
+        });
+
+        // Initiate response as we will begin writing body chunks
+        this._initiate_response();
+
+        // Bind a listener for the 'data' event to stream chunks
+        readable.on('data', (chunk) => this._stream_chunk(readable, chunk, total_size));
     }
 
     /**
@@ -327,8 +423,7 @@ class Response {
     }
 
     /**
-     * This method is an alias of send() method except it accepts an object
-     * and automatically stringifies the passed payload object.
+     * This method is an alias of send() method except it accepts an object and automatically stringifies the passed payload object.
      *
      * @param {Object} body JSON body
      * @returns {Boolean} Boolean (true || false)
@@ -453,13 +548,24 @@ class Response {
 
     /**
      * Returns the underlying raw uWS.Response object.
+     * @returns {uWebsockets.Response}
      */
     get raw() {
         return this.#raw_response;
     }
 
     /**
+     * Returns whether response has been initiated by writing the HTTP status code and headers.
+     * Note! No changes can be made to the HTTP status code or headers after a response has been initiated.
+     * @returns {Boolean}
+     */
+    get initiated() {
+        return this.#initiated;
+    }
+
+    /**
      * Returns current state of request in regards to whether the source is still connected.
+     * @returns {Boolean}
      */
     get aborted() {
         return this.#completed;
@@ -467,6 +573,7 @@ class Response {
 
     /**
      * Alias of aborted property as they both represent the same request state in terms of inaccessibility.
+     * @returns {Boolean}
      */
     get completed() {
         return this.#completed;
@@ -474,6 +581,7 @@ class Response {
 
     /**
      * Upgrade socket context for upgrade requests.
+     * @returns {uWebsockets.ux_socket_context}
      */
     get upgrade_socket() {
         return this.#upgrade_socket;

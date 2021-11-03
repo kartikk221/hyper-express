@@ -44,6 +44,10 @@ Below is a breakdown of the `response` object made available through the route/m
 * `redirect(String: url)`: Writes 302 header to redirect incoming request to specified url.
 * `write(String|Buffer|ArrayBuffer: chunk)`: Writes specified chunk as response. Use this method with streams to send response body in chunks.
     * **Note** the `send()` must still be called to end the request after writing all chunks.
+* `stream(ReadableStream: readable, Number: total_size)`: Pipes the provided readable stream as body and sends response.
+  * This method can be useful for serving large amounts of data through Node.js streaming functionalities.
+  * **Note** the `total_size` must be the size of the total contents being piped by the readable stream in `bytes`.
+  * **Note** you must do your own error handling on the readable stream to prevent triggering the global error handler.
 * `send(String|Buffer|ArrayBuffer: body)`: Writes specified body and sends response.
 * `json(Object: body)`: Alias of `send()`. Sets mime type to `json` and sends response.
 * `jsonp(Object: body, String: name)`: Alias of `send()`. Sets mime type to `js` and sends response.
