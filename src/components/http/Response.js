@@ -347,12 +347,20 @@ class Response {
      * @param {Number=} total_size
      */
     _stream_chunk(stream, chunk, total_size) {
-        // If no total size is specified, then we simply write the chunk with encoding transfer
-        if (total_size === undefined) return this.#raw_response.write(chunk);
+        let sent, finished;
+        let last_offset = this.#raw_response.getWriteOffset();
+        if (total_size) {
+            // Attempt to stream the current chunk using uWS.tryEnd with a total_size for content-length header
+            const [ok, done] = this.#raw_response.tryEnd(chunk, total_size);
+            sent = ok;
+            finished = done;
+        } else {
+            // Attempt to stream the current chunk uWS.write()
+            sent = this.#raw_response.write(chunk);
 
-        // Attempt to stream the current chunk through uWS.tryEnd
-        const last_offset = this.#raw_response.getWriteOffset();
-        const [sent, finished] = this.#raw_response.tryEnd(chunk, total_size);
+            // Mark finished as false as this response must be ended with an empty send() call
+            finished = false;
+        }
 
         // If streaming has finished, then destroy our readable stream
         if (finished) {
@@ -377,7 +385,7 @@ class Response {
     /**
      * This method is used to pipe a readable stream as response body and send response.
      * By default, this method will use chunked encoding transfer to stream data.
-     * If your use-case requires a content-length header with proper backpressure handling, you must specify the total payload size.
+     * If your use-case requires a content-length header, you must specify the total payload size.
      *
      * @param {stream.Readable} readable A Readable stream which will be piped as response body
      * @param {Number=} total_size Total size of the Readable stream source in bytes (Optional)
