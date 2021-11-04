@@ -338,13 +338,18 @@ class Response {
 
     /**
      * @private
-     * Streams individual chunk from a stream and handles backpressure if streaming fails
+     * Streams individual chunk from a stream.
+     * Delivers with chunked transfer without content-length header when no total_size is specified.
+     * Delivers with backpressure handling and content-length header when a total_size is specified.
      *
      * @param {stream.Readable} stream
      * @param {Buffer} chunk
-     * @param {Number} total_size
+     * @param {Number=} total_size
      */
     _stream_chunk(stream, chunk, total_size) {
+        // If no total size is specified, then we simply write the chunk with encoding transfer
+        if (total_size === undefined) return this.#raw_response.write(chunk);
+
         // Attempt to stream the current chunk through uWS.tryEnd
         const last_offset = this.#raw_response.getWriteOffset();
         const [sent, finished] = this.#raw_response.tryEnd(chunk, total_size);
@@ -371,21 +376,17 @@ class Response {
 
     /**
      * This method is used to pipe a readable stream as response body and send response.
+     * By default, this method will use chunked encoding transfer to stream data.
+     * If your use-case requires a content-length header with proper backpressure handling, you must specify the total payload size.
      *
      * @param {stream.Readable} readable A Readable stream which will be piped as response body
-     * @param {Number} total_size Total size of the Readable stream source in bytes
+     * @param {Number=} total_size Total size of the Readable stream source in bytes (Optional)
      */
     stream(readable, total_size) {
         // Ensure readable is an instance of a stream.Readable
         if (!(readable instanceof stream.Readable))
             throw new Error(
                 'Response.stream(readable, total_size) -> readable must be a Readable stream.'
-            );
-
-        // Ensure a valid total_size number has been provided
-        if (typeof total_size !== 'number' || total_size < 1)
-            throw new Error(
-                'Response.stream(readable, total_size) -> total_size must be a valid Number in bytes.'
             );
 
         // Bind a abort hook which will destroy the read stream if request is aborted
@@ -398,6 +399,13 @@ class Response {
 
         // Bind a listener for the 'data' event to stream chunks
         readable.on('data', (chunk) => this._stream_chunk(readable, chunk, total_size));
+
+        // Bind listeners to end request on stream closure if no total size was specified and thus we delivered with chunked transfer
+        if (total_size === undefined) {
+            const end_request = () => this.send();
+            readable.on('end', end_request);
+            readable.on('close', end_request);
+        }
     }
 
     /**
