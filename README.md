@@ -82,5 +82,13 @@ autocannon -c 2500 -d 30 -p 4 http://HOST:PORT/benchmark
 | Fastify                  | 3.22.0  | 40,898     | 565 ms  | 25 Mb/s      |
 | Express                  | 4.17.1  | 5,791      | 1740 ms | 3.8 Mb/s     |
 
+## Testing Changes
+To run HyperExpress functionality tests locally on your machine, you must follow the steps below.
+1. Clone the HyperExpress repository to your machine.
+2. Initialize and pull any submodule(s) which are used throughout the tests.
+3. Run `npm install` in the root of the HyperExpress repository.
+4. Run `npm install` in the `/tests` directory.
+5. Execute the `/tests/index.js` file to perform tests.
+
 ## License
 [MIT](./LICENSE)
