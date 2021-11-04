@@ -52,6 +52,19 @@ webserver.post('/api/v1/delete_user/:id', async (request, response) => {
 });
 ```
 
+#### Streaming A Large Video File For Working With Streams
+```javascript
+const fs = require('fs');
+
+webserver.post('/assets/some_video.mkv', async (request, response) => {
+   // Create a readable stream for the file
+   const readable = fs.createReadStream('/path/to/some_video.mkv');
+
+   // Easily stream the video to the sender
+   response.stream(readable);
+});
+```
+
 #### Using Global & Route/Method Specific Middlewares
 ```javascript
 // Assume webserver is a HyperExpress.Server instance
