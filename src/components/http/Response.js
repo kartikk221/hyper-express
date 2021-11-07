@@ -2,7 +2,7 @@ const cookie = require('cookie');
 const signature = require('cookie-signature');
 const status_codes = require('../../constants/status_codes.json');
 const mime_types = require('mime-types');
-const { Readable } = require('stream');
+const { Readable, Writable } = require('stream');
 
 const LiveFile = require('../plugins/LiveFile.js');
 const FilePool = {};
@@ -19,6 +19,7 @@ class Response {
     #completed = false;
     #type_written = false;
     #hooks;
+    #writable;
 
     constructor(wrapped_request, raw_response, socket, master_context) {
         this.#wrapped_request = wrapped_request;
@@ -323,9 +324,11 @@ class Response {
      * Note! You must still call the send() method to send the response and complete the request.
      *
      * @param {String|Buffer|ArrayBuffer} chunk
+     * @param {String=} encoding
+     * @param {Function=} callback
      * @returns {Boolean} 'false' signifies that the chunk was not sent due to built up backpressure.
      */
-    write(chunk) {
+    write(chunk, encoding, callback) {
         // Ensure response has not been completed
         if (!this.#completed) {
             // Ensure response has been initiated before writing chunk
@@ -348,9 +351,24 @@ class Response {
                 this.#last_write_result = this.#raw_response.write(chunk);
             }
 
-            // Return the write result boolean
+            // Determine if a callback is provided and we should do internal backpressure retries
+            if (callback) {
+                // If write was successful, simply call the callback alerting consumer to write more chunks
+                if (this.#last_write_result) {
+                    callback();
+                } else {
+                    // Wait for backpressure to drain and retry writing of this chunk
+                    this.drain(() => this.write(chunk, encoding, callback));
+                }
+            }
+
+            // Return the write result boolean for synchronous consumer
             return this.#last_write_result;
         }
+
+        // Trigger callback with an error if a write() is performed after response has completed
+        if (callback) callback(new Error('Response is already completed/aborted'));
+
         return false;
     }
 
@@ -654,6 +672,26 @@ class Response {
      */
     get upgrade_socket() {
         return this.#upgrade_socket;
+    }
+
+    /**
+     * Returns a Writable stream associated with this response to be used for piping.
+     * @returns {Writable}
+     */
+    get writable() {
+        // Return from cache if one already exists
+        if (this.#writable) return this.#writable;
+
+        // Create a new writable stream object which writes with Response.write()
+        this.#writable = new Writable({
+            write: (chunk, encoding, callback) => this.write(chunk, encoding, callback),
+        });
+
+        // Bind a finish/close handler which will end the response once writable has closed
+        this.#writable.on('finish', () => this.send());
+        this.#writable.on('close', () => this.send());
+
+        return this.#writable;
     }
 
     /* ExpressJS compatibility properties & methods */

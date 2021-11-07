@@ -8,6 +8,7 @@ Below is a breakdown of the `response` object made available through the route/m
 | `initiated` | `Boolean`  | Signifies whether the response has been initiated and the status code/headers have been sent. |
 | `aborted` | `Boolean`  | Signifies whether the request has been aborted/completed. |
 | `completed` | `Boolean`  | Alias of `aborted` property. |
+| `writable` | `stream.Writable` | Writable stream object to be used for piping. |
 
 #### Response Methods
 * `atomic(Function: callback)`: Alias of uWebsockets's `cork(callback)` method.
@@ -41,9 +42,10 @@ Below is a breakdown of the `response` object made available through the route/m
     * **Note** `context` is optional and can be used to store data on the websocket connection object.
     * **Note** this method can only be used inside an `upgrade` route handler.
 * `redirect(String: url)`: Writes 302 header to redirect incoming request to specified url.
-* `write(String|Buffer|ArrayBuffer: chunk)`: Writes specified chunk using chunked transfer. Use this method to stream large amounts of data.
+* `write(String|Buffer|ArrayBuffer: chunk, String?: encoding, Function?: callback)`: Writes specified chunk using chunked transfer. Use this method to stream large amounts of data.
     * **Returns** a `Boolean` in which `false` signifies chunk was not fully sent due to built up backpressure. 
     * **Note** the `send()` must still be called in the end after writing all chunks to end the chunked transfer.
+    * **Note** this method mimics `Writable.write()` method thus you may use direct piping by piping a `Readable` to a `Response.writable` property.
 * `drain(Function: handler)`: Binds a one-time handler which is called once the built up backpressure from a failed `write()` call has been drained.
   * **Note** you **MUST** retry the failed `write()` call with the same chunk from before proceeding to writing future chunks.
   * **Note** this handler must be **synchronous** only.

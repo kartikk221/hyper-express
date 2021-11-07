@@ -68,37 +68,16 @@ webserver.post('/assets/some_video.mkv', async (request, response) => {
 });
 ```
 
-#### Streaming A Large Dataset With A Readable Piped to A Writable
+#### Streaming A Large Dataset With A Pipe To Response Writable
 ```javascript
 const fs = require('fs');
-const { Writable } = require('stream');
-
-function safe_write_chunk(response, chunk, callback) {
-    // Write chunk using Response.write(chunk) method
-    const sent = response.write(chunk);
-
-    // If chunk wasn't sent fully due to backpressure, drain and try again
-    if (!sent) return response.drain(() => safe_write_chunk(response, chunk, callback));
-
-    // Execute callback so Node.js Writable knows it can proceed
-    callback();
-}
 
 webserver.post('/stream/some-data', async (request, response) => {
-   // Assume "readable" is a read stream with some large amounts of data
+    // Get some readable stream which will retrieve our large dataset
+    const readable = getReadableStreamForOurData();
 
-   // Create a Writable to which we can pipe the readable stream
-   const writable = new Writable({
-       write: (chunk, encoding, callback) => {
-           safe_write_chunk(response, chunk, callback);
-       }
-   })
-
-   // Bind a 'close' event handler on the writable to end the response once complete
-   writable.on('close', () => response.send());
-
-   // Pipe the readable into the writable we created
-   readable.pipe(writable);
+    // Simply pipe the stream to the Response writable to serve it to the client
+    readable.pipe(response.writable);
 });
 ```
 

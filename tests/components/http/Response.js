@@ -3,6 +3,7 @@ const { HyperExpress, fetch, server } = require('../../configuration.js');
 const { test_livefile_object } = require('../../components/features/LiveFile.js');
 const { test_response_stream_method } = require('./scenarios/response_stream.js');
 const { test_response_chunked_write } = require('./scenarios/response_chunked_write.js');
+const { test_response_piped_write } = require('./scenarios/response_piped.js');
 const router = new HyperExpress.Router();
 const endpoint = '/tests/response/operators';
 const endpoint_url = server.base + endpoint;
@@ -130,6 +131,9 @@ async function test_response_object() {
 
     // Test Response.write() for chunked writing
     await test_response_chunked_write();
+
+    // Test Response.write() for piped writes
+    await test_response_piped_write();
 
     // Test Response.LiveFile object
     await test_livefile_object();
