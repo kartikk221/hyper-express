@@ -300,6 +300,7 @@ class Request {
 
     /**
      * Returns HTTP request method for incoming request in all uppercase.
+     * @returns {String}
      */
     get method() {
         return this.#method;
@@ -307,6 +308,7 @@ class Request {
 
     /**
      * Returns full request url for incoming request (path + query).
+     * @returns {String}
      */
     get url() {
         return this.#url;
@@ -314,6 +316,7 @@ class Request {
 
     /**
      * Returns path for incoming request.
+     * @returns {String}
      */
     get path() {
         return this.#path;
@@ -321,6 +324,7 @@ class Request {
 
     /**
      * Returns query for incoming request without the '?'.
+     * @returns {String}
      */
     get path_query() {
         return this.#query;
@@ -328,6 +332,7 @@ class Request {
 
     /**
      * Returns request headers from incoming request.
+     * @returns {Object}
      */
     get headers() {
         return this.#headers;
@@ -335,6 +340,7 @@ class Request {
 
     /**
      * Returns cookies from incoming request.
+     * @returns {Object}
      */
     get cookies() {
         // Return from cache if already parsed once
@@ -348,6 +354,7 @@ class Request {
 
     /**
      * Returns path parameters from incoming request in Object form {key: value}
+     * @returns {Object}
      */
     get path_parameters() {
         return this.#path_parameters;
@@ -355,6 +362,7 @@ class Request {
 
     /**
      * Returns query parameters from incoming request in Object form {key: value}
+     * @returns {Object}
      */
     get query_parameters() {
         // Return from cache if already parsed once
@@ -367,6 +375,7 @@ class Request {
 
     /**
      * Returns remote IP address in string format from incoming request.
+     * @returns {String}
      */
     get ip() {
         // Convert Remote IP to string on first access
@@ -378,6 +387,7 @@ class Request {
 
     /**
      * Returns remote proxy IP address in string format from incoming request.
+     * @returns {String}
      */
     get proxy_ip() {
         // Convert Remote Proxy IP to string on first access
@@ -446,7 +456,7 @@ class Request {
 
     /**
      * ExpressJS: Checks if provided languages are accepted
-     * @param {String|Array} charsets
+     * @param {String|Array} languages
      * @returns {String|Array}
      */
     acceptsLanguages() {

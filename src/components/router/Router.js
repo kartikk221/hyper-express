@@ -360,15 +360,16 @@ class Router {
     /* Route getters */
 
     /**
-     * Returns All routes in this router.
-     * @returns {Object}
+     * Returns All routes in this router in the order they were registered.
+     * @returns {Array}
      */
     get routes() {
         return this.#records.routes;
     }
 
     /**
-     * Returns all middlewares in this router.
+     * Returns all middlewares in this router in the order they were registered.
+     * @returns {Array}
      */
     get middlewares() {
         return this.#records.middlewares;

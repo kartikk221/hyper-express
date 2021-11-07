@@ -2,9 +2,9 @@ const cookie = require('cookie');
 const signature = require('cookie-signature');
 const status_codes = require('../../constants/status_codes.json');
 const mime_types = require('mime-types');
-const stream = require('stream');
+const { Readable } = require('stream');
 
-const LiveFile = require('../cache/LiveFile.js');
+const LiveFile = require('../plugins/LiveFile.js');
 const FilePool = {};
 
 class Response {
@@ -288,12 +288,42 @@ class Response {
             );
     }
 
+    #last_write_result;
+    #last_write_offset;
+    #drained_write_offset;
+
+    /**
+     * Binds a drain handler which gets called with a byte offset that can be used to try a failed chunk write.
+     * You MUST perform a write call inside the handler for uWS chunking to work properly.
+     *
+     * @param {Function} handler Synchronous callback only
+     */
+    drain(handler) {
+        // Ensure handler is a function type
+        if (typeof handler !== 'function')
+            throw new Error('HyperExpress.Response.drain(handler) -> handler must be a Function.');
+
+        // Create a onWritable listener with provided handler
+        const reference = this;
+        this.#raw_response.onWritable((offset) => {
+            // Store the drained write offset so we write a sliced chunk in the future with write()
+            reference.#drained_write_offset = offset;
+
+            // Execute user handler so they perform a write call
+            handler();
+
+            // Return the last write result as the user should have executed a write call in the handler above
+            // This boolean return is required by the uWS.Response.onWritable method. See documentation.
+            return reference.#last_write_result;
+        });
+    }
+
     /**
      * This method can be used to write the body in chunks.
      * Note! You must still call the send() method to send the response and complete the request.
      *
      * @param {String|Buffer|ArrayBuffer} chunk
-     * @returns {Response} Response (Chainable)
+     * @returns {Boolean} 'false' signifies that the chunk was not sent due to built up backpressure.
      */
     write(chunk) {
         // Ensure response has not been completed
@@ -301,11 +331,27 @@ class Response {
             // Ensure response has been initiated before writing chunk
             this._initiate_response();
 
-            // Write provided chunk to response through uWS.Response.write()
-            this.#raw_response.write(chunk);
-        }
+            // Store the last write offest, so we can use this as a base value for getting sliced chunk for retries
+            this.#last_write_offset = this.#raw_response.getWriteOffset();
 
-        return this;
+            // See if we have a drained write offset which we must account for by slicing the passed chunk
+            if (this.#drained_write_offset) {
+                // Write a partially sliced chunk accounting for drained write offset
+                this.#last_write_result = this.#raw_response.write(
+                    chunk.slice(this.#drained_write_offset - this.#last_write_offset)
+                );
+
+                // Unset the drained write offset if we had a successful partial chunk write
+                if (this.#last_write_result) this.#drained_write_offset = undefined;
+            } else {
+                // Write the full chunk from the parameter as we have no backpressure yet
+                this.#last_write_result = this.#raw_response.write(chunk);
+            }
+
+            // Return the write result boolean
+            return this.#last_write_result;
+        }
+        return false;
     }
 
     /**
@@ -342,11 +388,16 @@ class Response {
      * Delivers with chunked transfer without content-length header when no total_size is specified.
      * Delivers with backpressure handling and content-length header when a total_size is specified.
      *
-     * @param {stream.Readable} stream
+     * @param {Readable} stream
      * @param {Buffer} chunk
      * @param {Number=} total_size
+     * @returns {Boolean} whether the chunk was sent or not due to backpressure
      */
     _stream_chunk(stream, chunk, total_size) {
+        // Break execution if request is completed or aborted
+        if (this.#completed) return;
+
+        // Attempt to stream the chunk using appropriate uWS.Response chunk serving method
         let sent, finished;
         let last_offset = this.#raw_response.getWriteOffset();
         if (total_size) {
@@ -374,12 +425,14 @@ class Response {
             this.#raw_response.onWritable((offset) => {
                 // Retry streaming the remaining slice of the failed chunk
                 const remaining = chunk.slice(offset - last_offset);
-                reference._stream_chunk(stream, remaining, total_size);
+                return reference._stream_chunk(stream, remaining, total_size);
             });
         } else if (stream.isPaused()) {
             // Resume stream if it has been paused from a previously failed chunk
             stream.resume();
         }
+
+        return sent;
     }
 
     /**
@@ -392,7 +445,7 @@ class Response {
      */
     stream(readable, total_size) {
         // Ensure readable is an instance of a stream.Readable
-        if (!(readable instanceof stream.Readable))
+        if (!(readable instanceof Readable))
             throw new Error(
                 'Response.stream(readable, total_size) -> readable must be a Readable stream.'
             );
@@ -604,6 +657,7 @@ class Response {
     }
 
     /* ExpressJS compatibility properties & methods */
+
     /**
      * Throws a descriptive error when an unsupported ExpressJS property/method is invocated.
      * @private

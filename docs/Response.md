@@ -9,7 +9,6 @@ Below is a breakdown of the `response` object made available through the route/m
 | `aborted` | `Boolean`  | Signifies whether the request has been aborted/completed. |
 | `completed` | `Boolean`  | Alias of `aborted` property. |
 
-
 #### Response Methods
 * `atomic(Function: callback)`: Alias of uWebsockets's `cork(callback)` method.
     * **Usage:** Wrapping multiple response method calls inside this method can improve performance.
@@ -42,13 +41,18 @@ Below is a breakdown of the `response` object made available through the route/m
     * **Note** `context` is optional and can be used to store data on the websocket connection object.
     * **Note** this method can only be used inside an `upgrade` route handler.
 * `redirect(String: url)`: Writes 302 header to redirect incoming request to specified url.
-* `write(String|Buffer|ArrayBuffer: chunk)`: Writes specified chunk as response. Use this method with streams to send response body in chunks.
-    * **Note** the `send()` must still be called to end the request after writing all chunks.
+* `write(String|Buffer|ArrayBuffer: chunk)`: Writes specified chunk using chunked transfer. Use this method to stream large amounts of data.
+    * **Returns** a `Boolean` in which `false` signifies chunk was not fully sent due to built up backpressure. 
+    * **Note** the `send()` must still be called in the end after writing all chunks to end the chunked transfer.
+* `drain(Function: handler)`: Binds a one-time handler which is called once the built up backpressure from a failed `write()` call has been drained.
+  * **Note** you **MUST** retry the failed `write()` call with the same chunk from before proceeding to writing future chunks.
+  * **Note** this handler must be **synchronous** only.
 * `stream(ReadableStream: readable, Number?: total_size)`: Pipes the provided readable stream as body and sends response.
   * This method can be useful for serving large amounts of data through Node.js streaming functionalities.
   * **Note** the `total_size` is an **optional** number in `bytes` which can be specified if you need a `content-length` header on the receiver side.
   * **Note** you must do your own error handling on the readable stream to prevent triggering the global error handler.
 * `send(String|Buffer|ArrayBuffer: body)`: Writes specified body and sends response.
+  * **Returns** a `Boolean` in which `false` signifies body was not fully sent due to built up backpressure.
 * `json(Object: body)`: Alias of `send()`. Sets mime type to `json` and sends response.
 * `jsonp(Object: body, String: name)`: Alias of `send()`. Sets mime type to `js` and sends response.
   * **Note!** This method uses `callback` query parameter as callback name by default if `name` parameter is not specified.
