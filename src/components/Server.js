@@ -89,7 +89,7 @@ class Server extends Router {
     /**
      * Stops/Closes HyperExpress webserver instance.
      *
-     * @param {uWebSockets.us_listen_socket} [listen_socket] Optional
+     * @param {uWebSockets.us_listen_socket=} [listen_socket] Optional
      * @returns {Boolean}
      */
     close(listen_socket) {

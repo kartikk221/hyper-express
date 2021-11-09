@@ -150,6 +150,17 @@ class Response {
         return this;
     }
 
+    /**
+     * @typedef {Object} CookieOptions
+     * @property {String} domain
+     * @property {String} path
+     * @property {Number} maxAge
+     * @property {Boolean} secure
+     * @property {Boolean} httpOnly
+     * @property {Boolean|'none'|'lax'|'strict'} sameSite
+     * @property {String} secret
+     */
+
     #cookies;
     /**
      * This method is used to write a cookie to incoming request.
@@ -159,7 +170,7 @@ class Response {
      * @param {String} name Cookie Name
      * @param {String} value Cookie Value
      * @param {Number} expiry In milliseconds
-     * @param {Object} options Cookie Options
+     * @param {CookieOptions} options Cookie Options
      * @param {Boolean} sign_cookie Enables/Disables Cookie Signing
      * @returns {Response} Response (Chainable)
      */
@@ -502,7 +513,7 @@ class Response {
      * This method is used to redirect an incoming request to a different url.
      *
      * @param {String} url Redirect URL
-     * @returns {Boolean} Boolean (true || false)
+     * @returns {Boolean} Boolean
      */
     redirect(url) {
         if (!this.#completed) return this.status(302).header('location', url).send();
@@ -513,7 +524,7 @@ class Response {
      * This method is an alias of send() method except it accepts an object and automatically stringifies the passed payload object.
      *
      * @param {Object} body JSON body
-     * @returns {Boolean} Boolean (true || false)
+     * @returns {Boolean} Boolean
      */
     json(body) {
         return this.type('json').send(JSON.stringify(body));
@@ -525,8 +536,8 @@ class Response {
      * Note! This method uses 'callback' query parameter by default but you can specify 'name' to use something else.
      *
      * @param {Object} body
-     * @param {String} name
-     * @returns {Boolean} Boolean (true || false)
+     * @param {String=} name
+     * @returns {Boolean} Boolean
      */
     jsonp(body, name) {
         let query_parameters = this.#wrapped_request.query_parameters;
@@ -539,7 +550,7 @@ class Response {
      * html as the response content type and sends provided html response body.
      *
      * @param {String} body
-     * @returns {Boolean} Boolean (true || false)
+     * @returns {Boolean} Boolean
      */
     html(body) {
         return this.type('html').send(body);
@@ -573,7 +584,7 @@ class Response {
      * Avoid using this method to a send a large file as it will be kept in memory.
      *
      * @param {String} path
-     * @param {function(Object):void} callback Executed after file has been served with the parameter being the cache pool.
+     * @param {function(Object):void=} callback Executed after file has been served with the parameter being the cache pool.
      */
     file(path, callback) {
         // Send file from local cache pool if available
@@ -595,6 +606,7 @@ class Response {
      * Writes approriate headers to signify that file at path has been attached.
      *
      * @param {String} path
+     * @param {String=} name
      * @returns {Response}
      */
     attachment(path, name) {
@@ -616,7 +628,7 @@ class Response {
      * This method combined Response.attachment() and Response.file() under the hood, so be sure to follow the same guidelines for usage.
      *
      * @param {String} path
-     * @param {String} filename
+     * @param {String=} filename
      */
     download(path, filename) {
         return this.attachment(path, filename).file(path);
@@ -675,7 +687,7 @@ class Response {
     }
 
     /**
-     * Returns a Writable stream associated with this response to be used for piping.
+     * Returns a Writable stream associated with this response to be used for piping streams.
      * @returns {Writable}
      */
     get writable() {
@@ -747,19 +759,19 @@ class Response {
     }
 
     /**
-     * ExpressJS: Alias of Response.writeHeaders
-     * @param {Object} headers
-     */
-    setHeaders(headers) {
-        this.writeHeaders(headers);
-    }
-
-    /**
      * ExpressJS: Writes multiple headers in form of an object
      * @param {Object} headers
      */
     writeHeaders(headers) {
         Object.keys(headers).forEach((name) => this.header(name, headers[name]));
+    }
+
+    /**
+     * ExpressJS: Alias of Response.writeHeaders
+     * @param {Object} headers
+     */
+    setHeaders(headers) {
+        this.writeHeaders(headers);
     }
 
     /**
@@ -852,6 +864,7 @@ class Response {
     /**
      * ExpressJS: Joins the links provided as properties of the parameter to populate the response’s Link HTTP header field.
      * @param {Object} links
+     * @returns {String}
      */
     links(links) {
         if (typeof links !== 'object' || links == null)
@@ -899,7 +912,8 @@ class Response {
 
     /**
      * ExpressJS: Sets the response’s HTTP header field to value. To set multiple fields at once, pass an object as the parameter.
-     * @param {Object} object
+     * @param {String|Object} object
+     * @param {(String|Array)=} value
      */
     set(field, value) {
         if (typeof field == 'object') {

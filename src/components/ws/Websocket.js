@@ -34,8 +34,8 @@ class Websocket extends EventEmitter {
      * Returns false if message was not sent due to buil up backpressure.
      *
      * @param {String|Buffer|ArrayBuffer} message
-     * @param {Boolean} is_binary
-     * @param {compress} compress
+     * @param {Boolean=} is_binary
+     * @param {Boolean=} compress
      * @returns {Boolean}
      */
     send(message, is_binary, compress) {
@@ -48,7 +48,8 @@ class Websocket extends EventEmitter {
      * Sends a ping control message.
      * Returns Boolean depending on backpressure similar to send().
      *
-     * @param {String|Buffer|ArrayBuffer} message
+     * @param {String|Buffer|ArrayBuffer=} message
+     * @returns {Boolean}
      */
     ping(message) {
         // Send ping OPCODE message through uWS connection
@@ -67,8 +68,8 @@ class Websocket extends EventEmitter {
     /**
      * Gracefully closes websocket connection by sending specified code and short message.
      *
-     * @param {Number} code
-     * @param {String|Buffer|ArrayBuffer} message
+     * @param {Number=} code
+     * @param {(String|Buffer|ArrayBuffer)=} message
      */
     close(code, message) {
         // Close websocket using uWS.end() method which gracefully closes connections
@@ -125,8 +126,8 @@ class Websocket extends EventEmitter {
      *
      * @param {String} topic
      * @param {String|Buffer|ArrayBuffer} message
-     * @param {Boolean} is_binary
-     * @param {Boolean} compress
+     * @param {Boolean=} is_binary
+     * @param {Boolean=} compress
      */
     publish(topic, message, is_binary, compress) {
         if (this.#ws) return this.#ws.publish(topic, message, is_binary, compress);
@@ -152,7 +153,6 @@ class Websocket extends EventEmitter {
 
     /**
      * Returns context values from the response.update(context) connection upgrade call.
-     *
      * @returns {Object}
      */
     get context() {

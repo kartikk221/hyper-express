@@ -262,7 +262,7 @@ class Request {
      * if JSON parsing fails.
      *
      * @param {Any} default_value Default: {}
-     * @returns {Promise} Promise(String: body)
+     * @returns {Promise} Promise
      */
     async json(default_value = {}) {
         // Return from cache if available
