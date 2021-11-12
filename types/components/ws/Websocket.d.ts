@@ -44,7 +44,7 @@ export default class Websocket extends EventEmitter {
      * @param {Number=} code
      * @param {(String|Buffer|ArrayBuffer)=} message
      */
-    close(code?: string, message?: SendableData): void;
+    close(code?: number, message?: SendableData): void;
 
     /**
      * Forcefully closes websocket connection.

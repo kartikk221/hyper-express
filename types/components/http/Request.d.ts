@@ -92,23 +92,23 @@ export default class Request {
      * Returns request headers from incoming request.
      * @returns {Object}
      */
-    get headers(): Object;
+    get headers(): Record<string, unknown>;
 
     /**
      * Returns cookies from incoming request.
-     * @returns {Object}
+     * @returns {Record<string, unknown>}
      */
-    get cookies(): Object;
+    get cookies(): Record<string, unknown>;
 
     /**
      * Returns path parameters from incoming request in Object form {key: value}
-     * @returns {Object}
+     * @returns {Record<string, unknown>}
      */
     get path_parameters(): Object;
 
     /**
      * Returns query parameters from incoming request in Object form {key: value}
-     * @returns {Object}
+     * @returns {Record<string, unknown>}
      */
     get query_parameters(): Object;
 

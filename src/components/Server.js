@@ -448,7 +448,7 @@ class Server extends Router {
                 // If middleware invocation returns a Promise, bind a then handler to trigger next iterator
                 response._track_middleware_cursor(cursor);
                 const output = object.middleware(request, response, next);
-                if (output instanceof Promise) output.then(next);
+                if (output instanceof Promise) output.then(next, next);
                 return;
             }
         }
@@ -461,7 +461,7 @@ class Server extends Router {
                 // If middleware invocation returns a Promise, bind a then handler to trigger next iterator
                 response._track_middleware_cursor(cursor);
                 const output = object.middleware(request, response, next);
-                if (output instanceof Promise) output.then(next);
+                if (output instanceof Promise) output.then(next).catch(next);
                 return;
             }
         }

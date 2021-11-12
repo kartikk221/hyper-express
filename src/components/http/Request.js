@@ -332,7 +332,7 @@ class Request {
 
     /**
      * Returns request headers from incoming request.
-     * @returns {Object}
+     * @returns {Record<string, unknown>}
      */
     get headers() {
         return this.#headers;
@@ -340,7 +340,7 @@ class Request {
 
     /**
      * Returns cookies from incoming request.
-     * @returns {Object}
+     * @returns {Record<string, unknown>}
      */
     get cookies() {
         // Return from cache if already parsed once
@@ -354,7 +354,7 @@ class Request {
 
     /**
      * Returns path parameters from incoming request in Object form {key: value}
-     * @returns {Object}
+     * @returns {Record<string, unknown>}
      */
     get path_parameters() {
         return this.#path_parameters;
@@ -362,7 +362,7 @@ class Request {
 
     /**
      * Returns query parameters from incoming request in Object form {key: value}
-     * @returns {Object}
+     * @returns {Record<string, unknown>}
      */
     get query_parameters() {
         // Return from cache if already parsed once
