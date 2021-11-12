@@ -494,7 +494,6 @@ class Response {
         if (total_size === undefined) {
             const end_request = () => this.send();
             readable.once('end', end_request);
-            readable.once('close', end_request);
         }
     }
 
@@ -700,8 +699,7 @@ class Response {
         });
 
         // Bind a finish/close handler which will end the response once writable has closed
-        this.#writable.on('finish', () => this.send());
-        this.#writable.on('close', () => this.send());
+        this.#writable.once('finish', () => this.send());
 
         return this.#writable;
     }

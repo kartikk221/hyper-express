@@ -277,9 +277,6 @@ class Websocket extends EventEmitter {
 
             // Create a callback for ending the readable consumption
             const end_stream = () => {
-                // Ensure we do not try to end the stream if it does not exist
-                if (scope.#stream == undefined) return;
-
                 // Retrieve the last buffered fragment to send as last chunk
                 const fragment = scope._buffer_fragment();
 
@@ -291,7 +288,6 @@ class Websocket extends EventEmitter {
 
             // Bind listeners to end the framented write procedure
             readable.once('end', end_stream);
-            readable.once('close', end_stream);
         });
     }
 
@@ -390,9 +386,6 @@ class Websocket extends EventEmitter {
 
         // Create a callback for ending the writable usage
         const end_stream = () => {
-            // Ensure we do not try to end the stream if it does not exist
-            if (scope.#stream == undefined) return;
-
             // Retrieve the last buffered fragment to write as last chunk
             const fragment = scope._buffer_fragment();
 
@@ -402,7 +395,6 @@ class Websocket extends EventEmitter {
 
         // Bind listeners to end the framented write procedure
         this.#stream.on('finish', end_stream);
-        this.#stream.on('close', end_stream);
 
         return this.#stream;
     }
