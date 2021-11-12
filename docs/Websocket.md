@@ -50,6 +50,7 @@ Router.upgrade('/connect', {
 | `closed` | `Boolean`  | Whether connection is closed. |
 | `buffered` | `Number`  | Number of bytes buffered in backpressure. |
 | `topics` | `Array`  | List of topics this websocket is subscribed to. |
+| `writable` | `stream.Writable` | Writable stream to be used for piping into this connection. |
 
 #### Websocket Events
 The `Websocket` component is an extension of the `EventEmitter` component thus you may consume specific events for each connection.
@@ -69,6 +70,9 @@ The `Websocket` component is an extension of the `EventEmitter` component thus y
 * `send(String|Buffer|ArrayBuffer: message, Boolean: is_binary, Boolean: compress)`: Sends a message over the websocket connection.
     * **Returns** `Boolean`[`true`] if message was sent successfully.
     * **Returns** `Boolean`[`false`] if message could not be sent due to built up backpressure.
+* `stream(Readable: readable, Boolean?: is_binary)`: Consumes and streams the data from the readable stream as a message to the receiver.
+  * **Returns** `Promise` which is then resolved to `any`.
+  * **Note** you must not initiate another `stream()` or `writable` operation during an ongoing stream.
 * `ping(String|Buffer|ArrayBuffer: message)`: Sends a ping control message.
     * **Returns** `Boolean`[`true`] if message was sent successfully.
     * **Returns** `Boolean`[`false`] if message could not be sent due to built up backpressure.

@@ -1,5 +1,7 @@
 const { log, random_string, assert_log } = require('../../scripts/operators.js');
 const { HyperExpress, Websocket, server } = require('../../configuration.js');
+const { test_websocket_stream } = require('./scenarios/stream.js');
+const { test_websocket_writable } = require('./scenarios/writable.js');
 
 const Router = new HyperExpress.Router();
 const TestPath = '/websocket-component';
@@ -104,6 +106,12 @@ async function test_websocket_component() {
         `${candidate} Remote Polyfill Close`,
         () => remote_ws.closed === true && remote_closed === true
     );
+
+    // Test websocket .stream() method
+    await test_websocket_stream();
+
+    // Test websocket .writable property
+    await test_websocket_writable();
 
     log(group, `Finished Testing ${candidate}\n`);
 }

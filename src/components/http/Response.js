@@ -465,11 +465,11 @@ class Response {
     }
 
     /**
-     * This method is used to pipe a readable stream as response body and send response.
+     * This method is used to serve a readable stream as response body and send response.
      * By default, this method will use chunked encoding transfer to stream data.
      * If your use-case requires a content-length header, you must specify the total payload size.
      *
-     * @param {stream.Readable} readable A Readable stream which will be piped as response body
+     * @param {Readable} readable A Readable stream which will be consumed as response body
      * @param {Number=} total_size Total size of the Readable stream source in bytes (Optional)
      */
     stream(readable, total_size) {
@@ -487,14 +487,14 @@ class Response {
         // Initiate response as we will begin writing body chunks
         this._initiate_response();
 
-        // Bind a listener for the 'data' event to stream chunks
+        // Bind a listener for the 'data' event to consume chunks
         readable.on('data', (chunk) => this._stream_chunk(readable, chunk, total_size));
 
         // Bind listeners to end request on stream closure if no total size was specified and thus we delivered with chunked transfer
         if (total_size === undefined) {
             const end_request = () => this.send();
-            readable.on('end', end_request);
-            readable.on('close', end_request);
+            readable.once('end', end_request);
+            readable.once('close', end_request);
         }
     }
 

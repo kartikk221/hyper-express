@@ -21,7 +21,8 @@ Some of the prominent features implemented are:
 - Asynchronous By Nature
 - Global & Route-Specific Middlewares Support
 - Modular Routers Support
-- Streaming & Piping Support
+- HTTP Streaming Support
+- Websocket Streaming Support
 - Global Error/Event Handlers
 - Cryptographically Secure Cookie Signing/Authentication
 - ExpressJS API Compatibility Through Shared Methods/Properties

@@ -1,5 +1,6 @@
 import * as uWebsockets from 'uWebSockets.js';
 import { EventEmitter } from "events";
+import { Readable, Writable } from 'stream';
 import { SendableData } from "../http/Response";
 
 type WebsocketContext = {
@@ -90,6 +91,17 @@ export default class Websocket extends EventEmitter {
      */
     publish(topic: string, message: SendableData, is_binary?: boolean, compress?: boolean): boolean;
 
+    /**
+     * This method is used to stream a message to the receiver.
+     * Note! The data is streamed as binary by default due to how partial fragments are sent.
+     * This is done to prevent processing errors depending on client's receiver's incoming fragment processing strategy.
+     *
+     * @param {Readable} readable A Readable stream which will be consumed as message
+     * @param {Boolean=} is_binary Whether data being streamed is in binary. Default: true
+     * @returns {Promise}
+     */
+    stream(readable: Readable, is_binary?: boolean): Promise<any>;
+
     /* Websocket Properties */
 
     /**
@@ -127,4 +139,12 @@ export default class Websocket extends EventEmitter {
      * @returns {Array.<String>}
      */
     get topics(): Array<string>;
+
+    /**
+     * Returns a Writable stream associated with this response to be used for piping streams.
+     * Note! You can only retrieve/use only one writable at any given time.
+     *
+     * @returns {Writable}
+     */
+    get writable(): Writable;
 }
