@@ -138,9 +138,9 @@ class WebsocketRoute {
      * Handles 'ping' event from uWebsockets.js
      * @private
      * @param {uWS.Websocket} ws
-     * @param {ArrayBuffer} message
+     * @param {ArrayBuffer=} message
      */
-    _on_ping(ws, message) {
+    _on_ping(ws, message = '') {
         // Emit 'ping' event on websocket poly component
         ws.poly.emit('ping', this.#message_parser(message));
     }
@@ -149,9 +149,9 @@ class WebsocketRoute {
      * Handles 'pong' event from uWebsockets.js
      * @private
      * @param {uWS.Websocket} ws
-     * @param {ArrayBuffer} message
+     * @param {ArrayBuffer=} message
      */
-    _on_pong(ws, message) {
+    _on_pong(ws, message = '') {
         // Emit 'pong' event on websocket poly component
         ws.poly.emit('pong', this.#message_parser(message));
     }
@@ -173,7 +173,7 @@ class WebsocketRoute {
      * @param {ArrayBuffer} message
      * @param {Boolean} is_binary
      */
-    _on_message(ws, message, is_binary) {
+    _on_message(ws, message = '', is_binary) {
         // Emit 'message' event with parsed message from uWS
         ws.poly.emit('message', this.#message_parser(message), is_binary);
     }
@@ -184,7 +184,7 @@ class WebsocketRoute {
      * @param {Number} code
      * @param {ArrayBuffer} message
      */
-    _on_close(ws, code, message) {
+    _on_close(ws, code, message = '') {
         // Mark websocket poly component as closed
         ws.poly._destroy();
 
