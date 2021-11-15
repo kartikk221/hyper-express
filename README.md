@@ -46,7 +46,7 @@ HyperExpress can be installed using node package manager (`npm`)
 npm i hyper-express
 ```
 
-HyperExpress requires Node 14+
+HyperExpress requires Node.js version 14+
 
 ## Documentation
 - See [`> [Examples & Snippets]`](./docs/Examples.md) for small and **easy-to-use snippets** with HyperExpress.
