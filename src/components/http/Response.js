@@ -749,13 +749,6 @@ class Response {
     /**
      * ExpressJS: Alias of Response.append()
      */
-    writeHead(name, values) {
-        return this.append(name, values);
-    }
-
-    /**
-     * ExpressJS: Alias of Response.append()
-     */
     setHeader(name, values) {
         return this.append(name, values);
     }
