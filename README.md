@@ -26,6 +26,7 @@ Some of the prominent features implemented are:
 - Global Error/Event Handlers
 - Cryptographically Secure Cookie Signing/Authentication
 - ExpressJS API Compatibility Through Shared Methods/Properties
+- TypeScript Types Support
 
 ## What's Different?
 While there may be other uWebsockets.js based packages available, HyperExpress differentiates itself in the following ways:
