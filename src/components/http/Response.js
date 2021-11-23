@@ -401,11 +401,15 @@ class Response {
             this._initiate_response();
 
             // Mark request as completed and end request using uWS.Response.end()
-            this.#completed = true;
             const result = this.#raw_response.end(body, close_connection);
 
             // Call any bound hooks for type 'complete' if no backpressure was built up
-            if (result) this._call_hooks('complete');
+            if (result) {
+                // Mark request as completed if we were able to send response properly
+                this.#completed = true;
+                this._call_hooks('complete');
+            }
+
             return result;
         }
         return false;
