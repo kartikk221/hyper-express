@@ -3,11 +3,12 @@ const signature = require('cookie-signature');
 const status_codes = require('../../constants/status_codes.json');
 const mime_types = require('mime-types');
 const { Readable, Writable } = require('stream');
+const { EventEmitter } = require('events');
 
 const LiveFile = require('../plugins/LiveFile.js');
 const FilePool = {};
 
-class Response {
+class Response extends EventEmitter {
     #wrapped_request;
     #middleware_cursor;
     #raw_response;
@@ -22,11 +23,16 @@ class Response {
     #writable;
 
     constructor(wrapped_request, raw_response, socket, master_context) {
+        super()
         this.#wrapped_request = wrapped_request;
         this.#raw_response = raw_response;
         this.#upgrade_socket = socket || null;
         this.#master_context = master_context;
         this._bind_abort_handler();
+        this.hook('complete', () => {
+            this.emit('close')
+            this.emit('finish')
+        })
     }
 
     /**
@@ -687,6 +693,13 @@ class Response {
      */
     get upgrade_socket() {
         return this.#upgrade_socket;
+    }
+
+    /**
+     * Status code getter.
+     */
+    get statusCode() {
+        return this.#status_code
     }
 
     /**
