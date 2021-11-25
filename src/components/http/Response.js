@@ -3,12 +3,11 @@ const signature = require('cookie-signature');
 const status_codes = require('../../constants/status_codes.json');
 const mime_types = require('mime-types');
 const { Readable, Writable } = require('stream');
-const { EventEmitter } = require('events');
 
 const LiveFile = require('../plugins/LiveFile.js');
 const FilePool = {};
 
-class Response extends EventEmitter {
+class Response {
     #wrapped_request;
     #middleware_cursor;
     #raw_response;
@@ -23,16 +22,11 @@ class Response extends EventEmitter {
     #writable;
 
     constructor(wrapped_request, raw_response, socket, master_context) {
-        super()
         this.#wrapped_request = wrapped_request;
         this.#raw_response = raw_response;
         this.#upgrade_socket = socket || null;
         this.#master_context = master_context;
         this._bind_abort_handler();
-        this.hook('complete', () => {
-            this.emit('close')
-            this.emit('finish')
-        })
     }
 
     /**
@@ -650,6 +644,19 @@ class Response extends EventEmitter {
      */
     throw_error(error) {
         this.#master_context.handlers.on_error(this.#wrapped_request, this, error);
+    }
+
+    /**
+     * Compatibility function for attaching to events.
+     * @param {string} event event name
+     * @param {Function} callback callback function
+     */
+    on(event, callback) {
+        if (['close', 'finish'].includes(event)) {
+            this.hook('complete', callback);
+        } else {
+            throw new Error(`Unknown event: ${event}`)
+        }
     }
 
     /* Response Getters */

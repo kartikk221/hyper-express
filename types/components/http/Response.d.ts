@@ -2,7 +2,6 @@ import * as uWebsockets from 'uWebSockets.js';
 import * as Stream from 'stream';
 import { UserRouteHandler } from '../router/Router';
 import LiveFile from '../plugins/LiveFile';
-import { EventEmitter } from 'events';
 
 type SendableData = string | Buffer | ArrayBuffer;
 type FileCachePool = {
@@ -19,7 +18,7 @@ interface CookieOptions {
     secret?: string
 }
 
-export default class Response extends EventEmitter {
+export default class Response {
     /* HyperExpress Response Methods */
 
     /**
@@ -210,6 +209,13 @@ export default class Response extends EventEmitter {
      * @param {Error} error Error Class
      */
     throw_error(error: Error): void;
+
+    /**
+     * Compatibility function for attaching to events.
+     * @param {string} event event name
+     * @param {Function} callback callback function
+     */
+    on(event: string, callback: Function): void;
 
     /* HyperExpress Response Properties */
 
