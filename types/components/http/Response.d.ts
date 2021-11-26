@@ -250,10 +250,7 @@ export default class Response {
      */
     get upgrade_socket(): uWebsockets.us_socket_context_t;
 
-    /**
-     * Status code getter.
-     */
-    get statusCode(): number
+    get statusCode(): number | undefined
 
     /**
      * Returns a Writable stream associated with this response to be used for piping streams.

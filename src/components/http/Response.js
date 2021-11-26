@@ -702,11 +702,8 @@ class Response {
         return this.#upgrade_socket;
     }
 
-    /**
-     * Status code getter.
-     */
     get statusCode() {
-        return this.#status_code
+        return this.#completed ? this.#status_code : undefined
     }
 
     /**
