@@ -89,6 +89,16 @@ export default class Response {
     hook(type: string, handler: UserRouteHandler): Response;
 
     /**
+     * Removes a hook (synchronous callback) that gets executed based on specified type.
+     * See documentation for supported hook types.
+     *
+     * @param {String} type
+     * @param {function(Request, Response):void} handler
+     * @returns {Response} Chainable
+     */
+    unhook(type: string, handler: UserRouteHandler);
+
+    /**
      * This method is used to upgrade an incoming upgrade HTTP request to a Websocket connection.
      *
      * @param {Object} context Store information about the websocket connection
@@ -211,11 +221,18 @@ export default class Response {
     throw_error(error: Error): void;
 
     /**
-     * Compatibility function for attaching to events.
+     * Compatibility function for attaching to events using `on()`.
      * @param {string} event event name
      * @param {Function} callback callback function
      */
     on(event: string, callback: Function): void;
+
+    /**
+     * Compatibility function for attaching to events using `once()`.
+     * @param {string} event event name
+     * @param {Function} callback callback function
+     */
+    once(event: string, callback: Function): void;
 
     /* HyperExpress Response Properties */
 

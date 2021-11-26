@@ -252,6 +252,23 @@ class Response {
     }
 
     /**
+     * Removes a hook (synchronous callback) that gets executed based on specified type.
+     * See documentation for supported hook types.
+     *
+     * @param {String} type
+     * @param {function(Request, Response):void} handler
+     * @returns {Response} Chainable
+     */
+    unhook(type, handler) {
+        if (!this.#hooks || !this.#hooks[type]) return this;
+
+        const index = this.#hooks[type].findIndex(h => h === handler);
+        if (index !== -1) this.#hooks[type].splice(index, 1)
+
+        return this;
+    }
+
+    /**
      * This method is used to upgrade an incoming upgrade HTTP request to a Websocket connection.
      *
      * @param {Object} context Store information about the websocket connection
@@ -647,13 +664,30 @@ class Response {
     }
 
     /**
-     * Compatibility function for attaching to events.
+     * Compatibility function for attaching to events using `on()`.
      * @param {string} event event name
      * @param {Function} callback callback function
      */
     on(event, callback) {
         if (['close', 'finish'].includes(event)) {
             this.hook('complete', callback);
+        } else {
+            throw new Error(`Unknown event: ${event}`)
+        }
+    }
+
+    /**
+     * Compatibility function for attaching to events using `once()`.
+     * @param {string} event event name
+     * @param {Function} callback callback function
+     */
+    once(event, callback) {
+        if (['close', 'finish'].includes(event)) {
+            const cb = (...args) => {
+                this.unhook('complete', cb);
+                callback(...args)
+            };
+            this.hook('complete', cb);
         } else {
             throw new Error(`Unknown event: ${event}`)
         }
