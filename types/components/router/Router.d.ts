@@ -66,8 +66,8 @@ export default class Router {
      * @param {RouteOptions|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    get(pattern: string, handler: UserRouteHandler | Router): void;
-    get(pattern: string, options: UserRouteOptions, handler: UserRouteHandler | Router): void;
+    get(pattern: string, handler: UserRouteHandler): void;
+    get(pattern: string, options: UserRouteOptions, handler: UserRouteHandler): void;
 
     /**
      * Creates an HTTP route that handles POST method requests.
@@ -76,8 +76,8 @@ export default class Router {
      * @param {RouteOptions|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    post(pattern: string, handler: UserRouteHandler | Router): void;
-    post(pattern: string, options: UserRouteOptions, handler: UserRouteHandler | Router): void;
+    post(pattern: string, handler: UserRouteHandler): void;
+    post(pattern: string, options: UserRouteOptions, handler: UserRouteHandler): void;
 
     /**
      * Creates an HTTP route that handles PUT method requests.
@@ -86,8 +86,8 @@ export default class Router {
      * @param {RouteOptions|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    put(pattern: string, handler: UserRouteHandler | Router): void;
-    put(pattern: string, options: UserRouteOptions, handler: UserRouteHandler | Router): void;
+    put(pattern: string, handler: UserRouteHandler): void;
+    put(pattern: string, options: UserRouteOptions, handler: UserRouteHandler): void;
 
     /**
      * Creates an HTTP route that handles DELETE method requests.
@@ -96,8 +96,8 @@ export default class Router {
      * @param {RouteOptions|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    delete(pattern: string, handler: UserRouteHandler | Router): void;
-    delete(pattern: string, options: UserRouteOptions, handler: UserRouteHandler | Router): void;
+    delete(pattern: string, handler: UserRouteHandler): void;
+    delete(pattern: string, options: UserRouteOptions, handler: UserRouteHandler): void;
 
     /**
      * Creates an HTTP route that handles HEAD method requests.
@@ -106,8 +106,8 @@ export default class Router {
      * @param {RouteOptions|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    head(pattern: string, handler: UserRouteHandler | Router): void;
-    head(pattern: string, options: UserRouteOptions, handler: UserRouteHandler | Router): void;
+    head(pattern: string, handler: UserRouteHandler): void;
+    head(pattern: string, options: UserRouteOptions, handler: UserRouteHandler): void;
 
     /**
      * Creates an HTTP route that handles OPTIONS method requests.
@@ -116,8 +116,8 @@ export default class Router {
      * @param {RouteOptions|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    options(pattern: string, handler: UserRouteHandler | Router): void;
-    options(pattern: string, options: UserRouteOptions, handler: UserRouteHandler | Router): void;
+    options(pattern: string, handler: UserRouteHandler): void;
+    options(pattern: string, options: UserRouteOptions, handler: UserRouteHandler): void;
 
     /**
      * Creates an HTTP route that handles PATCH method requests.
@@ -126,8 +126,8 @@ export default class Router {
      * @param {RouteOptions|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    patch(pattern: string, handler: UserRouteHandler | Router): void;
-    patch(pattern: string, options: UserRouteOptions, handler: UserRouteHandler | Router): void;
+    patch(pattern: string, handler: UserRouteHandler): void;
+    patch(pattern: string, options: UserRouteOptions, handler: UserRouteHandler): void;
 
     /**
      * Creates an HTTP route that handles TRACE method requests.
@@ -136,8 +136,8 @@ export default class Router {
      * @param {RouteOptions|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    trace(pattern: string, handler: UserRouteHandler | Router): void;
-    trace(pattern: string, options: UserRouteOptions, handler: UserRouteHandler | Router): void;
+    trace(pattern: string, handler: UserRouteHandler): void;
+    trace(pattern: string, options: UserRouteOptions, handler: UserRouteHandler): void;
 
     /**
      * Creates an HTTP route that handles CONNECT method requests.
@@ -146,8 +146,8 @@ export default class Router {
      * @param {RouteOptions|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    connect(pattern: string, handler: UserRouteHandler | Router): void;
-    connect(pattern: string, options: UserRouteOptions, handler: UserRouteHandler | Router): void;
+    connect(pattern: string, handler: UserRouteHandler): void;
+    connect(pattern: string, options: UserRouteOptions, handler: UserRouteHandler): void;
 
     /**
      * Intercepts and handles upgrade requests for incoming websocket connections.
@@ -157,8 +157,8 @@ export default class Router {
      * @param {RouteOptions|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    upgrade(pattern: string, handler: UserRouteHandler | Router): void;
-    upgrade(pattern: string, options: UserRouteOptions, handler: UserRouteHandler | Router): void;
+    upgrade(pattern: string, handler: UserRouteHandler): void;
+    upgrade(pattern: string, options: UserRouteOptions, handler: UserRouteHandler): void;
 
     /**
      * @param {String} pattern
