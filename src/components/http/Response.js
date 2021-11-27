@@ -682,15 +682,7 @@ class Response {
      * @param {Function} callback callback function
      */
     once(event, callback) {
-        if (['close', 'finish'].includes(event)) {
-            const cb = (...args) => {
-                this.unhook('complete', cb);
-                callback(...args)
-            };
-            this.hook('complete', cb);
-        } else {
-            throw new Error(`Unknown event: ${event}`)
-        }
+        this.on(event, callback)
     }
 
     /* Response Getters */
