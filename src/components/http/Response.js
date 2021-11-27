@@ -7,6 +7,11 @@ const { Readable, Writable } = require('stream');
 const LiveFile = require('../plugins/LiveFile.js');
 const FilePool = {};
 
+const EXPRESS_EVENTS_TO_HOOK_EVENTS = {
+    close: 'complete',
+    finish: 'complete',
+};
+
 class Response {
     #wrapped_request;
     #middleware_cursor;
@@ -663,28 +668,6 @@ class Response {
         this.#master_context.handlers.on_error(this.#wrapped_request, this, error);
     }
 
-    /**
-     * Compatibility function for attaching to events using `on()`.
-     * @param {string} event event name
-     * @param {Function} callback callback function
-     */
-    on(event, callback) {
-        if (['close', 'finish'].includes(event)) {
-            this.hook('complete', callback);
-        } else {
-            throw new Error(`Unknown event: ${event}`)
-        }
-    }
-
-    /**
-     * Compatibility function for attaching to events using `once()`.
-     * @param {string} event event name
-     * @param {Function} callback callback function
-     */
-    once(event, callback) {
-        this.on(event, callback)
-    }
-
     /* Response Getters */
 
     /**
@@ -974,6 +957,29 @@ class Response {
      */
     vary(name) {
         return this.header('Vary', name);
+    }
+
+    /**
+     * ExpressJS: compatibility function for attaching to events using `on()`.
+     * @param {string} event event name
+     * @param {Function} callback callback function
+     */
+    on(event, callback) {
+        const hookEvent = EXPRESS_EVENTS_TO_HOOK_EVENTS[event]
+        if (hookEvent) {
+            this.hook(hookEvent, callback);
+        } else {
+            throw new Error(`Unknown event: ${event}`)
+        }
+    }
+
+    /**
+     * ExpressJS: compatibility function for attaching to events using `once()`.
+     * @param {string} event event name
+     * @param {Function} callback callback function
+     */
+    once(event, callback) {
+        this.on(event, callback)
     }
 }
 
