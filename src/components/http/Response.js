@@ -736,10 +736,6 @@ class Response {
         return this.#upgrade_socket;
     }
 
-    get statusCode() {
-        return this.#completed ? this.#status_code : undefined
-    }
-
     /**
      * Returns a Writable stream associated with this response to be used for piping streams.
      * @returns {Writable}
@@ -784,6 +780,13 @@ class Response {
      */
     get headersSent() {
         return this.#completed;
+    }
+
+    /**
+     * ExpressJS: Alias of Response.status_code
+     */
+    get statusCode() {
+        return this.#completed ? this.#status_code : undefined
     }
 
     locals = {};
