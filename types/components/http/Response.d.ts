@@ -220,20 +220,6 @@ export default class Response {
      */
     throw_error(error: Error): void;
 
-    /**
-     * Compatibility function for attaching to events using `on()`.
-     * @param {string} event event name
-     * @param {Function} callback callback function
-     */
-    on(event: string, callback: Function): void;
-
-    /**
-     * Compatibility function for attaching to events using `once()`.
-     * @param {string} event event name
-     * @param {Function} callback callback function
-     */
-    once(event: string, callback: Function): void;
-
     /* HyperExpress Response Properties */
 
      /**
@@ -267,16 +253,15 @@ export default class Response {
      */
     get upgrade_socket(): uWebsockets.us_socket_context_t;
 
-    get statusCode(): number | undefined
-
     /**
      * Returns a Writable stream associated with this response to be used for piping streams.
      * @returns {Writable}
      */
     get writable(): Stream.Writable;
 
-    /* HyperExpress Compatbility Methods & Properties */
+    /* HyperExpress Compatibility Methods & Properties */
     get headersSent(): boolean;
+    get statusCode(): number | undefined
     locals: Object;
     append(name: string, values: string | Array<string>): Response;
     writeHead(name: string, values: string | Array<string>): Response;
@@ -298,4 +283,6 @@ export default class Response {
     sendStatus(status_code: number): Response;
     set(field: string | object, value?: string | Array<string>): Response | void;
     vary(name: string): Response;
+    on(event: string, callback: Function): void;
+    once(event: string, callback: Function): void;
 }
