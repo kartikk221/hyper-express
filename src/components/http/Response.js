@@ -7,6 +7,11 @@ const { Readable, Writable } = require('stream');
 const LiveFile = require('../plugins/LiveFile.js');
 const FilePool = {};
 
+const EXPRESS_EVENTS_TO_HOOK_EVENTS = {
+    close: 'complete',
+    finish: 'complete',
+};
+
 class Response {
     #wrapped_request;
     #middleware_cursor;
@@ -248,6 +253,23 @@ class Response {
 
         // Store hook into individual location
         this.#hooks[type].push(handler);
+        return this;
+    }
+
+    /**
+     * Removes a hook (synchronous callback) that gets executed based on specified type.
+     * See documentation for supported hook types.
+     *
+     * @param {String} type
+     * @param {function(Request, Response):void} handler
+     * @returns {Response} Chainable
+     */
+    unhook(type, handler) {
+        if (!this.#hooks || !this.#hooks[type]) return this;
+
+        const index = this.#hooks[type].findIndex(h => h === handler);
+        if (index !== -1) this.#hooks[type].splice(index, 1)
+
         return this;
     }
 
@@ -735,6 +757,13 @@ class Response {
         return this.#completed;
     }
 
+    /**
+     * ExpressJS: Alias of Response.status_code
+     */
+    get statusCode() {
+        return this.#completed ? this.#status_code : undefined
+    }
+
     locals = {};
 
     /**
@@ -928,6 +957,29 @@ class Response {
      */
     vary(name) {
         return this.header('Vary', name);
+    }
+
+    /**
+     * ExpressJS: compatibility function for attaching to events using `on()`.
+     * @param {string} event event name
+     * @param {Function} callback callback function
+     */
+    on(event, callback) {
+        const hookEvent = EXPRESS_EVENTS_TO_HOOK_EVENTS[event]
+        if (hookEvent) {
+            this.hook(hookEvent, callback);
+        } else {
+            throw new Error(`Unknown event: ${event}`)
+        }
+    }
+
+    /**
+     * ExpressJS: compatibility function for attaching to events using `once()`.
+     * @param {string} event event name
+     * @param {Function} callback callback function
+     */
+    once(event, callback) {
+        this.on(event, callback)
     }
 }
 

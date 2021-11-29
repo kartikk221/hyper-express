@@ -68,7 +68,7 @@ export default class Response {
      * @returns {Response} Response (Chainable)
      */
     cookie(name: string, value: string, expiry?: number, options?: CookieOptions, sign_cookie?: boolean): Response;
-    
+
     /**
      * This method is used to delete cookies on sender's browser.
      * An appropriate set-cookie header is written with maxAge as 0.
@@ -77,7 +77,7 @@ export default class Response {
      * @returns {Response} Response
      */
     delete_cookie(name: string): Response;
-    
+
     /**
      * Binds a hook (synchronous callback) that gets executed based on specified type.
      * See documentation for supported hook types.
@@ -87,14 +87,24 @@ export default class Response {
      * @returns {Response} Chainable
      */
     hook(type: string, handler: UserRouteHandler): Response;
-    
+
+    /**
+     * Removes a hook (synchronous callback) that gets executed based on specified type.
+     * See documentation for supported hook types.
+     *
+     * @param {String} type
+     * @param {function(Request, Response):void} handler
+     * @returns {Response} Chainable
+     */
+    unhook(type: string, handler: UserRouteHandler);
+
     /**
      * This method is used to upgrade an incoming upgrade HTTP request to a Websocket connection.
      *
      * @param {Object} context Store information about the websocket connection
      */
     upgrade(context?: Object): void;
-    
+
     /**
      * Binds a drain handler which gets called with a byte offset that can be used to try a failed chunk write.
      * You MUST perform a write call inside the handler for uWS chunking to work properly.
@@ -102,7 +112,7 @@ export default class Response {
      * @param {Function} handler Synchronous callback only
      */
     drain(handler: () => void): void;
-    
+
     /**
      * This method can be used to write the body in chunks.
      * Note! You must still call the send() method to send the response and complete the request.
@@ -113,7 +123,7 @@ export default class Response {
      * @returns {Boolean} 'false' signifies that the chunk was not sent due to built up backpressure.
      */
     write(chunk: SendableData, encoding?: string, callback?: () => void): boolean;
-    
+
     /**
      * This method is used to end the current request and send response with specified body and headers.
      *
@@ -121,7 +131,7 @@ export default class Response {
      * @returns {Boolean} 'false' signifies that the result was not sent due to built up backpressure.
      */
     send(body: SendableData, close_connection?: boolean): Response;
-    
+
     /**
      * This method is used to pipe a readable stream as response body and send response.
      * By default, this method will use chunked encoding transfer to stream data.
@@ -131,13 +141,13 @@ export default class Response {
      * @param {Number=} total_size Total size of the Readable stream source in bytes (Optional)
      */
     stream(readable: Stream.Readable, total_size?: number): void;
-    
+
     /**
      * Instantly aborts/closes current request without writing a status response code.
      * Use this only in extreme situations to abort a request where a proper response is not neccessary.
      */
     close(): void;
-    
+
     /**
      * This method is used to redirect an incoming request to a different url.
      *
@@ -145,7 +155,7 @@ export default class Response {
      * @returns {Boolean}
      */
     redirect(url: string): boolean;
-    
+
     /**
      * This method is an alias of send() method except it accepts an object and automatically stringifies the passed payload object.
      *
@@ -153,7 +163,7 @@ export default class Response {
      * @returns {Boolean} Boolean
      */
     json(body: Object): boolean;
-    
+
     /**
      * This method is an alias of send() method except it accepts an object
      * and automatically stringifies the passed payload object with a callback name.
@@ -164,7 +174,7 @@ export default class Response {
      * @returns {Boolean} Boolean
      */
     jsonp(body: Object, name?: string): boolean;
-    
+
     /**
      * This method is an alias of send() method except it automatically sets
      * html as the response content type and sends provided html response body.
@@ -173,7 +183,7 @@ export default class Response {
      * @returns {Boolean} Boolean
      */
     html(body: string): boolean;
-    
+
     /**
      * This method is an alias of send() method except it sends the file at specified path.
      * This method automatically writes the appropriate content-type header if one has not been specified yet.
@@ -184,7 +194,7 @@ export default class Response {
      * @param {function(Object):void=} callback Executed after file has been served with the parameter being the cache pool.
      */
     file(path: string, callback?: (pool: FileCachePool) => void): void;
-    
+
     /**
      * Writes approriate headers to signify that file at path has been attached.
      *
@@ -193,7 +203,7 @@ export default class Response {
      * @returns {Response} Chainable
      */
     attachment(path: string, name?: string): Response;
-    
+
     /**
      * Writes appropriate attachment headers and sends file content for download on user browser.
      * This method combined Response.attachment() and Response.file() under the hood, so be sure to follow the same guidelines for usage.
@@ -202,7 +212,7 @@ export default class Response {
      * @param {String=} filename
      */
     download(path: string, filename?: string): void;
-    
+
     /**
      * This method allows you to throw an error which will be caught by the global error handler.
      *
@@ -249,8 +259,9 @@ export default class Response {
      */
     get writable(): Stream.Writable;
 
-    /* HyperExpress Compatbility Methods & Properties */
+    /* HyperExpress Compatibility Methods & Properties */
     get headersSent(): boolean;
+    get statusCode(): number | undefined
     locals: Object;
     append(name: string, values: string | Array<string>): Response;
     writeHead(name: string, values: string | Array<string>): Response;
@@ -272,4 +283,6 @@ export default class Response {
     sendStatus(status_code: number): Response;
     set(field: string | object, value?: string | Array<string>): Response | void;
     vary(name: string): Response;
+    on(event: string, callback: Function): void;
+    once(event: string, callback: Function): void;
 }
