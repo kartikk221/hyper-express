@@ -23,7 +23,7 @@ router.post(endpoint, async (request, response) => {
     // Test hooks
     response.hook('abort', () => hook_invocations.push('abort'));
     response.hook('send', send_hook); // Test for function reference based hooks
-    response.hook('complete', () => hook_invocations.push('complete'));
+    response.on('finish', () => hook_invocations.push('complete'));
 
     // Perform Requested Operations For Testing
     if (Array.isArray(body))
