@@ -89,16 +89,6 @@ export default class Response {
     hook(type: string, handler: UserRouteHandler): Response;
 
     /**
-     * Removes a hook (synchronous callback) that gets executed based on specified type.
-     * See documentation for supported hook types.
-     *
-     * @param {String} type
-     * @param {function(Request, Response):void} handler
-     * @returns {Response} Chainable
-     */
-    unhook(type: string, handler: UserRouteHandler);
-
-    /**
      * This method is used to upgrade an incoming upgrade HTTP request to a Websocket connection.
      *
      * @param {Object} context Store information about the websocket connection
@@ -259,7 +249,7 @@ export default class Response {
      */
     get writable(): Stream.Writable;
 
-    /* HyperExpress Compatibility Methods & Properties */
+    /* ExpressJS Compatibility Methods & Properties */
     get headersSent(): boolean;
     get statusCode(): number | undefined
     locals: Object;
