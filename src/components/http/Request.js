@@ -9,9 +9,6 @@ const parse_range = require('range-parser');
 const type_is = require('type-is');
 const is_ip = require('net').isIP;
 
-// We'll re-use this buffer throughout requests with empty bodies
-const EMPTY_BUFFER = Buffer.from('');
-
 class Request {
     #master_context;
     #raw_request = null;
@@ -74,8 +71,7 @@ class Request {
     _path_parameters(parameters_key) {
         if (parameters_key.length > 0) {
             parameters_key.forEach(
-                (keySet) =>
-                    (this.#path_parameters[keySet[0]] = this.#raw_request.getParameter(keySet[1]))
+                (keySet) => (this.#path_parameters[keySet[0]] = this.#raw_request.getParameter(keySet[1]))
             );
         }
     }
@@ -167,12 +163,12 @@ class Request {
                         reference.#body_buffer = chunk;
                     } else {
                         // Cache an empty buffer as a fallback to signify no body content received
-                        reference.#body_buffer = EMPTY_BUFFER;
+                        reference.#body_buffer = Buffer.from('');
                     }
 
                     // Abort request with a (400 Bad Request) if downloaded buffer length does not match expected content-length header
                     if (reference.#body_buffer.length !== content_length) {
-                        reference.#body_buffer = EMPTY_BUFFER;
+                        reference.#body_buffer = Buffer.from('');
                         reference.#raw_response
                             .status(400)
                             .send('Received body length did not match content length header.');
@@ -195,7 +191,7 @@ class Request {
     _abort_buffer() {
         // Overwrite allocated buffer with empty buffer and pending buffer promise
         if (this.#buffer_promise !== undefined && typeof this.#buffer_resolve == 'function') {
-            this.#body_buffer = EMPTY_BUFFER;
+            this.#body_buffer = Buffer.from('');
             this.#buffer_resolve(this.#body_buffer);
         }
     }
@@ -212,7 +208,7 @@ class Request {
         // Resolve empty if invalid content-length header detected
         const content_length = +this.#headers['content-length'];
         if (isNaN(content_length) || content_length < 1) {
-            this.#body_buffer = EMPTY_BUFFER;
+            this.#body_buffer = Buffer.from('');
             return Promise.resolve(this.#body_buffer);
         }
 
@@ -379,8 +375,7 @@ class Request {
      */
     get ip() {
         // Convert Remote IP to string on first access
-        if (typeof this.#remote_ip !== 'string')
-            this.#remote_ip = array_buffer_to_string(this.#remote_ip);
+        if (typeof this.#remote_ip !== 'string') this.#remote_ip = array_buffer_to_string(this.#remote_ip);
 
         return this.#remote_ip;
     }
@@ -490,8 +485,7 @@ class Request {
         let query_parameters = this.query_parameters;
 
         // First check path parameters, body, and finally query_parameters
-        if (null != path_parameters[name] && path_parameters.hasOwnProperty(name))
-            return path_parameters[name];
+        if (null != path_parameters[name] && path_parameters.hasOwnProperty(name)) return path_parameters[name];
         if (null != body[name]) return body[name];
         if (null != query_parameters[name]) return query_parameters[name];
 
@@ -588,9 +582,7 @@ class Request {
         let trust_proxy = this.#master_context.options.trust_proxy;
         let x_forwarded_proto = this.get('X-Forwarded-Proto');
         if (trust_proxy && x_forwarded_proto)
-            return x_forwarded_proto.indexOf(',') > -1
-                ? x_forwarded_proto.split(',')[0]
-                : x_forwarded_proto;
+            return x_forwarded_proto.indexOf(',') > -1 ? x_forwarded_proto.split(',')[0] : x_forwarded_proto;
 
         // Use HyperExpress/uWS initially defined protocol
         return this.#master_context.is_ssl ? 'https' : 'http';

@@ -46,8 +46,7 @@ class Router {
      */
     _register_route(method, pattern, options, handler = null) {
         // Determine final options object and final handler for route
-        const fOptions =
-            options && typeof options == 'object' ? options : this._default_options(method);
+        const fOptions = options && typeof options == 'object' ? options : this._default_options(method);
         const fHandler = typeof options == 'function' ? options : handler;
         const record = {
             method,
@@ -116,10 +115,7 @@ class Router {
 
                     // Register middlewares from router locally with adjusted pattern
                     return middlewares.forEach((record) =>
-                        reference._register_middleware(
-                            merge_relative_paths(pattern, record.pattern),
-                            record.middleware
-                        )
+                        reference._register_middleware(merge_relative_paths(pattern, record.pattern), record.middleware)
                     );
                 case 'route':
                     // Register route from router locally with adjusted pattern
@@ -172,9 +168,7 @@ class Router {
 
         // Middleware Handler - Attempts to parse middleware property from a hyper-express middleware package
         const mHandler =
-            typeof pHandler == 'object' && typeof pHandler.middleware == 'function'
-                ? pHandler.middleware
-                : undefined;
+            typeof pHandler == 'object' && typeof pHandler.middleware == 'function' ? pHandler.middleware : undefined;
 
         // Final Handler - This is a catchall constant that contains the parsed handler for a middleware
         const fHandler = mHandler || pHandler; // Prioritize middleware handler with parsed handler as fallback
@@ -182,9 +176,7 @@ class Router {
         // Ensure we have a valid handler which is either a router or function
         const isRouter = fHandler.constructor.name === 'Router';
         if (!isRouter && typeof fHandler !== 'function')
-            throw new Error(
-                'Server/Router.use() -> handler must be a Function or Router instance.'
-            );
+            throw new Error('Server/Router.use() -> handler must be a Function or Router instance.');
 
         // Ensure no wildcards or parameter path prefixes are found in pattern
         if (fPattern.indexOf('*') > -1 || fPattern.indexOf(':') > -1)
@@ -203,7 +195,7 @@ class Router {
     /**
      * @typedef {Object} RouteOptions
      * @property {Array.<MiddlewareHandler>|Array.<PromiseMiddlewareHandler>} middlewares Route specific middlewares
-     * @property {Boolean} expect_body Pre-parses and populates Request.body with specified body type.
+     * @property {('raw'|'text'|'json'|'urlencoded')} expect_body Pre-parses and populates Request.body with specified body type.
      */
 
     /**

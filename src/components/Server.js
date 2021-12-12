@@ -125,8 +125,7 @@ class Server extends Router {
      * @param {RouteErrorHandler} handler
      */
     set_error_handler(handler) {
-        if (typeof handler !== 'function')
-            throw new Error('HyperExpress: handler must be a function');
+        if (typeof handler !== 'function') throw new Error('HyperExpress: handler must be a function');
         this.#handlers.on_error = handler;
     }
 
@@ -142,17 +141,14 @@ class Server extends Router {
      * @param {RouteHandler} handler
      */
     set_not_found_handler(handler) {
-        if (typeof handler !== 'function')
-            throw new Error('HyperExpress: handler must be a function');
+        if (typeof handler !== 'function') throw new Error('HyperExpress: handler must be a function');
 
         // Store not_found handler and bind it as a catchall route
         if (this.#handlers.on_not_found === null) {
             this.#handlers.on_not_found = handler;
             return setTimeout(
                 (reference) => {
-                    reference.any('/*', (request, response) =>
-                        reference.#handlers.on_not_found(request, response)
-                    );
+                    reference.any('/*', (request, response) => reference.#handlers.on_not_found(request, response));
                     reference.#routes_locked = true;
                 },
                 0,
@@ -354,12 +350,7 @@ class Server extends Router {
      */
     async _handle_uws_request(route, request, response, socket) {
         // Wrap uWS.Request -> Request
-        const wrapped_request = new Request(
-            request,
-            response,
-            route.path_parameters_key,
-            route.app
-        );
+        const wrapped_request = new Request(request, response, route.path_parameters_key, route.app);
 
         // Wrap uWS.Response -> Response
         const wrapped_response = new Response(wrapped_request, response, socket, route.app);
@@ -399,9 +390,7 @@ class Server extends Router {
                 // Initiate passive body buffer download without holding up the handling flow
                 wrapped_request
                     .buffer()
-                    .catch((error) =>
-                        route.app.handlers.on_error(wrapped_request, wrapped_response, error)
-                    );
+                    .catch((error) => route.app.handlers.on_error(wrapped_request, wrapped_response, error));
             }
         }
 
@@ -468,7 +457,14 @@ class Server extends Router {
 
         // Trigger user assigned route handler with wrapped request/response objects.
         // Provide socket_context for upgrade requests.
-        return route.handler(request, response, response.upgrade_socket);
+        // Safely execute the user assigned handler and catch both sync/async errors.
+        new Promise((resolve, reject) => {
+            try {
+                resolve(route.handler(request, response, response.upgrade_socket));
+            } catch (error) {
+                reject(error);
+            }
+        }).catch(next);
     }
 
     /* Safe Server Getters */
