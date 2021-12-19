@@ -12,6 +12,6 @@
         "autocannon": "^7.4.0",
         "express": "^4.17.1",
         "fastify": "^3.22.0",
-        "nanoexpress": "^5.1.1"
+        "nanoexpress": "^5.1.2"
     }
 }
