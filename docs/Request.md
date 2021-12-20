@@ -17,6 +17,7 @@ Below is a breakdown of the `request` object made available through the route/mi
 | `ip` | `String`  | Remote connection IP. |
 | `proxy_ip` | `String`  | Remote proxy connection IP. |
 | `body` | `Mixed`  | Populated when `expect_body` is specified at route creation. |
+| `stream` | `stream.Readable`  | Readable stream to consume request body chunks. |
 
 #### Request Methods
 * `sign(String: string, String: secret)`: Signs provided string with provided secret.
@@ -33,4 +34,13 @@ Below is a breakdown of the `request` object made available through the route/mi
     * **Returns** `Promise` which is then resolved to an `Object` or `typeof default_value`.
     * **Note** this method returns the specified `default_value` if JSON parsing fails instead of throwing an exception. To have this method throw an exception, pass `undefined` for `default_value`.
     * **Note** `default_value` is `{}` by default meaning `json()` is a safe method even if incoming body is invalid json.
+* `multipart(options?: BusboyConfig, handler: Function)`: Parses incoming multipart form based request allowing for file uploads.
+    * **Returns** `Promise` which is **resolved** once all fields have been processed.
+        * **Note** you may provide an async `handler` to ensure all fields get executed after each `handler` invocaton has finished.
+    * **Handler Example**: `(field: MultipartField) => { /* Your Code Here */}`
+        * **Note** this `handler` can be either a synchronous or asynchronous callback.
+        * **Note** HyperExpress will automatically pause and wait for your handler `Promise` to resolve before resuming with the next field.
+    * **Note** you may only provide the `handler` parameter to rely on the Busboy parser defaults.
+    * **See** [`> [Busboy]`](https://github.com/mscdex/busboy) to view `BusboyConfig` and learn more about the Busboy multipart parser.
+    * **See** [`> [MultipartField]`](./MultipartField.md) to view all properties and methods available for each multipart field.
 * See [ExpressJS](https://github.com/expressjs/express) documentation for more properties/methods that are also implemented for compatibility.

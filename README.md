@@ -56,6 +56,7 @@ HyperExpress requires Node.js version 14+
 - See [`> [Router]`](./docs/Router.md) for working with the modular **Router** component.
 - See [`> [Request]`](./docs/Request.md) for working with the **Request** component made available through handlers.
 - See [`> [Response]`](./docs/Response.md) for working with the **Response** component made available through handlers.
+- See [`> [MultipartField]`](./docs/MultipartField.md) for working with multipart requests and **File Uploading** in HyperExpress.
 - See [`> [Websocket]`](./docs/Websocket.md) for working with **Websockets** in HyperExpress.
 - See [`> [SessionEngine]`](https://github.com/kartikk221/hyper-express-session) for working with cookie based web **Sessions** in HyperExpress.
 - See [`> [LiveDirectory]`](./docs/LiveDirectory.md) for implementing **static file/asset** serving functionality into HyperExpress.
