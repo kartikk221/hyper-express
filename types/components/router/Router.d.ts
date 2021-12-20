@@ -1,3 +1,4 @@
+import { ReadableOptions } from 'stream';
 import Request from '../http/Request';
 import Response from '../http/Response';
 import Websocket from '../ws/Websocket';
@@ -10,17 +11,19 @@ export type MiddlewareHandler = (request: Request, response: Response, next?: Mi
 // Define types for HTTP Route Creators
 type UserRouteHandler = (request: Request, response: Response) => void;
 export interface UserRouteOptions {
+    middlewares?: Array<MiddlewareHandler>,
     expect_body?: "raw" | "text" | "json" | "urlencoded",
-    middlewares?: Array<MiddlewareHandler>
+    stream_options?: ReadableOptions,
+    max_body_length?: number
 }
 
 // Define types for Websocket Route Creator
 type WSRouteHandler = (websocket: Websocket) => void;
 interface WSRouteOptions {
-    message_type: "String" | "Buffer" | "ArrayBuffer",
-    idle_timeout: number,
-    max_backpressure: number,
-    max_payload_length: number
+    message_type?: "String" | "Buffer" | "ArrayBuffer",
+    idle_timeout?: number,
+    max_backpressure?: number,
+    max_payload_length?: number
 }
 
 // Define types for internal route/middleware records

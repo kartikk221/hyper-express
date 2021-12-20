@@ -1,6 +1,9 @@
 const cookie = require('cookie');
 const signature = require('cookie-signature');
 const querystring = require('query-string');
+const stream = require('stream');
+const busboy = require('busboy');
+const MultipartField = require('../plugins/MultipartField.js');
 const { array_buffer_to_string } = require('../../shared/operators.js');
 
 // ExpressJS compatibility packages
@@ -11,24 +14,25 @@ const is_ip = require('net').isIP;
 
 class Request {
     #master_context;
+    #paused = false;
+    #stream_raw_chunks = false;
     #raw_request = null;
     #raw_response = null;
     #method;
     #url;
     #path;
     #query;
-    #buffer_promise;
-    #buffer_resolve;
-    #body_buffer;
-    #body_text;
-    #body_json;
-    #body_urlencoded;
     #remote_ip;
     #remote_proxy_ip;
     #cookies;
     #headers = {};
     #path_parameters = {};
     #query_parameters;
+    #body_stream;
+    #body_buffer;
+    #body_text;
+    #body_json;
+    #body_urlencoded;
 
     constructor(raw_request, raw_response, path_parameters_key, master_context) {
         // Pre-parse core data attached to volatile uWebsockets request/response objects
@@ -79,6 +83,32 @@ class Request {
     /* Request Methods/Operators */
 
     /**
+     * Pauses the current request and any incoming body chunks.
+     * @returns {Request}
+     */
+    pause() {
+        // Pause the uWS.Response if it is not already paused
+        if (!this.#paused) {
+            this.#paused = true;
+            this.#raw_response.pause();
+        }
+        return this;
+    }
+
+    /**
+     * Resumes the current request and consumption of any remaining body chunks.
+     * @returns {Request}
+     */
+    resume() {
+        // Pause the uWS.Response if it is not already paused
+        if (this.#paused) {
+            this.#paused = false;
+            this.#raw_response.resume();
+        }
+        return this;
+    }
+
+    /**
      * Securely signs a value with provided secret and returns the signed value.
      *
      * @param {String} string
@@ -102,7 +132,69 @@ class Request {
     }
 
     /**
-     * Initiates body buffer download process.
+     * Initializes a readable stream which consumes body data from uWS.Response.onData() handler.
+     * Note! This stream will automatically handle backpressure by pausing/resuming the response data flow.
+     *
+     * @private
+     * @param {stream.ReadableOptions} options
+     */
+    _start_streaming(options) {
+        // Throw an error if we try to streaming when one is already in process
+        if (this.#body_stream)
+            throw new Error(
+                'HyperExpress.Request._start_streaming() -> This method has been called more than once which should not occur.'
+            );
+
+        // Create a readable stream which pipes data from the uWS.Response.onData() handler
+        const readable = new stream.Readable(options);
+
+        // Bind a _read() handler to the readable to resume the uWS request
+        readable._read = () => this.resume();
+
+        // Bind a uWS.Response.onData() handler which will handle incoming chunks and pipe them to the readable stream
+        const reference = this;
+        this.#raw_response.onData((array_buffer, is_last) => {
+            // Do not process chunk if we can no longer pipe it to the readable stream
+            if (reference.#body_stream === null) return;
+
+            // Convert the ArrayBuffer to a Buffer reference
+            // Provide raw chunks if specified and we have something consuming stream already
+            // This will prevent unneccessary duplication of buffers
+            let buffer;
+            if (reference.#stream_raw_chunks && readable.listenerCount('data') > 0) {
+                // Store a direct Buffer reference as this will be immediately consumed
+                buffer = Buffer.from(array_buffer);
+            } else {
+                // Store a copy of the array_buffer as we have no immediate consumer yet
+                // If we do not copy, this chunk will be lost in stream queue as it will be deallocated by uWebsockets
+                buffer = Buffer.concat([Buffer.from(array_buffer)]);
+            }
+
+            // Push the incoming chunk into readable stream for consumption
+            // Pause the uWS request if our stream is backed up
+            if (!readable.push(buffer)) reference.pause();
+
+            // Push a null chunk signaling an EOF to the stream to end it if this chunk is last
+            if (is_last) readable.push(null);
+        });
+
+        // Store the readable stream locally for consumption
+        this.#body_stream = readable;
+    }
+
+    /**
+     * Halts any active body stream from processing any further incoming chunks
+     */
+    _stop_streaming() {
+        // Push an EOF chunk to the body stream signifying the requester was disconnected
+        if (this.#body_stream) this.#body_stream = null;
+    }
+
+    #buffer_promise;
+    #buffer_resolve;
+
+    /**
+     * Initiates body buffer download process by consuming the request readable stream.
      *
      * @private
      * @param {Number} content_length
@@ -112,88 +204,58 @@ class Request {
         // Return pending buffer promise if in flight
         if (this.#buffer_promise) return this.#buffer_promise;
 
+        // Resolve an empty buffer instantly if we have no readable body stream
+        if (this.stream === undefined) {
+            this.#body_buffer = Buffer.from('');
+            return Promise.resolve(this.#body_buffer);
+        }
+
+        // Mark this instance to provide raw buffers through readable stream
+        this.#stream_raw_chunks = true;
+
         // Initiate a buffer promise with chunk retrieval process
-        let reference = this;
+        const reference = this;
         this.#buffer_promise = new Promise((resolve) => {
             // Store promise resolve method to allow closure from _abort_buffer() method
             reference.#buffer_resolve = resolve;
 
-            // Store body into a singular Buffer for most memory efficiency
-            let body_buffer;
-            let body_cursor = 0;
-            let use_fast_buffers = reference.#master_context.options.fast_buffers;
+            // Allocate an empty body buffer to store all incoming chunks depending on buffering scheme
+            const use_fast_buffers = reference.#master_context.options.fast_buffers;
+            const body = {
+                cursor: 0,
+                buffer: use_fast_buffers ? Buffer.allocUnsafe(content_length) : Buffer.alloc(content_length),
+            };
 
-            // Store incoming buffer chunks into buffers Array
-            reference.#raw_response.onData((array_buffer, is_last) => {
-                // Do not process chunks if request has been aborted
-                if (reference.#raw_response.aborted) return;
+            // Drain any previously buffered data from the readable request stream
+            if (reference.stream.readableLength > 0) {
+                // Copy the buffered chunk from stream into our body buffer
+                const chunk = reference.stream.read(reference.stream.readableLength);
+                chunk.copy(body.buffer, body.cursor, 0, chunk.byteLength);
 
-                // Process current array_buffer chunk into a Buffer
-                let chunk;
-                if (is_last && body_cursor === 0) {
-                    // Create a copy of ArrayBuffer from uWS as it will be deallocated and this is the only received chunk
-                    chunk = Buffer.concat([Buffer.from(array_buffer)]);
-                } else {
-                    // Allocate a fresh Buffer for storing incoming body chunks
-                    if (body_buffer == undefined) {
-                        // Use appropriate allocation scheme based on user options
-                        if (use_fast_buffers) {
-                            body_buffer = Buffer.allocUnsafe(content_length);
-                        } else {
-                            body_buffer = Buffer.alloc(content_length);
-                        }
-                    }
+                // Increment the cursor by the byteLength to remember our write position
+                body.cursor += chunk.byteLength;
+            }
 
-                    // Convert ArrayBuffer to Buffer and copy to body buffer
-                    chunk = Buffer.from(array_buffer);
-                    chunk.copy(body_buffer, body_cursor, 0, chunk.byteLength);
-                }
+            // Resolve our body buffer if we have no more future chunks to read
+            if (reference.stream.readableEnded) return resolve(body.buffer);
 
-                // Iterate body cursor to keep track of incoming chunks
-                body_cursor += array_buffer.byteLength;
+            // Begin consuming future chunks from the readable request stream
+            reference.stream.on('data', (chunk) => {
+                // Copy the temporary chunk from uWS into our body buffer
+                chunk.copy(body.buffer, body.cursor, 0, chunk.byteLength);
 
-                // Perform final processing on last body chunk
-                if (is_last) {
-                    // Cache buffer locally depending on received format type
-                    if (body_buffer) {
-                        // Cache compiled buffer of multiple chunks
-                        reference.#body_buffer = body_buffer;
-                    } else if (chunk) {
-                        // Cache singular buffer when only one chunk is received
-                        reference.#body_buffer = chunk;
-                    } else {
-                        // Cache an empty buffer as a fallback to signify no body content received
-                        reference.#body_buffer = Buffer.from('');
-                    }
-
-                    // Abort request with a (400 Bad Request) if downloaded buffer length does not match expected content-length header
-                    if (reference.#body_buffer.length !== content_length) {
-                        reference.#body_buffer = Buffer.from('');
-                        reference.#raw_response
-                            .status(400)
-                            .send('Received body length did not match content length header.');
-                    }
-
-                    // Mark instance as no longer buffer pending and resolve if request has not been reslolved yet
-                    reference.#buffer_promise = undefined;
-                    if (!reference.#raw_response.aborted) return resolve(reference.#body_buffer);
-                }
+                // Increment the cursor by the byteLength to remember our write position
+                body.cursor += chunk.byteLength;
             });
+
+            // Resolve the body buffer once the readable stream has finished
+            reference.stream.once('end', () => resolve(body.buffer));
         });
 
-        return this.#buffer_promise;
-    }
+        // Bind a then handler for caching the downloaded buffer
+        this.#buffer_promise.then((buffer) => (this.#body_buffer = buffer));
 
-    /**
-     * @private
-     * Aborts pending body buffer downloads if request is prematurely aborted.
-     */
-    _abort_buffer() {
-        // Overwrite allocated buffer with empty buffer and pending buffer promise
-        if (this.#buffer_promise !== undefined && typeof this.#buffer_resolve == 'function') {
-            this.#body_buffer = Buffer.from('');
-            this.#buffer_resolve(this.#body_buffer);
-        }
+        return this.#buffer_promise;
     }
 
     /**
@@ -284,6 +346,127 @@ class Request {
         return this.#body_urlencoded;
     }
 
+    #multipart_promise;
+
+    /**
+     * Handles incoming multipart fields from uploader and calls user specified handler with MultipartField.
+     *
+     * @private
+     * @param {Function} handler
+     * @param {String} name
+     * @param {String|stream.Readable} value
+     * @param {Object} info
+     */
+    async _on_multipart_field(handler, name, value, info) {
+        // Create a MultipartField instance with the incoming information
+        const field = new MultipartField(name, value, info);
+
+        // Wait for the previous multipart field handler promise to resolve
+        if (this.#multipart_promise instanceof Promise) {
+            // We will keep the request paused so we do not receive more chunks
+            this.pause();
+            await this.#multipart_promise;
+            this.resume();
+        }
+
+        // Trigger the user specified handler with the multipart field
+        const output = handler(field);
+
+        // If the handler returns a Promise, store it locally
+        // this promise can be used to pause the request when the next field is received but user is not ready yet
+        if (output instanceof Promise) {
+            // Store this promise locally so the next field can use it to wait
+            this.#multipart_promise = output;
+
+            // Hold the current execution until the user handler promise resolves
+            await this.#multipart_promise;
+            this.#multipart_promise = null;
+        }
+
+        // Flush this field's file stream if it has not been consumed by the user as stated in busboy docs
+        if (field.file && !field.file.stream.readableEnded) field.file.stream.resume();
+    }
+
+    /**
+     * @typedef {function(MultipartField):void} SyncMultipartHandler
+     */
+
+    /**
+     * @typedef {function(MultipartField):Promise<void>} AsyncMultipartHandler
+     */
+
+    /**
+     * @typedef {('PARTS_LIMIT_REACHED'|'FILES_LIMIT_REACHED'|'FIELDS_LIMIT_REACHED')} MultipartLimitReject
+     */
+
+    /**
+     * Parses incoming multipart form and allows for easy consumption of fields/values including files.
+     *
+     * @param {busboy.BusboyConfig|SyncMultipartHandler|AsyncMultipartHandler} options
+     * @param {(SyncMultipartHandler|AsyncMultipartHandler)=} handler
+     * @returns {Promise<MultipartLimitReject|Error>} A promise which is resolved once all multipart fields have been processed
+     */
+    multipart(options, handler) {
+        // Migrate options to handler if no options object is provided by user
+        if (typeof options == 'function') {
+            handler = options;
+            options = {};
+        }
+
+        // Inject the request headers into the busboy options
+        options.headers = this.#headers;
+
+        // Ensure the provided handler is a function type
+        if (typeof handler !== 'function')
+            throw new Error('HyperExpress.Request.upload(handler) -> handler must be a Function.');
+
+        // Resolve instantly if we have no readable body stream
+        if (this.stream === undefined) return Promise.resolve();
+
+        // Resolve instantly if we do not have a valid multipart content type header
+        const content_type = this.headers['content-type'];
+        if (!/^(multipart\/.+);(.*)$/i.test(content_type)) return Promise.resolve();
+
+        // Return a promise which will be resolved after all incoming multipart data has been processed
+        const reference = this;
+        return new Promise((resolve, reject) => {
+            // Create a Busboy instance which will perform
+            const reference = this;
+            const uploader = busboy(options);
+
+            // Bind a 'error' event handler to emit errors
+            uploader.on('error', reject);
+
+            // Bind limit event handlers to reject as error code constants
+            uploader.on('partsLimit', () => reject('PARTS_LIMIT_REACHED'));
+            uploader.on('filesLimit', () => reject('FILES_LIMIT_REACHED'));
+            uploader.on('fieldsLimit', () => reject('FIELDS_LIMIT_REACHED'));
+
+            // Bind a 'field' event handler to process each incoming field
+            uploader.on('field', (field_name, value, info) =>
+                this._on_multipart_field(handler, field_name, value, info)
+            );
+
+            // Bind a 'file' event handler to process each incoming file
+            uploader.on('file', (field_name, stream, info) =>
+                this._on_multipart_field(handler, field_name, stream, info)
+            );
+
+            // Bind a 'finish' event handler to resolve the upload promise
+            uploader.on('close', () => {
+                // Wait for any pending multipart handler promise to resolve before moving forward
+                if (reference.#multipart_promise) {
+                    reference.#multipart_promise.then(resolve);
+                } else {
+                    resolve();
+                }
+            });
+
+            // Pipe the readable request stream into the busboy uploader
+            reference.stream.pipe(uploader);
+        });
+    }
+
     /* Request Getters */
 
     /**
@@ -292,6 +475,23 @@ class Request {
      */
     get raw() {
         return this.#raw_request;
+    }
+
+    /**
+     * Returns the underlying readable incoming body data stream for this request.
+     *
+     * @returns {stream.Readable}
+     */
+    get stream() {
+        return this.#body_stream;
+    }
+
+    /**
+     * Returns whether this request is in a paused state and thus not consuming any body chunks.
+     * @returns {Boolean}
+     */
+    get paused() {
+        return this.#paused;
     }
 
     /**

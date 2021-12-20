@@ -328,14 +328,13 @@ class Server extends Router {
      * @param {Request} wrapped_request
      * @returns {Boolean}
      */
-    _pre_parse_body(route, wrapped_request) {
+    _can_parse_body(route, wrapped_request) {
         // Return true to pre-parsing if we are expecting a specific type of body
         if (typeof route.options.expect_body == 'string') return true;
 
-        // Determine a content-length and content-type header exists to trigger pre-parsing
-        const has_content_type = wrapped_request.headers['content-type'];
+        // Ensure we have some content-length value which specifies incoming bytes
         const content_length = +wrapped_request.headers['content-length'];
-        return has_content_type && !isNaN(content_length) && content_length > 0;
+        return !isNaN(content_length) && content_length > 0;
     }
 
     /**
@@ -355,11 +354,13 @@ class Server extends Router {
         // Wrap uWS.Response -> Response
         const wrapped_response = new Response(wrapped_request, response, socket, route.app);
 
-        // We initiate buffer retrieval as uWS.Request is deallocated after initial synchronous cycle
-        if (this._pre_parse_body(route, wrapped_request)) {
+        // Determine if we have body chunks to parse, If so we must do it now as uWS.Response.onData() will be deallocated after this execution
+        if (this._can_parse_body(route, wrapped_request)) {
             // Check incoming content-length to ensure it is within max_body_length bounds
             // Abort request with a 413 Payload Too Large status code
-            if (+wrapped_request.headers['content-length'] > route.app.options.max_body_length) {
+            const content_length = +wrapped_request.headers['content-length'];
+            const max_body_length = route.options.max_body_length || route.app.options.max_body_length;
+            if (!isNaN(content_length) && content_length > max_body_length) {
                 // Use fast abort scheme if specified
                 if (route.app.options.fast_abort === true) return response.close();
 
@@ -370,7 +371,10 @@ class Server extends Router {
                 });
             }
 
-            // If a body type is expected, parse body based on one of the expected types and populate request.body property
+            // Begin buffering incoming body chunks and initialize underlying readable request stream
+            wrapped_request._start_streaming(route.options.stream_options);
+
+            // If a body type is expected, parse body based on one of the expected types and populate the request.body property
             if (typeof route.options.expect_body == 'string') {
                 switch (route.options.expect_body) {
                     case 'text':
@@ -386,11 +390,6 @@ class Server extends Router {
                         wrapped_request._body = await wrapped_request.buffer();
                         break;
                 }
-            } else {
-                // Initiate passive body buffer download without holding up the handling flow
-                wrapped_request
-                    .buffer()
-                    .catch((error) => route.app.handlers.on_error(wrapped_request, wrapped_response, error));
             }
         }
 

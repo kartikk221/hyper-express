@@ -1,6 +1,7 @@
 const Request = require('../http/Request.js'); // lgtm [js/unused-local-variable]
 const Response = require('../http/Response.js'); // lgtm [js/unused-local-variable]
 const Websocket = require('../ws/Websocket.js'); // lgtm [js/unused-local-variable]
+const stream = require('stream'); // lgtm [js/unused-local-variable]
 const { merge_relative_paths } = require('../../shared/operators.js');
 
 class Router {
@@ -196,6 +197,8 @@ class Router {
      * @typedef {Object} RouteOptions
      * @property {Array.<MiddlewareHandler>|Array.<PromiseMiddlewareHandler>} middlewares Route specific middlewares
      * @property {('raw'|'text'|'json'|'urlencoded')} expect_body Pre-parses and populates Request.body with specified body type.
+     * @property {stream.ReadableOptions} stream_options Request readable stream constructor options
+     * @property {Number} max_body_length Overrides the maximum body length specified in Server constructor options. Default: 250 * 1000.
      */
 
     /**

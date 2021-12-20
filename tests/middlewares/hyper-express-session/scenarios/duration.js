@@ -10,7 +10,8 @@ const endpoint_url = server.base + endpoint;
 TEST_SERVER.post(endpoint, async (request, response) => {
     await TEST_ENGINE.cleanup(); // Purposely trigger cleanup before every request to simulate ideal session cleanup
     await request.session.start();
-    let duration = parseInt(await request.text());
+    let body = await request.text();
+    let duration = parseInt(body);
 
     if (duration > 0) request.session.set_duration(duration);
 

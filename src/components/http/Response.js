@@ -20,6 +20,7 @@ class Response {
     #upgrade_socket;
     #status_code;
     #headers;
+    #paused = false;
     #initiated = false;
     #completed = false;
     #type_written = false;
@@ -43,7 +44,7 @@ class Response {
         const reference = this;
         this.#raw_response.onAborted(() => {
             reference.#completed = true;
-            reference.#wrapped_request._abort_buffer();
+            reference.#wrapped_request._stop_streaming();
             reference._call_hooks('abort');
         });
     }
@@ -69,6 +70,15 @@ class Response {
         );
     }
 
+    /**
+     * Resume the associated request if it is paused.
+     * @private
+     */
+    _resume_if_paused() {
+        // Unpause the request if it is paused
+        if (this.#wrapped_request.paused) this.#wrapped_request.resume();
+    }
+
     /* Response Methods/Operators */
 
     /**
@@ -79,10 +89,9 @@ class Response {
      */
     atomic(handler) {
         if (typeof handler !== 'function')
-            throw new Error(
-                'HyperExpress: atomic(handler) -> handler must be a Javascript function'
-            );
+            throw new Error('HyperExpress: atomic(handler) -> handler must be a Javascript function');
 
+        this._resume_if_paused();
         return this.#raw_response.cork(handler);
     }
 
@@ -232,8 +241,7 @@ class Response {
      * @param {String} type
      */
     _call_hooks(type) {
-        if (this.#hooks && this.#hooks[type])
-            this.#hooks[type].forEach((hook) => hook(this.#wrapped_request, this));
+        if (this.#hooks && this.#hooks[type]) this.#hooks[type].forEach((hook) => hook(this.#wrapped_request, this));
     }
 
     /**
@@ -269,6 +277,9 @@ class Response {
                     'You cannot upgrade a request that does not come from an upgrade handler. No upgrade socket was found.'
                 );
 
+            // Ensure our request is not paused for whatever reason
+            this._resume_if_paused();
+
             // Call uWS.Response.upgrade() method with user data, protocol headers and uWS upgrade socket
             const headers = this.#wrapped_request.headers;
             this.#raw_response.upgrade(
@@ -294,6 +305,9 @@ class Response {
         // Ensure response can only be initiated once to prevent multiple invocations
         if (this.initiated) return;
         this.#initiated = true;
+
+        // Ensure our associated request is not paused for whatever reason
+        this._resume_if_paused();
 
         // Write custom HTTP status if specified
         if (this.#status_code) this.#raw_response.writeStatus(this.#status_code);
@@ -397,7 +411,7 @@ class Response {
     send(body, close_connection) {
         if (!this.#completed) {
             // Abort body download buffer just to be safe for large incoming requests
-            this.#wrapped_request._abort_buffer();
+            this.#wrapped_request._stop_streaming();
 
             // Call any bound hooks for type 'send'
             this._call_hooks('send');
@@ -484,9 +498,7 @@ class Response {
     stream(readable, total_size) {
         // Ensure readable is an instance of a stream.Readable
         if (!(readable instanceof Readable))
-            throw new Error(
-                'Response.stream(readable, total_size) -> readable must be a Readable stream.'
-            );
+            throw new Error('Response.stream(readable, total_size) -> readable must be a Readable stream.');
 
         // Bind a abort hook which will destroy the read stream if request is aborted
         this.hook('abort', () => {
@@ -513,6 +525,7 @@ class Response {
     close() {
         if (!this.#completed) {
             this.#completed = true;
+            this._resume_if_paused();
             this.#raw_response.close();
         }
     }
@@ -626,9 +639,7 @@ class Response {
         let final_name = name || chunks[chunks.length - 1];
         let name_chunks = final_name.split('.');
         let extension = name_chunks[name_chunks.length - 1];
-        return this.header('Content-Disposition', `attachment; filename="${final_name}"`).type(
-            extension
-        );
+        return this.header('Content-Disposition', `attachment; filename="${final_name}"`).type(extension);
     }
 
     /**

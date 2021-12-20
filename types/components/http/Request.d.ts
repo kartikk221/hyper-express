@@ -1,11 +1,29 @@
 import * as uWebsockets from 'uWebSockets.js';
+import { BusboyConfig } from 'busboy';
+import MultipartField from '../plugins/MultipartField';
+import { Readable } from 'stream'
 import { ParamsDictionary } from 'express-serve-static-core';
 import { ParsedQs } from 'qs';
 import { Options, Ranges, Result } from 'range-parser';
 
 type default_value = any;
+type MultipartHandler = (field: MultipartField) => void | Promise<void>;
+type MultipartLimitReject = "PARTS_LIMIT_REACHED" | "FILES_LIMIT_REACHED" | "FIELDS_LIMIT_REACHED";
+
 export default class Request {
     /* HyperExpress Request Methods */
+
+    /**
+     * Pauses the current request and any incoming body chunks.
+     * @returns {Request}
+     */
+    pause(): Request;
+
+    /**
+     * Resumes the current request and consumption of any remaining body chunks.
+     * @returns {Request}
+     */
+    resume(): Request;
 
     /**
      * Securely signs a value with provided secret and returns the signed value.
@@ -56,6 +74,23 @@ export default class Request {
      */
     urlencoded(): Promise<Object>;
 
+    /**
+     * Parses incoming multipart form and allows for easy consumption of fields/values including files.
+     *
+     * @param {MultipartHandler} handler
+     * @returns {Promise<void|String|Error>} A promise which is resolved once all multipart fields have been processed
+     */
+    multipart(handler: MultipartHandler): Promise<MultipartLimitReject|Error>;
+    
+    /**
+     * Parses incoming multipart form and allows for easy consumption of fields/values including files.
+     *
+     * @param {BusboyConfig|MultipartHandler} options
+     * @param {MultipartHandler} handler
+     * @returns {Promise<void|MultipartLimitReject|Error>} A promise which is resolved once all multipart fields have been processed
+     */
+    multipart(options: BusboyConfig, handler: MultipartHandler): Promise<MultipartLimitReject|Error>;
+
     /* HyperExpress Request Properties */
 
     /**
@@ -63,6 +98,19 @@ export default class Request {
      * Note! Utilizing any of uWS.Request's methods after initial synchronous call will throw a forbidden access error.
      */
     get raw(): uWebsockets.HttpRequest;
+
+    /**
+     * Returns the underlying readable incoming body data stream for this request.
+     *
+     * @returns {Readable|void}
+     */
+    get stream(): Readable | void;
+
+    /**
+     * Returns whether this request is in a paused state and thus not consuming any body chunks.
+     * @returns {Boolean}
+     */
+    get paused(): boolean;
 
     /**
      * Returns HTTP request method for incoming request in all uppercase.

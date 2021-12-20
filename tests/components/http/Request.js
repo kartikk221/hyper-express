@@ -1,5 +1,7 @@
 const { log, assert_log, random_string } = require('../../scripts/operators.js');
 const { HyperExpress, fetch, server } = require('../../configuration.js');
+const { test_request_multipart } = require('./scenarios/request_multipart.js');
+const { test_request_stream_pipe } = require('./scenarios/request_stream.js');
 const crypto = require('crypto');
 const router = new HyperExpress.Router();
 const endpoint = '/tests/request/:param1/:param2';
@@ -107,10 +109,7 @@ router.any(
             proxy_ip: request.proxy_ip,
             cookies: request.cookies,
             signature_check:
-                request.unsign(
-                    request.sign(signature_value, signature_secret),
-                    signature_secret
-                ) === signature_value,
+                request.unsign(request.sign(signature_value, signature_secret), signature_secret) === signature_value,
             body: {
                 text,
                 json,
@@ -190,11 +189,7 @@ async function test_request_object() {
     const urlencoded_body = await urlencoded_response.json();
 
     // Assert rejection status code as 413 Too Large Payload
-    assert_log(
-        group,
-        'Too Large Body 413 HTTP Code Reject',
-        () => too_large_response.status === 413
-    );
+    assert_log(group, 'Too Large Body 413 HTTP Code Reject', () => too_large_response.status === 413);
 
     // Perform HTTP Request To Endpoint
     let req_start_time = Date.now();
@@ -202,25 +197,15 @@ async function test_request_object() {
     let body = await response.json();
 
     // Verify middleware functionalitiy and property binding
-    assert_log(
-        group,
-        'Middleware Execution & Timing Test',
-        () => Date.now() - req_start_time > middleware_delay
-    );
+    assert_log(group, 'Middleware Execution & Timing Test', () => Date.now() - req_start_time > middleware_delay);
 
     assert_log(
         group,
         'Middleware Property Binding Test',
-        () =>
-            last_endpoint_mproperty === middleware_property &&
-            last_endpoint_mproperty2 === middleware_property
+        () => last_endpoint_mproperty === middleware_property && last_endpoint_mproperty2 === middleware_property
     );
 
-    assert_log(
-        group,
-        'Route Specific Middleware Avoidance Test',
-        () => last_endpoint_mproperty3 == undefined
-    );
+    assert_log(group, 'Route Specific Middleware Avoidance Test', () => last_endpoint_mproperty3 == undefined);
 
     const middleware_response = await fetch(base + route_specific_endpoint, {
         headers: {
@@ -283,28 +268,22 @@ async function test_request_object() {
     });
 
     // Verify .cookies
-    assert_log(
-        group,
-        candidate + '.cookies',
-        () => body.cookies[header_test_cookie.name] === header_test_cookie.value
-    );
+    assert_log(group, candidate + '.cookies', () => body.cookies[header_test_cookie.name] === header_test_cookie.value);
 
     // Verify .body property when options.expect_body is specified for route options
     assert_log(
         group,
         candidate + '.body',
         () =>
-            JSON.stringify(urlencoded_body.body.pre_parsed) ===
-                JSON.stringify(urlencoded_body.body.urlencoded) &&
+            JSON.stringify(urlencoded_body.body.pre_parsed) === JSON.stringify(urlencoded_body.body.urlencoded) &&
             middleware_body.body_error === true
     );
 
+    // Verify .stream readable request stream piping
+    await test_request_stream_pipe();
+
     // Verify .sign() and .unsign()
-    assert_log(
-        group,
-        `${candidate}.sign() and ${candidate}.unsign()`,
-        () => body.signature_check === true
-    );
+    assert_log(group, `${candidate}.sign() and ${candidate}.unsign()`, () => body.signature_check === true);
 
     // Verify .text()
     assert_log(group, candidate + '.text()', () => body.body.text === options.body);
@@ -317,6 +296,10 @@ async function test_request_object() {
         const { url1, url2 } = urlencoded_body.body.urlencoded;
         return url1 === param1 && url2 === param2;
     });
+
+    // Test .multipart() uploader with both a sync/async handler
+    await test_request_multipart(false);
+    await test_request_multipart(true);
 
     log(group, `Finished Testing ${candidate} In ${Date.now() - start_time}ms\n`);
 }
