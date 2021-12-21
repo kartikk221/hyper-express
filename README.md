@@ -16,13 +16,12 @@
 HyperExpress aims to be a simple yet perfomant HTTP & Websocket Server. Combined with the power of uWebsockets.js, a Node.js binding of uSockets written in C++, HyperExpress allows developers to unlock higher throughput for their web applications with their existing hardware. This can allow many web applications to become much more performant on optimized data serving endpoints without having to scale hardware.
 
 Some of the prominent features implemented are:
-- Simplified HTTP API
-- Simplified Websocket API
 - Asynchronous By Nature
+- Simplified HTTP & Websocket API
 - Global & Route-Specific Middlewares Support
 - Modular Routers Support
-- HTTP Streaming Support
-- Websocket Streaming Support
+- HTTP & Websocket Streaming Support
+- Performant Multipart File Uploading
 - Global Error/Event Handlers
 - Cryptographically Secure Cookie Signing/Authentication
 - ExpressJS API Compatibility Through Shared Methods/Properties
