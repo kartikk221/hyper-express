@@ -431,7 +431,6 @@ class Request {
         const reference = this;
         return new Promise((resolve, reject) => {
             // Create a Busboy instance which will perform
-            const reference = this;
             const uploader = busboy(options);
 
             // Bind a 'error' event handler to emit errors
