@@ -40,7 +40,13 @@ Below is a breakdown of the `request` object made available through the route/mi
     * **Handler Example**: `(field: MultipartField) => { /* Your Code Here */}`
         * **Note** this `handler` can be either a synchronous or asynchronous callback.
         * **Note** HyperExpress will automatically pause and wait for your handler `Promise` to resolve before resuming with the next field.
+    * **Note** the returnd `Promise` can **reject** with one of the `String` constants below or an uncaught `Error` object.
+        * `PARTS_LIMIT_REACHED`: This error is rejected when the configured Busboy `limits.parts` limit has been reached.
+        * `FILES_LIMIT_REACHED`: This error is rejected when the configured Busboy `limits.files` limit has been reached.
+        * `FIELDS_LIMIT_REACHED`: This error is rejected when the configured Busboy `limits.fields` limit has been reached.
     * **Note** you may only provide the `handler` parameter to rely on the Busboy parser defaults.
     * **See** [`> [Busboy]`](https://github.com/mscdex/busboy) to view `BusboyConfig` and learn more about the Busboy multipart parser.
+    * **Note** HyperExpress currently **does not support** chunked transfer requests.
     * **See** [`> [MultipartField]`](./MultipartField.md) to view all properties and methods available for each multipart field.
+    * **Note** the body parser uses the global `Server.max_body_length` by default. You can **override** this property on a route by specifying a higher `max_body_length` in the route options when creating that route.
 * See [ExpressJS](https://github.com/expressjs/express) documentation for more properties/methods that are also implemented for compatibility.
