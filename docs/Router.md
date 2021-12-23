@@ -53,7 +53,7 @@ webserver.use('/api/v1', api_v1_router);
         * **Note!** Middlewares are executed in the order provided in the `Array` provided.
         * **Note!** Global/Router middlewares will be executed before route specific middlewares are executed.
       * `stream_options`[`Object`]: Specifies the options to use when constructing a readable stream for consuming the request body content for this route.
-        * **See** [`> [ReadableOptions]`]([./Websocket.md](https://nodejs.org/api/stream.html#new-streamreadableoptions)) for all available `ReadableOptions` properties that can be specified under `stream_options`.
+        * **See** [`> [ReadableOptions]`](https://nodejs.org/api/stream.html#new-streamreadableoptions) for all available `ReadableOptions` properties that can be specified under `stream_options`.
     * **Note** `pattern` is treated as a **strict** match and trailing-slashes will be treated as different paths.
     * **Supports** both synchronous and asynchronous handler.
     * **Supports** path parameters with `:param` prefix. 
