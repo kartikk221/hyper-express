@@ -44,6 +44,7 @@ webserver.use('/api/v1', api_v1_router);
     * **Example Handler**: `(Request: request, Response: response) => {}`.
     * **See** [`> [Websocket]`](./Websocket.md) for usage documentation on the `upgrade()` alias method.
     * **Parameter** `options`[`Object`]: This parameter is **optional** thus you can simply provide a `pattern` and `handler` for simpler code.
+      * `max_body_length`[`Number`]: Overrides the global `Server.max_body_length` parameter used to enforce a maximum body size limit for this route.
       * `expect_body`[`String`]: Pre-parses and Populates `Request.body` property with appropriate body for ExpressJS compatibility.
         * **Note!** This property specification is required for the ExpressJS `Request.body` property to work properly.
         * **Supported Types** [`raw`, `text`, `json`, `urlencoded`]
@@ -51,6 +52,8 @@ webserver.use('/api/v1', api_v1_router);
         * **Note!** Route specific middlewares **NOT** supported with `any` method routes.
         * **Note!** Middlewares are executed in the order provided in the `Array` provided.
         * **Note!** Global/Router middlewares will be executed before route specific middlewares are executed.
+      * `stream_options`[`Object`]: Specifies the options to use when constructing a readable stream for consuming the request body content for this route.
+        * **See** [`> [ReadableOptions]`]([./Websocket.md](https://nodejs.org/api/stream.html#new-streamreadableoptions)) for all available `ReadableOptions` properties that can be specified under `stream_options`.
     * **Note** `pattern` is treated as a **strict** match and trailing-slashes will be treated as different paths.
     * **Supports** both synchronous and asynchronous handler.
     * **Supports** path parameters with `:param` prefix. 
