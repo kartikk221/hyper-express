@@ -54,6 +54,11 @@ class Server extends Router {
     }
 
     /**
+     * This object can be used to store properties/references local to this Server instance.
+     */
+    locals = {};
+
+    /**
      * @private
      * This method binds a cleanup handler which closes the uWS server based on listen socket.
      */
