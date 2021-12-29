@@ -1,3 +1,4 @@
+const Server = require('../Server.js'); // lgtm [js/unused-local-variable]
 const cookie = require('cookie');
 const signature = require('cookie-signature');
 const querystring = require('query-string');
@@ -477,6 +478,15 @@ class Request {
     }
 
     /**
+     * Returns the HyperExpress.Server instance this Request object originated from.
+     *
+     * @returns {Server}
+     */
+    get app() {
+        return this.#master_context;
+    }
+
+    /**
      * Returns the underlying readable incoming body data stream for this request.
      *
      * @returns {stream.Readable}
@@ -715,13 +725,6 @@ class Request {
         throw new Error(
             `One of your middlewares or logic tried to call Request.${name} which is unsupported with HyperExpress.`
         );
-    }
-
-    /**
-     * Unsupported property
-     */
-    get app() {
-        this._throw_unsupported('app()');
     }
 
     /**

@@ -1,3 +1,4 @@
+const Server = require('../Server.js'); // lgtm [js/unused-local-variable]
 const cookie = require('cookie');
 const signature = require('cookie-signature');
 const status_codes = require('../../constants/status_codes.json');
@@ -20,7 +21,6 @@ class Response {
     #upgrade_socket;
     #status_code;
     #headers;
-    #paused = false;
     #initiated = false;
     #completed = false;
     #type_written = false;
@@ -673,6 +673,15 @@ class Response {
     }
 
     /**
+     * Returns the HyperExpress.Server instance this Response object originated from.
+     *
+     * @returns {Server}
+     */
+    get app() {
+        return this.#master_context;
+    }
+
+    /**
      * Returns whether response has been initiated by writing the HTTP status code and headers.
      * Note! No changes can be made to the HTTP status code or headers after a response has been initiated.
      * @returns {Boolean}
@@ -735,13 +744,6 @@ class Response {
         throw new Error(
             `One of your middlewares or logic tried to call Response.${name} which is unsupported with HyperExpress.`
         );
-    }
-
-    /**
-     * Unsupported property
-     */
-    get app() {
-        this._throw_unsupported('app()');
     }
 
     /**
