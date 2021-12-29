@@ -28,6 +28,7 @@ Below is a breakdown of the `Server` object class generated while creating a new
 ### Server Instance Properties
 | Property  | Type     | Description                |
 | :-------- | :------- | :------------------------- |
+| `locals` | `Object` | Stores references local to this instance. |
 | `uws_instance` | `uWS` | Underlying uWebsockets TemplatedApp instance. |
 | `options` | `Object` | Constructor options for current instance. |
 | `routes` | `Object` | All routes created on current instance. |

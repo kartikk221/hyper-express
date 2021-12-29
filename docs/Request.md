@@ -4,6 +4,7 @@ Below is a breakdown of the `request` object made available through the route/mi
 #### Request Properties
 | Property  | Type     | Description                |
 | :-------- | :------- | :------------------------- |
+| `app` | `HyperExpress.Server`  | HyperExpress Server instance this `Request` originated from. |
 | `raw` | `uWS.Request`  | Underlying uWebsockets.js request object.|
 | `method` | `String`  | Request HTTP method in uppercase. |
 | `url` | `String`  | path + path_query string. |
