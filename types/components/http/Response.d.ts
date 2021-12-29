@@ -2,6 +2,7 @@ import * as uWebsockets from 'uWebSockets.js';
 import * as Stream from 'stream';
 import { UserRouteHandler } from '../router/Router';
 import LiveFile from '../plugins/LiveFile';
+import Server from '../Server';
 
 type SendableData = string | Buffer | ArrayBuffer;
 type FileCachePool = {
@@ -217,6 +218,13 @@ export default class Response {
      * @returns {uWebsockets.Response}
      */
     get raw(): uWebsockets.HttpResponse;
+
+    /**
+     * Returns the HyperExpress.Server instance this Response object originated from.
+     *
+     * @returns {Server}
+     */
+    get app(): Server;
 
     /**
      * Returns whether response has been initiated by writing the HTTP status code and headers.

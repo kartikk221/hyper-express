@@ -21,6 +21,11 @@ type GlobalNotFoundHandler = (request: Request, response: Response) => void;
 export default class Server extends Router {
     constructor(options?: ServerConstructorOptions)
 
+    /**
+     * This object can be used to store properties/references local to this Server instance.
+     */
+    locals: Object
+
     /* Server Methods */
 
     /**

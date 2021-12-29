@@ -1,10 +1,11 @@
 import * as uWebsockets from 'uWebSockets.js';
 import { BusboyConfig } from 'busboy';
-import MultipartField from '../plugins/MultipartField';
 import { Readable } from 'stream'
 import { ParamsDictionary } from 'express-serve-static-core';
 import { ParsedQs } from 'qs';
 import { Options, Ranges, Result } from 'range-parser';
+import MultipartField from '../plugins/MultipartField';
+import Server from '../Server';
 
 type default_value = any;
 type MultipartHandler = (field: MultipartField) => void | Promise<void>;
@@ -98,6 +99,13 @@ export default class Request {
      * Note! Utilizing any of uWS.Request's methods after initial synchronous call will throw a forbidden access error.
      */
     get raw(): uWebsockets.HttpRequest;
+
+    /**
+     * Returns the HyperExpress.Server instance this Request object originated from.
+     *
+     * @returns {Server}
+     */
+    get app(): Server;
 
     /**
      * Returns the underlying readable incoming body data stream for this request.
