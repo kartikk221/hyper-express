@@ -1,4 +1,4 @@
-const { log, async_wait } = require('./scripts/operators.js');
+const { log, async_wait, assert_log } = require('./scripts/operators.js');
 const { test_request_object } = require('./components/http/Request.js');
 const { test_response_object } = require('./components/http/Response.js');
 const { test_websocket_route } = require('./components/ws/WebsocketRoute.js');
@@ -11,12 +11,7 @@ const { TEST_SERVER } = require('./components/Server.js');
     try {
         // Initiate Test API Webserver
         await TEST_SERVER.listen(server.port, server.host);
-        log(
-            'TESTING',
-            `Successfully Started HyperExpress HTTP Server @ ${server.host}:${server.port}`
-        );
-
-        await async_wait(100);
+        log('TESTING', `Successfully Started HyperExpress HTTP Server @ ${server.host}:${server.port}`);
 
         // Test Request Object
         await test_request_object();

@@ -98,6 +98,7 @@ router.any(
 
         // Return all possible information about incoming request
         return response.json({
+            locals: request.app.locals,
             method: request.method,
             url: request.url,
             path: request.path,
@@ -225,6 +226,9 @@ async function test_request_object() {
 
     // Test simulated middleware iteration error
     await test_middleware_iteration_error();
+
+    // Verify .app.locals
+    assert_log(group, candidate + '.app.locals', () => body.locals.some_reference.some_data === true);
 
     // Verify .method
     assert_log(group, candidate + '.method', () => test_method === body.method);

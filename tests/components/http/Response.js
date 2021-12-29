@@ -20,6 +20,9 @@ const hook_invocations = [];
 router.post(endpoint, async (request, response) => {
     let body = await request.json();
 
+    // Validate response.app.locals
+    if (response.app.locals.some_reference.some_data !== true) throw new Error('Invalid Response App Locals Detected!');
+
     // Test hooks
     response.hook('abort', () => hook_invocations.push('abort'));
     response.hook('send', send_hook); // Test for function reference based hooks
@@ -85,18 +88,10 @@ async function test_response_object() {
     assert_log(group, candidate + '.status()', () => test_status_code === response1.status);
 
     // Verify .type()
-    assert_log(
-        group,
-        candidate + '.type()',
-        () => response1.headers.get('content-type') === 'text/html'
-    );
+    assert_log(group, candidate + '.type()', () => response1.headers.get('content-type') === 'text/html');
 
     // Verify .header()
-    assert_log(
-        group,
-        candidate + '.header()',
-        () => response1.headers.get(header_test_name) === header_test_value
-    );
+    assert_log(group, candidate + '.header()', () => response1.headers.get(header_test_name) === header_test_value);
 
     // Verify .cookie()
     assert_log(group, candidate + '.cookie() AND ' + candidate + '.delete_cookie()', () => {
