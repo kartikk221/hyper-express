@@ -9,7 +9,7 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
-        "autocannon": "^7.4.0",
+        "autocannon": "^7.5.1",
         "express": "^4.17.2",
         "fastify": "^3.25.0",
         "nanoexpress": "^5.1.2"
