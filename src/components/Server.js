@@ -398,15 +398,8 @@ class Server extends Router {
             }
         }
 
-        // Wrap middlewares & route handler in a promise/try/catch to catch async/sync errors
-        return new Promise((resolve, reject) => {
-            try {
-                // Call middleware chaining method and pass handler/socket
-                resolve(route.app._chain_middlewares(route, wrapped_request, wrapped_response));
-            } catch (error) {
-                reject(error);
-            }
-        }).catch((error) => route.app.handlers.on_error(wrapped_request, wrapped_response, error));
+        // Chain incoming request/response through all global/local/route-specific middlewares
+        route.app._chain_middlewares(route, wrapped_request, wrapped_response);
     }
 
     /**
