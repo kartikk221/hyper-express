@@ -1,4 +1,5 @@
 import * as uWebsockets from 'uWebSockets.js';
+import { SendableData } from './http/Response';
 import Request from './http/Request';
 import Response from './http/Response';
 import Router from './router/Router'
@@ -59,6 +60,17 @@ export default class Server extends Router {
      * @param {GlobalNotFoundHandler} handler
      */
     set_not_found_handler(handler: GlobalNotFoundHandler): void;
+
+    /**
+     * Publish a message to a topic in MQTT syntax to all WebSocket connections on this Server instance.
+     * You cannot publish using wildcards, only fully specified topics.
+     *
+     * @param {String} topic
+     * @param {String|Buffer|ArrayBuffer} message
+     * @param {Boolean=} is_binary
+     * @param {Boolean=} compress
+     */
+    publish(topic: string, message: SendableData, is_binary?: boolean, compress?: boolean): boolean;
 
     /* Server Properties */
 
