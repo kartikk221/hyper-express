@@ -53,3 +53,4 @@ Below is a breakdown of the `Server` object class generated while creating a new
     * **Alias Methods:** `get()`, `post()`, `put()`, `delete()`, `head()`, `options()`, `patch()`, `trace()`, `connect()`, `upgrade()`, `ws()`.
     * **See** [`> [Router]`](./Router.md) for full documentation on this method.
     * **See** [`> [Websocket]`](./Websocket.md) for usage documentation on the `upgrade()` and `ws()` alias method.
+* `publish(String: topic, String|Buffer|ArrayBuffer: message, Boolean: is_binary, Boolean: compress)`: Publishes the specified message to the specified topic in **MQTT syntax** to all WebSocket connections on this Server instance.
