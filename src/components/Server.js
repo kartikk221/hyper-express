@@ -165,6 +165,19 @@ class Server extends Router {
         throw new Error('HyperExpress: A Not Found handler has already been registered.');
     }
 
+    /**
+     * Publish a message to a topic in MQTT syntax to all WebSocket connections on this Server instance.
+     * You cannot publish using wildcards, only fully specified topics.
+     *
+     * @param {String} topic
+     * @param {String|Buffer|ArrayBuffer} message
+     * @param {Boolean=} is_binary
+     * @param {Boolean=} compress
+     */
+    publish(topic, message, is_binary, compress) {
+        return this.#uws_instance.publish(topic, message, is_binary, compress);
+    }
+
     /* Server Routes & Middlewares Logic */
 
     #middlewares = {
