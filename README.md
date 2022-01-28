@@ -27,6 +27,23 @@ Some of the prominent features implemented are:
 - ExpressJS API Compatibility Through Shared Methods/Properties
 - TypeScript Types Support
 
+## Documentation
+HyperExpress requires Node.js version 14+ and can be installed using Node Package Manager (`npm`).
+```
+npm i hyper-express
+```
+
+- See [`> [Examples & Snippets]`](./docs/Examples.md) for small and **easy-to-use snippets** with HyperExpress.
+- See [`> [Server]`](./docs/Server.md) for creating a webserver and working with the **Server** component.
+- See [`> [Middlewares]`](./docs/Middlewares.md) for working with global and route-specific **Middlewares** in HyperExpress.
+- See [`> [Router]`](./docs/Router.md) for working with the modular **Router** component.
+- See [`> [Request]`](./docs/Request.md) for working with the **Request** component made available through handlers.
+- See [`> [Response]`](./docs/Response.md) for working with the **Response** component made available through handlers.
+- See [`> [MultipartField]`](./docs/MultipartField.md) for working with multipart requests and **File Uploading** in HyperExpress.
+- See [`> [Websocket]`](./docs/Websocket.md) for working with **Websockets** in HyperExpress.
+- See [`> [SessionEngine]`](https://github.com/kartikk221/hyper-express-session) for working with cookie based web **Sessions** in HyperExpress.
+- See [`> [LiveDirectory]`](./docs/LiveDirectory.md) for implementing **static file/asset** serving functionality into HyperExpress.
+
 ## What's Different?
 While there may be other uWebsockets.js based packages available, HyperExpress differentiates itself in the following ways:
 - Instantaneous Request Handling
@@ -39,26 +56,6 @@ While there may be other uWebsockets.js based packages available, HyperExpress d
     - Whether you decide to develop on your own fork or expand upon HyperExpress through middlewares, You will be greeted with a concise codebase with descriptive logic comments and JSDoc types that allow for high maintainability.
 - MIT License
     - Some other webserver packages are released under more restrictive licenses and often provide paid "performance efficient" versions of their package. HyperExpress is provided with a flexible MIT licence in which you are free to expand upon the package as you desire while also being able to take advantage of the efficient and maintainable codebase at no cost.
-
-## Installation
-HyperExpress can be installed using node package manager (`npm`)
-```
-npm i hyper-express
-```
-
-HyperExpress requires Node.js version 14+
-
-## Documentation
-- See [`> [Examples & Snippets]`](./docs/Examples.md) for small and **easy-to-use snippets** with HyperExpress.
-- See [`> [Server]`](./docs/Server.md) for creating a webserver and working with the **Server** component.
-- See [`> [Middlewares]`](./docs/Middlewares.md) for working with global and route-specific **Middlewares** in HyperExpress.
-- See [`> [Router]`](./docs/Router.md) for working with the modular **Router** component.
-- See [`> [Request]`](./docs/Request.md) for working with the **Request** component made available through handlers.
-- See [`> [Response]`](./docs/Response.md) for working with the **Response** component made available through handlers.
-- See [`> [MultipartField]`](./docs/MultipartField.md) for working with multipart requests and **File Uploading** in HyperExpress.
-- See [`> [Websocket]`](./docs/Websocket.md) for working with **Websockets** in HyperExpress.
-- See [`> [SessionEngine]`](https://github.com/kartikk221/hyper-express-session) for working with cookie based web **Sessions** in HyperExpress.
-- See [`> [LiveDirectory]`](./docs/LiveDirectory.md) for implementing **static file/asset** serving functionality into HyperExpress.
 
 ## Benchmarks
 Below benchmark results were derived using the **[autocannon](https://www.npmjs.com/package/autocannon)** HTTP benchmarking utility. The benchmark source code is included in this repository in the benchmarks folder.
@@ -81,11 +78,11 @@ autocannon -c 2500 -d 30 -p 4 http://HOST:PORT/benchmark
 
 |                          | Version | Requests/s | Latency | Throughput/s |
 | :--                      | --:     | :-:        | --:     | --:          |
-| uWebsockets.js           | 20.0.0  | 196,721    | 435 ms  | 106 Mb/s     |
-| HyperExpress             | 5.0.2   | 196,833    | 413 ms  | 106 Mb/s     |
-| nanoexpress              | 5.1.1   | 195,728    | 423 ms  | 106 Mb/s     |
-| Fastify                  | 3.22.0  | 40,898     | 565 ms  | 25 Mb/s      |
-| Express                  | 4.17.1  | 5,791      | 1740 ms | 3.8 Mb/s     |
+| uWebsockets.js           | 20.0.0  | 197,223    | 441 ms  | 106 Mb/s     |
+| HyperExpress             | 5.7.0   | 195,413    | 411 ms  | 106 Mb/s     |
+| nanoexpress              | 5.1.1   | 196,828    | 421 ms  | 106 Mb/s     |
+| Fastify                  | 3.22.0  | 42,332     | 571 ms  | 26 Mb/s      |
+| Express                  | 4.17.1  | 5,922      | 1860 ms | 3.9 Mb/s     |
 
 ## Testing Changes
 To run HyperExpress functionality tests locally on your machine, you must follow the steps below.
