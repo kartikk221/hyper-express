@@ -30,7 +30,6 @@ Below is a breakdown of the `Server` object class generated while creating a new
 | :-------- | :------- | :------------------------- |
 | `locals` | `Object` | Stores references local to this instance. |
 | `uws_instance` | `uWS` | Underlying uWebsockets TemplatedApp instance. |
-| `options` | `Object` | Constructor options for current instance. |
 | `routes` | `Object` | All routes created on current instance. |
 | `middlewares` | `Object` | All non route specific midddlewares on current instance. |
 | `handlers` | `Object` | Global handlers for current instance. |

@@ -1,3 +1,4 @@
 {
-    "port_range_start": 8081
+    "port_start": 8081,
+    "multi_core": true
 }

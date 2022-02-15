@@ -377,10 +377,10 @@ class Server extends Router {
             // Check incoming content-length to ensure it is within max_body_length bounds
             // Abort request with a 413 Payload Too Large status code
             const content_length = +wrapped_request.headers['content-length'];
-            const max_body_length = route.options.max_body_length || route.app.options.max_body_length;
+            const max_body_length = route.options.max_body_length || route.app._options.max_body_length;
             if (!isNaN(content_length) && content_length > max_body_length) {
                 // Use fast abort scheme if specified
-                if (route.app.options.fast_abort === true) return response.close();
+                if (route.app._options.fast_abort === true) return response.close();
 
                 // According to uWebsockets developer, we have to drain incoming data before aborting and closing request
                 // Prematurely closing request with a 413 leads to an ECONNRESET in which we lose 413 error from server
@@ -491,7 +491,7 @@ class Server extends Router {
      * Server instance options.
      * @returns {Object}
      */
-    get options() {
+    get _options() {
         return this.#options;
     }
 
