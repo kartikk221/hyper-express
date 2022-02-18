@@ -1,5 +1,5 @@
 import * as FileSystem from 'fs';
-import * as EventEmitter from 'events';
+import { EventEmitter} from 'events';
 
 interface LiveFileOptions {
     path: string,
