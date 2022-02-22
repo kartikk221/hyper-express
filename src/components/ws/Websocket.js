@@ -32,8 +32,7 @@ class Websocket extends EventEmitter {
      * @returns {Websocket}
      */
     atomic(callback) {
-        if (this.#ws) this.#ws.cork(callback);
-        return this;
+        return this.#ws ? this.#ws.cork(callback) : this;
     }
 
     /**
@@ -61,7 +60,7 @@ class Websocket extends EventEmitter {
      */
     ping(message) {
         // Send ping OPCODE message through uWS connection
-        if (this.#ws) this.#ws.ping(message);
+        return this.#ws ? this.#ws.ping(message) : false;
     }
 
     /**
@@ -100,8 +99,7 @@ class Websocket extends EventEmitter {
      * @returns {Boolean}
      */
     is_subscribed(topic) {
-        if (this.#ws) return this.#ws.isSubscribed(topic);
-        return false;
+        return this.#ws ? this.#ws.isSubscribed(topic) : false;
     }
 
     /**
@@ -112,8 +110,7 @@ class Websocket extends EventEmitter {
      * @returns {Boolean}
      */
     subscribe(topic) {
-        if (this.#ws) return this.#ws.subscribe(topic);
-        return false;
+        return this.#ws ? this.#ws.subscribe(topic) : false;
     }
 
     /**
@@ -124,8 +121,7 @@ class Websocket extends EventEmitter {
      * @returns {Boolean}
      */
     unsubscribe(topic) {
-        if (this.#ws) return this.#ws.unsubscribe(topic);
-        return false;
+        return this.#ws ? this.#ws.unsubscribe(topic) : false;
     }
 
     /**
@@ -138,8 +134,7 @@ class Websocket extends EventEmitter {
      * @param {Boolean=} compress
      */
     publish(topic, message, is_binary, compress) {
-        if (this.#ws) return this.#ws.publish(topic, message, is_binary, compress);
-        return false;
+        return this.#ws ? this.#ws.publish(topic, message, is_binary, compress) : false;
     }
 
     #buffered_fragment;
@@ -181,9 +176,7 @@ class Websocket extends EventEmitter {
                     sent = this.#ws.sendLastFragment(chunk, is_binary, compress);
                     break;
                 default:
-                    throw new Error(
-                        'Websocket._write() -> Invalid Fragment type constant provided.'
-                    );
+                    throw new Error('Websocket._write() -> Invalid Fragment type constant provided.');
             }
 
             if (sent) {
@@ -263,12 +256,7 @@ class Websocket extends EventEmitter {
                 // Check to see if we have a fragment to send post buffering
                 if (fragment) {
                     // Stream the retrieved current fragment
-                    scope._stream_chunk(
-                        readable,
-                        is_first ? FRAGMENTS.FIRST : FRAGMENTS.MIDDLE,
-                        fragment,
-                        is_binary
-                    );
+                    scope._stream_chunk(readable, is_first ? FRAGMENTS.FIRST : FRAGMENTS.MIDDLE, fragment, is_binary);
 
                     // Invert the is_first boolean after fragment
                     if (is_first) is_first = false;
@@ -330,17 +318,15 @@ class Websocket extends EventEmitter {
      * @returns {Number}
      */
     get buffered() {
-        if (this.#ws) return this.#ws.getBufferedAmount();
-        return 0;
+        return this.#ws ? this.#ws.getBufferedAmount() : 0;
     }
 
     /**
      * Returns a list of topics this websocket is subscribed to.
-     * @returns {Array.<String>}
+     * @returns {Array<String>}
      */
     get topics() {
-        if (this.#ws) return this.#ws.getTopics();
-        return [];
+        return this.#ws ? this.#ws.getTopics() : [];
     }
 
     /**
@@ -367,13 +353,7 @@ class Websocket extends EventEmitter {
                 // Check to see if we have a fragment to send post buffering
                 if (fragment) {
                     // Write the current retrieved fragment
-                    scope._write(
-                        is_first ? FRAGMENTS.FIRST : FRAGMENTS.MIDDLE,
-                        fragment,
-                        true,
-                        false,
-                        callback
-                    );
+                    scope._write(is_first ? FRAGMENTS.FIRST : FRAGMENTS.MIDDLE, fragment, true, false, callback);
 
                     // Invert the is_first boolean after first fragment
                     if (is_first) is_first = false;
