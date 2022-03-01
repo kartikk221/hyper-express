@@ -146,9 +146,9 @@ export default class Request {
 
     /**
      * Returns request headers from incoming request.
-     * @returns {Record<string, unknown>}
+     * @returns {Record<string, string>}
      */
-    get headers(): Record<string, unknown>;
+    get headers(): Record<string, string>;
 
     /**
      * Returns cookies from incoming request.
@@ -158,9 +158,9 @@ export default class Request {
 
     /**
      * Returns path parameters from incoming request in Object form {key: value}
-     * @returns {Record<string, unknown>}
+     * @returns {Record<string, string>}
      */
-    get path_parameters(): Record<string, unknown>;
+    get path_parameters(): Record<string, string>;
 
     /**
      * Returns query parameters from incoming request in Object form {key: value}
