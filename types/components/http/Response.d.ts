@@ -1,7 +1,7 @@
-import * as uWebsockets from 'uWebSockets.js';
 import * as Stream from 'stream';
-import { UserRouteHandler } from '../router/Router';
+import * as uWebsockets from 'uWebSockets.js';
 import LiveFile from '../plugins/LiveFile';
+import { UserRouteHandler } from '../router/Router';
 import Server from '../Server';
 
 type SendableData = string | Buffer | ArrayBuffer;
@@ -153,7 +153,7 @@ export default class Response {
      * @param {Object} body JSON body
      * @returns {Boolean} Boolean
      */
-    json(body: Object): boolean;
+    json(body: any): boolean;
 
     /**
      * This method is an alias of send() method except it accepts an object
@@ -164,7 +164,7 @@ export default class Response {
      * @param {String=} name
      * @returns {Boolean} Boolean
      */
-    jsonp(body: Object, name?: string): boolean;
+    jsonp(body: any, name?: string): boolean;
 
     /**
      * This method is an alias of send() method except it automatically sets
@@ -213,10 +213,10 @@ export default class Response {
 
     /* HyperExpress Response Properties */
 
-     /**
-     * Returns the underlying raw uWS.Response object.
-     * @returns {uWebsockets.Response}
-     */
+    /**
+    * Returns the underlying raw uWS.Response object.
+    * @returns {uWebsockets.Response}
+    */
     get raw(): uWebsockets.HttpResponse;
 
     /**
