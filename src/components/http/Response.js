@@ -458,15 +458,26 @@ class Response {
                 // Bind a drain handler which gets called with a byte offset that can be used to try a failed chunk write
                 const reference = this;
                 this.drain((offset) => {
-                    // Retry the sliced chunk based on the drained offset - last offset
+                    // Retry writing the sliced chunk based on the drained offset - last offset
                     const sliced = chunk.slice(offset - last_offset);
-                    const retried = reference.#raw_response.write(sliced);
+                    if (total_size) {
+                        // Attempt to stream the current chunk using uWS.tryEnd with a total size
+                        const [ok, done] = reference.#raw_response.tryEnd(sliced, total_size);
+                        sent = ok;
+                        finished = done;
+                    } else {
+                        // Attempt to stream the current chunk uWS.write()
+                        sent = reference.#raw_response.write(sliced);
+
+                        // Since we are streaming without a total size, we are not finished
+                        finished = false;
+                    }
 
                     // Resume stream once this chunk has been successfully retried
-                    if (retried) stream.resume();
+                    if (sent) stream.resume();
 
                     // We must return a boolean to indicate whether the chunk was successfully written or not to uWS
-                    return retried;
+                    return sent;
                 });
             }
         }
