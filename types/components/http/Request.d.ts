@@ -164,9 +164,9 @@ export default class Request {
 
     /**
      * Returns query parameters from incoming request in Object form {key: value}
-     * @returns {Record<string, unknown>}
+     * @returns {Record<string, string>}
      */
-    get query_parameters(): Record<string, unknown>;
+    get query_parameters(): Record<string, string>;
 
     /**
      * Returns remote IP address in string format from incoming request.
