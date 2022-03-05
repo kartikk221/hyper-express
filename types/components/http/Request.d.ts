@@ -1,9 +1,9 @@
-import * as uWebsockets from 'uWebSockets.js';
 import { BusboyConfig } from 'busboy';
-import { Readable } from 'stream'
 import { ParamsDictionary } from 'express-serve-static-core';
 import { ParsedQs } from 'qs';
 import { Options, Ranges, Result } from 'range-parser';
+import { Readable } from 'stream';
+import * as uWebsockets from 'uWebSockets.js';
 import MultipartField from '../plugins/MultipartField';
 import Server from '../Server';
 
@@ -66,14 +66,14 @@ export default class Request {
      * @param {Any} default_value Default: {}
      * @returns {Promise} Promise
      */
-    json(default_value?: default_value): Promise<Object|default_value>;
+    json<T = any, D = any>(default_value?: D): Promise<T | D>;
 
     /**
      * Parses and resolves an Object of urlencoded values from body.
      *
      * @returns {Promise} Promise
      */
-    urlencoded(): Promise<Object>;
+    urlencoded<T = any>(): Promise<T>;
 
     /**
      * Parses incoming multipart form and allows for easy consumption of fields/values including files.
@@ -81,8 +81,8 @@ export default class Request {
      * @param {MultipartHandler} handler
      * @returns {Promise<void|String|Error>} A promise which is resolved once all multipart fields have been processed
      */
-    multipart(handler: MultipartHandler): Promise<MultipartLimitReject|Error>;
-    
+    multipart(handler: MultipartHandler): Promise<MultipartLimitReject | Error>;
+
     /**
      * Parses incoming multipart form and allows for easy consumption of fields/values including files.
      *
@@ -90,7 +90,7 @@ export default class Request {
      * @param {MultipartHandler} handler
      * @returns {Promise<void|MultipartLimitReject|Error>} A promise which is resolved once all multipart fields have been processed
      */
-    multipart(options: BusboyConfig, handler: MultipartHandler): Promise<MultipartLimitReject|Error>;
+    multipart(options: BusboyConfig, handler: MultipartHandler): Promise<MultipartLimitReject | Error>;
 
     /* HyperExpress Request Properties */
 
@@ -146,9 +146,9 @@ export default class Request {
 
     /**
      * Returns request headers from incoming request.
-     * @returns {Object}
+     * @returns {Record<string, string>}
      */
-    get headers(): Record<string, unknown>;
+    get headers(): Record<string, string>;
 
     /**
      * Returns cookies from incoming request.
@@ -158,15 +158,15 @@ export default class Request {
 
     /**
      * Returns path parameters from incoming request in Object form {key: value}
-     * @returns {Record<string, unknown>}
+     * @returns {Record<string, string>}
      */
-    get path_parameters(): Object;
+    get path_parameters(): Record<string, string>;
 
     /**
      * Returns query parameters from incoming request in Object form {key: value}
-     * @returns {Record<string, unknown>}
+     * @returns {Record<string, string>}
      */
-    get query_parameters(): Object;
+    get query_parameters(): Record<string, string>;
 
     /**
      * Returns remote IP address in string format from incoming request.
