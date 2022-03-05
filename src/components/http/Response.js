@@ -326,27 +326,17 @@ class Response {
     /**
      * Binds a drain handler which gets called with a byte offset that can be used to try a failed chunk write.
      * You MUST perform a write call inside the handler for uWS chunking to work properly.
+     * Be sure to return a Boolean value signifying whether the write was successful or not.
      *
-     * @param {Function} handler Synchronous callback only
+     * @param {function(number):boolean} handler Drain handler
      */
     drain(handler) {
         // Ensure handler is a function type
         if (typeof handler !== 'function')
             throw new Error('HyperExpress.Response.drain(handler) -> handler must be a Function.');
 
-        // Create a onWritable listener with provided handler
-        const reference = this;
-        this.#raw_response.onWritable((offset) => {
-            // Store the drained write offset so we write a sliced chunk in the future with write()
-            reference.#drained_write_offset = offset;
-
-            // Execute user handler so they perform a write call
-            handler();
-
-            // Return the last write result as the user should have executed a write call in the handler above
-            // This boolean return is required by the uWS.Response.onWritable method. See documentation.
-            return reference.#last_write_result;
-        });
+        // Bind a writable handler with a fallback return value to true as uWS expects a Boolean
+        this.#raw_response.onWritable((offset) => handler(offset) || true);
     }
 
     /**
@@ -359,46 +349,40 @@ class Response {
      * @returns {Boolean} 'false' signifies that the chunk was not sent due to built up backpressure.
      */
     write(chunk, encoding, callback) {
-        // Ensure response has not been completed
+        // Ensure the client is still connected and request is pending
         if (!this.#completed) {
-            // Ensure response has been initiated before writing chunk
+            // Ensure response has been initiated before writing any chunks
             this._initiate_response();
 
-            // Store the last write offest, so we can use this as a base value for getting sliced chunk for retries
-            this.#last_write_offset = this.#raw_response.getWriteOffset();
+            // Attempt to write the chunk to the client
+            const last_offset = this.#raw_response.getWriteOffset();
+            const written = this.#raw_response.write(chunk);
 
-            // See if we have a drained write offset which we must account for by slicing the passed chunk
-            if (this.#drained_write_offset) {
-                // Write a partially sliced chunk accounting for drained write offset
-                this.#last_write_result = this.#raw_response.write(
-                    chunk.slice(this.#drained_write_offset - this.#last_write_offset)
-                );
+            if (written) {
+                // If chunk write was a success, we can move onto consuming the next chunk
+                if (callback) callback();
 
-                // Unset the drained write offset if we had a successful partial chunk write
-                if (this.#last_write_result) this.#drained_write_offset = undefined;
-            } else {
-                // Write the full chunk from the parameter as we have no backpressure yet
-                this.#last_write_result = this.#raw_response.write(chunk);
+                // Return true here to signify that this chunk was written successfully
+                return true;
+            } else if (callback) {
+                // Wait for backpressure to be drained before attempting to write the chunk again
+                const reference = this;
+                return this.drain((offset) => {
+                    // Retry the sliced chunk based on the drained offset - last offset
+                    const sliced = chunk.slice(offset - last_offset);
+                    const retried = reference.#raw_response.write(sliced);
+
+                    // Only call the callback to consume more chunks we are able to successfully retry this chunk
+                    if (retried) callback();
+
+                    // We must return a boolean to indicate whether the chunk was successfully written or not to uWS
+                    return retried;
+                });
             }
-
-            // Determine if a callback is provided and we should do internal backpressure retries
-            if (callback) {
-                // If write was successful, simply call the callback alerting consumer to write more chunks
-                if (this.#last_write_result) {
-                    callback();
-                } else {
-                    // Wait for backpressure to drain and retry writing of this chunk
-                    this.drain(() => this.write(chunk, encoding, callback));
-                }
-            }
-
-            // Return the write result boolean for synchronous consumer
-            return this.#last_write_result;
         }
 
         // Trigger callback with an error if a write() is performed after response has completed
         if (callback) callback(new Error('Response is already completed/aborted'));
-
         return false;
     }
 
@@ -443,48 +427,49 @@ class Response {
      * @param {Readable} stream
      * @param {Buffer} chunk
      * @param {Number=} total_size
-     * @returns {Boolean} whether the chunk was sent or not due to backpressure
      */
     _stream_chunk(stream, chunk, total_size) {
-        // Break execution if request is completed or aborted
-        if (this.#completed) return;
+        // Ensure the client is still connected and request is pending
+        if (!this.#completed) {
+            // Attempt to stream the chunk using appropriate uWS.Response chunk serving method
+            // This will depend on whether a total_size is specified or not
+            let sent, finished;
+            let last_offset = this.#raw_response.getWriteOffset();
+            if (total_size) {
+                // Attempt to stream the current chunk using uWS.tryEnd with a total size
+                const [ok, done] = this.#raw_response.tryEnd(chunk, total_size);
+                sent = ok;
+                finished = done;
+            } else {
+                // Attempt to stream the current chunk uWS.write()
+                sent = this.#raw_response.write(chunk);
 
-        // Attempt to stream the chunk using appropriate uWS.Response chunk serving method
-        let sent, finished;
-        let last_offset = this.#raw_response.getWriteOffset();
-        if (total_size) {
-            // Attempt to stream the current chunk using uWS.tryEnd with a total_size for content-length header
-            const [ok, done] = this.#raw_response.tryEnd(chunk, total_size);
-            sent = ok;
-            finished = done;
-        } else {
-            // Attempt to stream the current chunk uWS.write()
-            sent = this.#raw_response.write(chunk);
+                // Since we are streaming without a total size, we are not finished
+                finished = false;
+            }
 
-            // Mark finished as false as this response must be ended with an empty send() call
-            finished = false;
+            if (finished) {
+                // If streaming has finished, we can destroy the readable stream just to be safe
+                if (!stream.destroyed) stream.destroy();
+            } else if (!sent) {
+                // Pause the readable stream to prevent any further data from being read
+                stream.pause();
+
+                // Bind a drain handler which gets called with a byte offset that can be used to try a failed chunk write
+                const reference = this;
+                this.drain((offset) => {
+                    // Retry the sliced chunk based on the drained offset - last offset
+                    const sliced = chunk.slice(offset - last_offset);
+                    const retried = reference.#raw_response.write(sliced);
+
+                    // Resume stream once this chunk has been successfully retried
+                    if (retried) stream.resume();
+
+                    // We must return a boolean to indicate whether the chunk was successfully written or not to uWS
+                    return retried;
+                });
+            }
         }
-
-        // If streaming has finished, then destroy our readable stream
-        if (finished) {
-            stream.destroy();
-        } else if (!sent) {
-            // Pause the readable stream as we could not fully send this chunk
-            stream.pause();
-
-            // Bind a uWS handler which waits for this response to be writable again
-            const reference = this;
-            this.#raw_response.onWritable((offset) => {
-                // Retry streaming the remaining slice of the failed chunk
-                const remaining = chunk.slice(offset - last_offset);
-                return reference._stream_chunk(stream, remaining, total_size);
-            });
-        } else if (stream.isPaused()) {
-            // Resume stream if it has been paused from a previously failed chunk
-            stream.resume();
-        }
-
-        return sent;
     }
 
     /**
