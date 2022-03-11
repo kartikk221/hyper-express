@@ -74,15 +74,18 @@ class Server extends Router {
      *
      * @param {Number} port
      * @param {String=} host Optional. Default: 0.0.0.0
+     * @param {Boolean=} handleExitEvents Optional. Default: true
      * @returns {Promise} Promise
      */
-    listen(port, host = '0.0.0.0') {
+    listen(port, host = '0.0.0.0', handleExitEvents = true) {
         const reference = this;
         return new Promise((resolve, reject) =>
             reference.#uws_instance.listen(host, port, (listen_socket) => {
                 if (listen_socket) {
                     reference.#listen_socket = listen_socket;
-                    reference._bind_exit_handler();
+                    if (handleExitEvents) {
+                        reference._bind_exit_handler();
+                    }
                     resolve(listen_socket);
                 } else {
                     reject('No Socket Received From uWebsockets.js');

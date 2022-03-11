@@ -34,9 +34,10 @@ export default class Server extends Router {
      *
      * @param {Number} port
      * @param {String=} host Optional. Default: 0.0.0.0
+     * @param {Boolean=} handleExitEvents Optional. Default: true
      * @returns {Promise} Promise
      */
-    listen(port: number, host?: string): Promise<uWebsockets.us_listen_socket|string>;
+    listen(port: number, host?: string, handleExitEvents?: boolean): Promise<uWebsockets.us_listen_socket|string>;
 
     /**
      * Stops/Closes HyperExpress webserver instance.
