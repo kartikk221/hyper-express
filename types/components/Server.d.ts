@@ -13,7 +13,8 @@ interface ServerConstructorOptions {
     fast_buffers?: boolean,
     fast_abort?: boolean,
     trust_proxy?: boolean,
-    max_body_length?: number
+    max_body_length?: number,
+    auto_close?: boolean
 }
 
 type GlobalErrorHandler = (request: Request, response: Response, error: Error) => void;
