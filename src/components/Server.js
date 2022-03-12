@@ -30,7 +30,7 @@ class Server extends Router {
      * @param {Boolean} options.fast_abort Determines whether HyperExpress will abrubptly close bad requests. This can be much faster but the client does not receive an HTTP status code as it is a premature connection closure.
      * @param {Boolean} options.trust_proxy Specifies whether to trust incoming request data from intermediate proxy(s)
      * @param {Number} options.max_body_length Maximum body content length allowed in bytes. For Reference: 1kb = 1000 bytes and 1mb = 1000kb.
-     * @param {Boolean} options.auto_close If the server should be closed when a termination signal is received.
+     * @param {Boolean} options.auto_close Whether to automatically close the server instance when the process exits. Default: true
      */
     constructor(options = {}) {
         // Only accept object as a parameter type for options
@@ -62,7 +62,7 @@ class Server extends Router {
 
     /**
      * @private
-     * This method binds a cleanup handler which closes the uWS server based on listen socket.
+     * This method binds a cleanup handler which automatically closes this Server instance.
      */
     _bind_auto_close() {
         const reference = this;
@@ -83,10 +83,9 @@ class Server extends Router {
         return new Promise((resolve, reject) =>
             reference.#uws_instance.listen(host, port, (listen_socket) => {
                 if (listen_socket) {
+                    // Store the listen socket for future closure & bind the auto close handler if enabled from constructor options
                     reference.#listen_socket = listen_socket;
-                    if (this.#options.auto_close) {
-                        reference._bind_auto_close();
-                    }
+                    if (reference.#options.auto_close) reference._bind_auto_close();
                     resolve(listen_socket);
                 } else {
                     reject('No Socket Received From uWebsockets.js');
