@@ -16,6 +16,7 @@ class Server extends Router {
         fast_abort: false,
         is_ssl: false,
         max_body_length: 250 * 1000,
+        auto_close: true,
     };
 
     /**
@@ -29,6 +30,7 @@ class Server extends Router {
      * @param {Boolean} options.fast_abort Determines whether HyperExpress will abrubptly close bad requests. This can be much faster but the client does not receive an HTTP status code as it is a premature connection closure.
      * @param {Boolean} options.trust_proxy Specifies whether to trust incoming request data from intermediate proxy(s)
      * @param {Number} options.max_body_length Maximum body content length allowed in bytes. For Reference: 1kb = 1000 bytes and 1mb = 1000kb.
+     * @param {Boolean} options.auto_close If the server should be closed when a termination signal is received.
      */
     constructor(options = {}) {
         // Only accept object as a parameter type for options
@@ -62,7 +64,7 @@ class Server extends Router {
      * @private
      * This method binds a cleanup handler which closes the uWS server based on listen socket.
      */
-    _bind_exit_handler() {
+    _bind_auto_close() {
         const reference = this;
         ['exit', 'SIGINT', 'SIGUSR1', 'SIGUSR2', 'SIGTERM'].forEach((type) =>
             process.once(type, () => reference.close())
@@ -74,17 +76,16 @@ class Server extends Router {
      *
      * @param {Number} port
      * @param {String=} host Optional. Default: 0.0.0.0
-     * @param {Boolean=} handleExitEvents Optional. Default: true
      * @returns {Promise} Promise
      */
-    listen(port, host = '0.0.0.0', handleExitEvents = true) {
+    listen(port, host = '0.0.0.0') {
         const reference = this;
         return new Promise((resolve, reject) =>
             reference.#uws_instance.listen(host, port, (listen_socket) => {
                 if (listen_socket) {
                     reference.#listen_socket = listen_socket;
-                    if (handleExitEvents) {
-                        reference._bind_exit_handler();
+                    if (this.#options.auto_close) {
+                        reference._bind_auto_close();
                     }
                     resolve(listen_socket);
                 } else {
