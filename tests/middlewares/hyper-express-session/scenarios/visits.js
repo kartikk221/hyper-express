@@ -68,8 +68,7 @@ async function test_visits_scenario() {
         if (value == 0) {
             assert_log(group, `${candidate} VISITS_TEST @ ${value}`, () => {
                 let visits_test = Object.keys(body.session).length == 0;
-                let store_test =
-                    body.store[body.session_id] == undefined && Object.keys(body.store).length == 0;
+                let store_test = body.store[body.session_id] == undefined && Object.keys(body.store).length == 0;
                 return visits_test && store_test;
             });
         } else if (value == 1) {
@@ -85,7 +84,7 @@ async function test_visits_scenario() {
                 let store_test = session_object?.data?.visits === value;
 
                 let touch_test = value < 3;
-                if (!touch_test && session_object.expiry > session_expiry) touch_test = true;
+                if (!touch_test && session_object.expiry >= session_expiry) touch_test = true;
 
                 session_expiry = session_object.expiry;
                 return visits_test && store_test && touch_test;
