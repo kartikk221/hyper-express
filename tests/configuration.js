@@ -1,11 +1,13 @@
 const fetch = require('node-fetch');
 const Websocket = require('ws');
+const EventSource = require('eventsource');
 const HyperExpress = require('../index.js');
 const AbortController = require('abort-controller');
 
 module.exports = {
     fetch,
     Websocket,
+    EventSource,
     HyperExpress,
     AbortController,
     server: {

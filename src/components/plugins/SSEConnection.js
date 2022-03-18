@@ -1,23 +1,9 @@
 class SSEConnection {
-    #id = 0;
     #response;
 
     constructor(response) {
         // Store the response object locally
         this.#response = response;
-    }
-
-    /**
-     * Returns an incremented identifier unique to this connection.
-     * Note! This method will automatically wrap the incremented identifier back to 0 if it exceeds the maximum safe value.
-     *
-     * @private
-     * @returns {Number}
-     */
-    _get_id() {
-        this.#id++;
-        if (this.#id >= Number.MAX_SAFE_INTEGER) this.#id = 0;
-        return this.#id;
     }
 
     /**
@@ -78,18 +64,18 @@ class SSEConnection {
      */
     send(id, event, data) {
         // Parse arguments into overloaded parameter translations
-        id = id && event && data ? id : this._get_id();
-        event = id && event ? id || event : undefined;
-        data = data || event || id;
+        const _id = id && event && data ? id : undefined;
+        const _event = id && event ? (_id ? event : id) : undefined;
+        const _data = data || event || id;
 
         // Build message parts to prepare a payload
         const parts = [];
-        if (id) parts.push(`id: ${id}`);
-        if (event) parts.push(`event: ${event}`);
-        if (data) parts.push(`data: ${data}`);
+        if (_id) parts.push(`id: ${_id}`);
+        if (_event) parts.push(`event: ${_event}`);
+        if (_data) parts.push(`data: ${_data}`);
 
         // Push an empty line to indicate the end of the message
-        parts.push('');
+        parts.push('', '');
 
         // Ensure the proper SSE headers are written
         this._write_sse_headers();

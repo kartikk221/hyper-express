@@ -726,7 +726,7 @@ class Response {
         // Return a new SSE instance if one has not been created yet
         if (this.#wrapped_request.method === 'GET') {
             // Create new SSE instance if one has not been created yet
-            if (!this.#sse) this.#sse = new SSEConnection(this);
+            if (this.#sse === undefined) this.#sse = new SSEConnection(this);
             return this.#sse;
         }
     }

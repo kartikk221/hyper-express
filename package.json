@@ -41,6 +41,7 @@
         "busboy": "^1.0.0",
         "cookie": "^0.4.1",
         "cookie-signature": "^1.1.0",
+        "eventsource": "^2.0.0",
         "mime-types": "^2.1.33",
         "query-string": "^7.0.1",
         "range-parser": "^1.2.1",
