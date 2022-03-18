@@ -18,7 +18,6 @@ async function test_livefile_object() {
 
     // Read the test file into memory
     const test_file_string = fs.readFileSync(test_file_path).toString();
-    console.log(test_file_string.length);
 
     // Perform fetch request
     const response = await fetch(endpoint_url);
@@ -28,8 +27,6 @@ async function test_livefile_object() {
     const headers = response.headers.raw();
     const content_type = headers['content-type'];
     const content_length = headers['content-length'];
-    console.log(body);
-    console.log(content_type, content_length, body.length);
     assert_log(group, candidate + '.file()', () => {
         return (
             content_type == 'text/html' &&
