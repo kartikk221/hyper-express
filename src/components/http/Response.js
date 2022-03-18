@@ -5,6 +5,7 @@ const status_codes = require('../../constants/status_codes.json');
 const mime_types = require('mime-types');
 const { Readable, Writable } = require('stream');
 
+const SSEConnection = require('../plugins/SSEConnection.js');
 const LiveFile = require('../plugins/LiveFile.js');
 const FilePool = {};
 
@@ -26,6 +27,7 @@ class Response {
     #type_written = false;
     #hooks;
     #writable;
+    #sse;
 
     constructor(wrapped_request, raw_response, socket, master_context) {
         this.#wrapped_request = wrapped_request;
@@ -46,6 +48,7 @@ class Response {
             reference.#completed = true;
             reference.#wrapped_request._stop_streaming();
             reference._call_hooks('abort');
+            reference._call_hooks('disconnect');
         });
     }
 
@@ -304,6 +307,11 @@ class Response {
     _initiate_response() {
         // Ensure response can only be initiated once to prevent multiple invocations
         if (this.initiated) return;
+
+        // Call any bound hooks for type 'send' to allow any last minute modifications to response
+        this._call_hooks('send');
+
+        // Mark the instance as initiated signifyin that no more status/header based operations can be performed
         this.#initiated = true;
 
         // Ensure our associated request is not paused for whatever reason
@@ -397,9 +405,6 @@ class Response {
             // Abort body download buffer just to be safe for large incoming requests
             this.#wrapped_request._stop_streaming();
 
-            // Call any bound hooks for type 'send'
-            this._call_hooks('send');
-
             // Initiate response to write status code and headers
             this._initiate_response();
 
@@ -411,6 +416,7 @@ class Response {
                 // Mark request as completed if we were able to send response properly
                 this.#completed = true;
                 this._call_hooks('complete');
+                this._call_hooks('disconnect');
             }
 
             return result;
@@ -708,6 +714,21 @@ class Response {
      */
     get upgrade_socket() {
         return this.#upgrade_socket;
+    }
+
+    /**
+     * Returns a "Server-Sent Events" connection object to allow for SSE functionality.
+     * This property will only be available for GET requests as per the SSE specification.
+     *
+     * @returns {SSEConnection=}
+     */
+    get sse() {
+        // Return a new SSE instance if one has not been created yet
+        if (this.#wrapped_request.method === 'GET') {
+            // Create new SSE instance if one has not been created yet
+            if (!this.#sse) this.#sse = new SSEConnection(this);
+            return this.#sse;
+        }
     }
 
     /**

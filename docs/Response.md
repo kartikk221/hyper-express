@@ -6,6 +6,7 @@ Below is a breakdown of the `response` object made available through the route/m
 | :-------- | :------- | :------------------------- |
 | `app` | `HyperExpress.Server`  | HyperExpress Server instance this `Response` originated from. |
 | `raw` | `uWS.Response`  | Underlying uWebsockets.js response object. |
+| `sse` | `SSEConnection`  | Returns a "Server-Sent Events" connection object for SSE functionality. |
 | `initiated` | `Boolean`  | Signifies whether the response has been initiated and the status code/headers have been sent. |
 | `aborted` | `Boolean`  | Signifies whether the request has been aborted/completed. |
 | `completed` | `Boolean`  | Alias of `aborted` property. |
@@ -16,9 +17,10 @@ Below is a breakdown of the `response` object made available through the route/m
     * **Usage:** Wrapping multiple response method calls inside this method can improve performance.
 * `hook(String: type, Function: handler)`: Registers a hook handler for the specified event type.
   * **Supported Hook Types:**
-    * [`abort`]: These hooks will get called when the response is aborted.
-    * [`send`]: These hooks will get called right before response is sent. Use this to set any last minute headers and call any last minute `Response` methods.
-    * [`complete`]: These hooks will get called after response has been sent successfully without backpressure.
+    * [`abort`]: This hook will get called when the response is aborted by the client.
+    * [`send`]: This hook will get called right before response is sent. Use this to set any last minute headers and call any last minute `Response` methods.
+    * [`complete`]: This hook will get called after response has been sent successfully without backpressure.
+    * [`disconnect`]: This hook will get called when the response is either aborted or completed signifying the client has disconnected.
   * **Note!** hooks will be called in the order they were registered on the response object.
   * **Note!** hook handlers should be **synchronous** functions only.
 * `status(Number: code)`: Sets HTTP status response code for current request.

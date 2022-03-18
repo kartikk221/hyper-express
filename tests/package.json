@@ -9,8 +9,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "abort-controller": "^3.0.0",
     "form-data": "^4.0.0",
+    "i": "^0.3.7",
     "node-fetch": "^2.6.6",
+    "npm": "^8.5.5",
     "ws": "^8.2.3"
   }
 }

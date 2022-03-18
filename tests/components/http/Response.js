@@ -4,6 +4,7 @@ const { test_livefile_object } = require('../../components/features/LiveFile.js'
 const { test_response_stream_method } = require('./scenarios/response_stream.js');
 const { test_response_chunked_write } = require('./scenarios/response_chunked_write.js');
 const { test_response_piped_write } = require('./scenarios/response_piped.js');
+const { test_response_hooks } = require('./scenarios/response_hooks.js');
 const router = new HyperExpress.Router();
 const endpoint = '/tests/response/operators';
 const endpoint_url = server.base + endpoint;
@@ -117,6 +118,9 @@ async function test_response_object() {
         let delete_cookie_props_test = cookies[test_cookie.name]?.properties === 'Max-Age=0';
         return test_cookie_test && delete_cookie_value_test && delete_cookie_props_test;
     });
+
+    // Verify .hook()
+    await test_response_hooks();
 
     // Verify .send()
     assert_log(group, candidate + '.send()', () => body1 === test_html_placeholder);
