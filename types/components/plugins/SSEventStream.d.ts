@@ -1,6 +1,6 @@
 import Response from "../http/Response";
 
-export default class SSEConnection {
+export default class SSEventStream {
     constructor(response: Response)
 
     /**
@@ -38,4 +38,13 @@ export default class SSEConnection {
     send(data: string): boolean;
     send(event: string, data: string): boolean;
     send(id: string, event: string, data: string): boolean;
+
+    /* SSEventStream properties */
+
+    /**
+     * Whether this Server-Sent Events stream is still active.
+     *
+     * @returns {Boolean}
+     */
+    get active(): boolean;
 }

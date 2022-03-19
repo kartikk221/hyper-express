@@ -11,6 +11,7 @@ Below is a breakdown of the `response` object made available through the route/m
 | `aborted` | `Boolean`  | Signifies whether the request has been aborted/completed. |
 | `completed` | `Boolean`  | Alias of `aborted` property. |
 | `writable` | `stream.Writable` | Writable stream object to be used for piping. |
+* See [`> [SSEventStream]`](./SSEventStream.md) for more information on the `Response.sse` property.
 
 #### Response Methods
 * `atomic(Function: callback)`: Alias of uWebsockets's `cork(callback)` method.

@@ -1,7 +1,7 @@
 import * as Stream from 'stream';
 import * as uWebsockets from 'uWebSockets.js';
 import LiveFile from '../plugins/LiveFile';
-import SSEConnection from '../plugins/SSEConnection';
+import SSEventStream from '../plugins/SSEventStream';
 import { UserRouteHandler } from '../router/Router';
 import Server from '../Server';
 
@@ -257,9 +257,9 @@ export default class Response {
      * Returns a "Server-Sent Events" connection object to allow for SSE functionality.
      * This property will only be available for GET requests as per the SSE specification.
      *
-     * @returns {SSEConnection=}
+     * @returns {SSEventStream=}
      */
-    get sse(): SSEConnection;
+    get sse(): SSEventStream;
 
     /**
      * Returns a Writable stream associated with this response to be used for piping streams.

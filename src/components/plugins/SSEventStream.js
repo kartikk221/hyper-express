@@ -1,4 +1,4 @@
-class SSEConnection {
+class SSEventStream {
     #response;
 
     constructor(response) {
@@ -83,6 +83,17 @@ class SSEConnection {
         // Write the string based payload to the client
         return this.#response.write(parts.join('\n'));
     }
+
+    /* SSEConnection Properties */
+
+    /**
+     * Whether this Server-Sent Events stream is still active.
+     *
+     * @returns {Boolean}
+     */
+    get active() {
+        return !this.#response.completed;
+    }
 }
 
-module.exports = SSEConnection;
+module.exports = SSEventStream;
