@@ -20,6 +20,7 @@ Some of the prominent features implemented are:
 - Simplified HTTP & Websocket API
 - Global & Route-Specific Middlewares Support
 - Modular Routers Support
+- Server-Sent Events Support
 - HTTP & Websocket Streaming Support
 - Performant Multipart File Uploading
 - Global Error/Event Handlers
@@ -40,6 +41,7 @@ npm i hyper-express
 - See [`> [Request]`](./docs/Request.md) for working with the **Request** component made available through handlers.
 - See [`> [Response]`](./docs/Response.md) for working with the **Response** component made available through handlers.
 - See [`> [MultipartField]`](./docs/MultipartField.md) for working with multipart requests and **File Uploading** in HyperExpress.
+- See [`> [SSEventStream]`](./docs/SSEventStream.md) for working with **Server-Sent Events** based streaming in HyperExpress.
 - See [`> [Websocket]`](./docs/Websocket.md) for working with **Websockets** in HyperExpress.
 - See [`> [SessionEngine]`](https://github.com/kartikk221/hyper-express-session) for working with cookie based web **Sessions** in HyperExpress.
 - See [`> [LiveDirectory]`](./docs/LiveDirectory.md) for implementing **static file/asset** serving functionality into HyperExpress.
