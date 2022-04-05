@@ -12,7 +12,6 @@ Below is a breakdown of the `request` object made available through the route/mi
 | `path_query` | `String`  | Request query string without the `?`.|
 | `headers` | `Object`  | Request Headers from incoming request. |
 | `cookies` | `Object`  | Request cookies from incoming request. |
-| `session` | `Session`  | Session object made available when a session engine is active. |
 | `path_parameters` | `Object`  | Path parameters from incoming request. |
 | `query_parameters` | `Object`  | Query parameters from incoming request. |
 | `ip` | `String`  | Remote connection IP. |
