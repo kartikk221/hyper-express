@@ -26,16 +26,20 @@ router.post(endpoint, async (request, response) => {
     if (response.app.locals.some_reference.some_data !== true) throw new Error('Invalid Response App Locals Detected!');
 
     // Test hooks
+    response.on('finish', () => hook_invocations.push('complete'));
     response.hook('abort', () => hook_invocations.push('abort'));
     response.hook('send', send_hook); // Test for function reference based hooks
-    response.on('finish', () => hook_invocations.push('complete'));
 
     // Perform Requested Operations For Testing
     if (Array.isArray(body))
         body.forEach((operation) => {
             let method = operation[0];
             let parameters = operation[1];
-            if (Array.isArray(parameters)) {
+
+            // Utilize the Response.statusCode compatibility setter for status code modifications
+            if (method == 'status') {
+                response.statusCode = parameters;
+            } else if (Array.isArray(parameters)) {
                 // Support up to 4 multi parameters
                 response[method](parameters[0], parameters[1], parameters[2], parameters[3]);
             } else {

@@ -777,6 +777,13 @@ class Response {
         return this.#completed ? this.#status_code : undefined;
     }
 
+    /**
+     * ExpressJS: Alias of Response.status_code to expose setter response status code
+     */
+    set statusCode(code) {
+        this.status(code);
+    }
+
     locals = {};
 
     /**
