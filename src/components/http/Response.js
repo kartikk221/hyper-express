@@ -66,7 +66,7 @@ class Response {
         if (position > this.#middleware_cursor) return (this.#middleware_cursor = position);
 
         // If position is not greater than last cursor then we likely have a double middleware execution
-        this.throw_error(
+        this.throw(
             new Error(
                 'HyperExpress: Double middleware execution detected! You have a bug where one of your middlewares is calling both the next() callback and also resolving from a Promise/async callback. You must only use one of these not both.'
             )
@@ -619,7 +619,7 @@ class Response {
         });
 
         // Assign error handler to live file
-        FilePool[path].on('error', (error) => this.throw_error(error));
+        FilePool[path].on('error', (error) => this.throw(error));
 
         // Serve file as response
         this._send_file(FilePool[path], callback);
@@ -656,12 +656,16 @@ class Response {
     }
 
     /**
-     * This method allows you to throw an error which will be caught by the global error handler.
+     * This method allows you to throw an error which will be caught by the global error handler (If one was setup with the Server instance).
      *
-     * @param {Error} error Error Class
+     * @param {Error} error
      */
-    throw_error(error) {
-        this.#master_context.handlers.on_error(this.#wrapped_request, this, error);
+    throw(error) {
+        // Ensure error is an instance of Error
+        if (error instanceof Error) return this.#master_context.handlers.on_error(this.#wrapped_request, this, error);
+
+        // If error is not an instance of Error, throw a warning error
+        throw new Error('HyperExpress: Response.throw() expects an instance of an Error.');
     }
 
     /* Response Getters */

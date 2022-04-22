@@ -206,11 +206,11 @@ export default class Response {
     download(path: string, filename?: string): void;
 
     /**
-     * This method allows you to throw an error which will be caught by the global error handler.
+     * This method allows you to throw an error which will be caught by the global error handler (If one was setup with the Server instance).
      *
-     * @param {Error} error Error Class
+     * @param {Error} error 
      */
-    throw_error(error: Error): void;
+    throw(error: Error): void;
 
     /* HyperExpress Response Properties */
 

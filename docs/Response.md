@@ -72,5 +72,5 @@ Below is a breakdown of the `response` object made available through the route/m
 * `attachment(String: path)`: Writes appropriate `Content-Disposition` and `Content-Type` headers for file specified at `path`.
   * **Note!** this method **only** writes the appropriate headers.
 * `download(String: path, String: filename)`: Alias of `send()`. Sets appropriate attachment headers and mime type if one has not been set yet and sends file content at specified path as response body for browser to download.
-* `throw_error(Error: error)`: Calls global catch-all error handler with specified error.
+* `throw(Error: error)`: Calls the global catch-all error handler (If one is assigned) with the provided error.
 * See [ExpressJS](https://github.com/expressjs/express) documentation for more properties/methods that are also implemented for compatibility.
