@@ -1,6 +1,6 @@
-import Response from "../http/Response";
+import { Response } from "../http/Response";
 
-export default class SSEventStream {
+export class SSEventStream {
     constructor(response: Response)
 
     /**

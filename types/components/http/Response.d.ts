@@ -1,16 +1,16 @@
 import * as Stream from 'stream';
 import * as uWebsockets from 'uWebSockets.js';
-import LiveFile from '../plugins/LiveFile';
-import SSEventStream from '../plugins/SSEventStream';
+import { LiveFile } from '../plugins/LiveFile';
+import { SSEventStream } from '../plugins/SSEventStream';
 import { UserRouteHandler } from '../router/Router';
-import Server from '../Server';
+import { Server } from '../Server';
 
-type SendableData = string | Buffer | ArrayBuffer;
-type FileCachePool = {
+export type SendableData = string | Buffer | ArrayBuffer;
+export type FileCachePool = {
     [key: string]: LiveFile
 };
 
-interface CookieOptions {
+export interface CookieOptions {
     domain?: string,
     path?: string,
     maxAge?: number,
@@ -20,7 +20,7 @@ interface CookieOptions {
     secret?: string
 }
 
-export default class Response {
+export class Response {
     /* HyperExpress Response Methods */
 
     /**

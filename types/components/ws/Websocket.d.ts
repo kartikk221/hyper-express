@@ -3,11 +3,11 @@ import { EventEmitter } from "events";
 import { Readable, Writable } from 'stream';
 import { SendableData } from "../http/Response";
 
-type WebsocketContext = {
+export type WebsocketContext = {
     [key: string]: string
 }
 
-export default class Websocket extends EventEmitter {
+export class Websocket extends EventEmitter {
     /* Websocket Methods */
 
     /**

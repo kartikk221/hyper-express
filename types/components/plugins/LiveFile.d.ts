@@ -1,7 +1,7 @@
 import * as FileSystem from 'fs';
 import { EventEmitter} from 'events';
 
-interface LiveFileOptions {
+export interface LiveFileOptions {
     path: string,
     retry: {
         every: number,
@@ -9,7 +9,7 @@ interface LiveFileOptions {
     }
 }
 
-export default class LiveFile extends EventEmitter {
+export class LiveFile extends EventEmitter {
     constructor(options: LiveFileOptions)
 
     /**

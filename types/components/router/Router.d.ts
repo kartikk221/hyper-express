@@ -1,15 +1,11 @@
 import { ReadableOptions } from 'stream';
-import Request from '../http/Request';
-import Response from '../http/Response';
-import Websocket from '../ws/Websocket';
-
-// Define types for Middlewares
-type MiddlewareNext = (error?: Error) => void;
-type MiddlewarePromise = Promise<Error|void> | void;
-export type MiddlewareHandler = (request: Request, response: Response, next?: MiddlewareNext) => MiddlewarePromise;
+import { Request } from '../http/Request';
+import { Response } from '../http/Response';
+import { Websocket } from '../ws/Websocket';
+import { MiddlewareHandler } from '../middleware/MiddlewareHandler';
 
 // Define types for HTTP Route Creators
-type UserRouteHandler = (request: Request, response: Response) => void;
+export type UserRouteHandler = (request: Request, response: Response) => void;
 export interface UserRouteOptions {
     middlewares?: Array<MiddlewareHandler>,
     expect_body?: "raw" | "text" | "json" | "urlencoded",
@@ -18,8 +14,8 @@ export interface UserRouteOptions {
 }
 
 // Define types for Websocket Route Creator
-type WSRouteHandler = (websocket: Websocket) => void;
-interface WSRouteOptions {
+export type WSRouteHandler = (websocket: Websocket) => void;
+export interface WSRouteOptions {
     message_type?: "String" | "Buffer" | "ArrayBuffer",
     idle_timeout?: number,
     max_backpressure?: number,
@@ -27,19 +23,19 @@ interface WSRouteOptions {
 }
 
 // Define types for internal route/middleware records
-interface RouteRecord {
+export interface RouteRecord {
     method: string,
     pattern: string,
     options: UserRouteOptions | WSRouteOptions,
     handler: UserRouteHandler
 }
 
-interface MiddlewareRecord {
+export interface MiddlewareRecord {
     pattern: string,
     middleware: MiddlewareHandler
 }
 
-export default class Router {
+export class Router {
     constructor()
 
     /**

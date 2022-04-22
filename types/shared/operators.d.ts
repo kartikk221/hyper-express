@@ -1,6 +1,6 @@
 export function wrap_object(original: object, target: object): void;
 
-type PathKeyItem = [key: string, index: number];
+export type PathKeyItem = [key: string, index: number];
 export function parse_path_parameters(pattern: string): PathKeyItem[];
 
 export function array_buffer_to_string(array_buffer: ArrayBuffer, encoding?: string): string;
