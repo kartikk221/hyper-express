@@ -774,7 +774,7 @@ class Response {
      * ExpressJS: Alias of Response.status_code to expose response status code
      */
     get statusCode() {
-        return this.#completed ? this.#status_code : undefined;
+        return this.#completed ? parseInt(this.#status_code.split(' ')[0], 10) : undefined;
     }
 
     /**
