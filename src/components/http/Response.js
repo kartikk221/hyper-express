@@ -1,3 +1,4 @@
+const EventEmitter = require('events');
 const Server = require('../Server.js'); // lgtm [js/unused-local-variable]
 const cookie = require('cookie');
 const signature = require('cookie-signature');
@@ -14,7 +15,7 @@ const EXPRESS_EVENT_TRANSLATIONS = {
     finish: 'complete',
 };
 
-class Response {
+class Response extends EventEmitter {
     #wrapped_request;
     #middleware_cursor;
     #raw_response;
@@ -31,10 +32,16 @@ class Response {
     #sse;
 
     constructor(wrapped_request, raw_response, socket, master_context) {
+        // Initialize the event emitter
+        super();
+
+        // Store the provided parameter properties for later use
         this.#wrapped_request = wrapped_request;
         this.#raw_response = raw_response;
         this.#upgrade_socket = socket || null;
         this.#master_context = master_context;
+
+        // Bind the abort handler as required by uWebsockets.js
         this._bind_abort_handler();
     }
 
@@ -48,8 +55,8 @@ class Response {
         this.#raw_response.onAborted(() => {
             reference.#completed = true;
             reference.#wrapped_request._stop_streaming();
-            reference._call_hooks('abort');
-            reference._call_hooks('disconnect');
+            reference.emit('abort', this.#wrapped_request, this);
+            reference.emit('close', this.#wrapped_request, this);
         });
     }
 
@@ -225,36 +232,6 @@ class Response {
     }
 
     /**
-     * @private
-     * Executes all registered hooks (callbacks) for specified type.
-     *
-     * @param {String} type
-     */
-    _call_hooks(type) {
-        if (this.#hooks && this.#hooks[type]) this.#hooks[type].forEach((hook) => hook(this.#wrapped_request, this));
-    }
-
-    /**
-     * Binds a hook (synchronous callback) that gets executed based on specified event type.
-     * See documentation for supported hook types.
-     *
-     * @param {String} type
-     * @param {function(Request, Response):void} handler
-     * @returns {Response} Chainable
-     */
-    hook(type, handler) {
-        // Initialize hooks if they haven't been yet
-        if (this.#hooks == undefined) this.#hooks = {};
-
-        // Initialize hooks array on first invocation
-        if (this.#hooks[type] == undefined) this.#hooks[type] = [];
-
-        // Store hook into individual location
-        this.#hooks[type].push(handler);
-        return this;
-    }
-
-    /**
      * This method is used to upgrade an incoming upgrade HTTP request to a Websocket connection.
      *
      * @param {Object} context Store information about the websocket connection
@@ -295,8 +272,8 @@ class Response {
         // Ensure response can only be initiated once to prevent multiple invocations
         if (this.initiated) return;
 
-        // Call any bound hooks for type 'send' to allow any last minute modifications to response
-        this._call_hooks('send');
+        // Emit the 'prepare' event to allow for any last minute response modifications
+        this.emit('prepare', this.#wrapped_request, this);
 
         // Mark the instance as initiated signifyin that no more status/header based operations can be performed
         this.#initiated = true;
@@ -398,12 +375,16 @@ class Response {
             // Mark request as completed and end request using uWS.Response.end()
             const result = this.#raw_response.end(body, close_connection);
 
+            // Emit the 'finish' event to signify that the response has been sent by us
+            this.emit('finish', this.#wrapped_request, this);
+
             // Call any bound hooks for type 'complete' if no backpressure was built up
-            if (result) {
+            if (result && !this.#completed) {
                 // Mark request as completed if we were able to send response properly
                 this.#completed = true;
-                this._call_hooks('complete');
-                this._call_hooks('disconnect');
+
+                // Emit the 'close' event to signify that the response has been completed
+                this.emit('close', this.#wrapped_request, this);
             }
 
             return result;
@@ -489,8 +470,8 @@ class Response {
         if (!(readable instanceof Readable))
             throw new Error('Response.stream(readable, total_size) -> readable must be a Readable stream.');
 
-        // Bind a abort hook which will destroy the read stream if request is aborted
-        this.hook('abort', () => {
+        // Bind an 'abort' event handler which will destroy the consumed stream if request is aborted
+        this.on('abort', () => {
             if (!readable.destroyed) readable.destroy();
         });
 
@@ -961,27 +942,6 @@ class Response {
      */
     vary(name) {
         return this.header('Vary', name);
-    }
-
-    /**
-     * ExpressJS: compatibility function for attaching to events using `on()`.
-     * @param {string} event event name
-     * @param {Function} callback callback function
-     * @returns {Response}
-     */
-    on(event, callback) {
-        const translated = EXPRESS_EVENT_TRANSLATIONS[event] || event;
-        return this.hook(translated, callback);
-    }
-
-    /**
-     * ExpressJS: compatibility function for attaching to events using `once()`.
-     * @param {string} event event name
-     * @param {Function} callback callback function
-     * @returns {Response}
-     */
-    once(event, callback) {
-        return this.on(event, callback);
     }
 }
 

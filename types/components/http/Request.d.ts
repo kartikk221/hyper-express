@@ -10,20 +10,8 @@ import Server from '../Server';
 type default_value = any;
 type MultipartHandler = (field: MultipartField) => void | Promise<void>;
 
-export default class Request {
+export default class Request extends Readable {
     /* HyperExpress Request Methods */
-
-    /**
-     * Pauses the current request and any incoming body chunks.
-     * @returns {Request}
-     */
-    pause(): Request;
-
-    /**
-     * Resumes the current request and consumption of any remaining body chunks.
-     * @returns {Request}
-     */
-    resume(): Request;
 
     /**
      * Securely signs a value with provided secret and returns the signed value.

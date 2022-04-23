@@ -71,16 +71,6 @@ export default class Response {
     cookie(name: string, value: string, expiry?: number, options?: CookieOptions, sign_cookie?: boolean): Response;
 
     /**
-     * Binds a hook (synchronous callback) that gets executed based on specified type.
-     * See documentation for supported hook types.
-     *
-     * @param {String} type
-     * @param {function(Request, Response):void} handler
-     * @returns {Response} Chainable
-     */
-    hook(type: string, handler: UserRouteHandler): Response;
-
-    /**
      * This method is used to upgrade an incoming upgrade HTTP request to a Websocket connection.
      *
      * @param {Object} context Store information about the websocket connection

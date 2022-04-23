@@ -30,8 +30,8 @@ webserver.get('/news/events', (request, response) => {
         response.sse.id = crypto.randomUUID();
         sse_streams[response.sse.id] = response.sse;
         
-        // Bind a 'disconnect' hook to our Response so we can remove this stream from our broadcast pool when the client disconnects
-        response.hook('disconnect', () => {
+        // Bind a 'close' event handler to cleanup this connection once it disconnects
+        response.once('close', () => {
             // Delete the stream from our broadcast pool
             delete sse_streams[response.sse.id]
         });

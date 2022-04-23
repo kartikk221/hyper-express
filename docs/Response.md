@@ -16,14 +16,6 @@ Below is a breakdown of the `response` object made available through the route/m
 #### Response Methods
 * `atomic(Function: callback)`: Alias of uWebsockets's `cork(callback)` method.
     * **Usage:** Wrapping multiple response method calls inside this method can improve performance.
-* `hook(String: type, Function: handler)`: Registers a hook handler for the specified event type.
-  * **Supported Hook Types:**
-    * [`abort`]: This hook will get called when the response is aborted by the client.
-    * [`send`]: This hook will get called right before response is sent. Use this to set any last minute headers and call any last minute `Response` methods.
-    * [`complete`]: This hook will get called after response has been sent successfully without backpressure.
-    * [`disconnect`]: This hook will get called when the response is either aborted or completed signifying the client has disconnected.
-  * **Note!** hooks will be called in the order they were registered on the response object.
-  * **Note!** hook handlers should be **synchronous** functions only.
 * `status(Number: code)`: Sets HTTP status response code for current request.
 * `type(String: mime_type)`: Writes correct protocol `content-type` header for specified mime type.
     * **Example:** `response.type('json')` writes `application/json`
@@ -42,8 +34,8 @@ Below is a breakdown of the `response` object made available through the route/m
         * `secret`:[`String`]: Cryptographically signs cookie value
     * **Note** cookie values are not URL encoded.
     * **Note** You may pass `null` as the `value` parameter to delete a cookie.
-* `upgrade(Object: context)`: Upgrades incoming request to a websocket connection.
-    * **Note** `context` is optional and can be used to store data on the websocket connection object.
+* `upgrade(Object: context)`: Upgrades incoming request to a WebSocket  connection or Server-Sent Events stream.
+    * **Note** `context` is optional and can be used to store data for the future.
     * **Note** this method can only be used inside an `upgrade` route handler.
 * `redirect(String: url)`: Writes 302 header to redirect incoming request to specified url.
 * `write(String|Buffer|ArrayBuffer: chunk, String?: encoding, Function?: callback)`: Writes specified chunk using chunked transfer. Use this method to stream large amounts of data.
