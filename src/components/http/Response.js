@@ -20,7 +20,6 @@ class Response {
     #raw_response;
     #master_context;
     #upgrade_socket;
-    #status;
     #status_code;
     #headers;
     #initiated = false;
@@ -112,9 +111,8 @@ class Response {
                 'HyperExpress.Response.status(code) -> HTTP Status Code cannot be changed once a response has been initiated.'
             );
 
-        // Match status code Number to a status message and call uWS.Response.writeStatus
-        this.#status = code + ' ' + status_codes[code];
-        this.#status_code = code
+        // Set the numeric status code. Status text is appended before writing status to uws
+        this.#status_code = code;
         return this;
     }
 
@@ -319,8 +317,10 @@ class Response {
         // Ensure our associated request is not paused for whatever reason
         this._resume_if_paused();
 
-        // Write custom HTTP status if specified
-        if (this.#status) this.#raw_response.writeStatus(this.#status);
+        // Match status code Number to a status message and call uWS.Response.writeStatus
+        if (this.#status_code) {
+            this.#raw_response.writeStatus(this.#status_code + ' ' + status_codes[code]);
+        }
 
         // Write headers if specified
         if (this.#headers)
