@@ -741,6 +741,13 @@ class Request {
     }
 
     /**
+     * Sets the req.body value
+     */
+    set body(value) {
+        this._body = value
+    }
+
+    /**
      * ExpressJS: Alias of HyperExpress.Request.path
      */
     get baseUrl() {
