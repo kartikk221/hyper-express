@@ -30,7 +30,6 @@ class Router {
                 return {}; // WebsocketRoute is special so it has no defaults from here
             default:
                 return {
-                    expect_body: false,
                     middlewares: method === 'any' ? undefined : [],
                 };
         }
@@ -196,7 +195,6 @@ class Router {
     /**
      * @typedef {Object} RouteOptions
      * @property {Array.<MiddlewareHandler>|Array.<PromiseMiddlewareHandler>} middlewares Route specific middlewares
-     * @property {('raw'|'text'|'json'|'urlencoded')} expect_body Pre-parses and populates Request.body with specified body type.
      * @property {stream.ReadableOptions} stream_options Request readable stream constructor options
      * @property {Number} max_body_length Overrides the maximum body length specified in Server constructor options. Default: 250 * 1000.
      */

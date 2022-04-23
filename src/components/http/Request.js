@@ -695,19 +695,6 @@ class Request extends stream.Readable {
     }
 
     /**
-     * Returns expected body from route options
-     */
-    get body() {
-        // Ensure body has been initialized from internal handler through expect_body route option
-        if (this._body == undefined)
-            throw new Error(
-                'Request.body property has not been initialized yet. Please specify expect_body parameter in options when creating a route to populate the Request.body property.'
-            );
-
-        return this._body;
-    }
-
-    /**
      * ExpressJS: Alias of HyperExpress.Request.path
      */
     get baseUrl() {

@@ -17,7 +17,6 @@ Below is a breakdown of the `request` object made available through the route/mi
 | `query_parameters` | `Object`  | Query parameters from incoming request. |
 | `ip` | `String`  | Remote connection IP. |
 | `proxy_ip` | `String`  | Remote proxy connection IP. |
-| `body` | `Mixed`  | Populated when `expect_body` is specified at route creation. |
 | `stream` | `stream.Readable`  | Readable stream to consume request body chunks. |
 
 #### Request Methods

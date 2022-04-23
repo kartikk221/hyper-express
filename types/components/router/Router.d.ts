@@ -12,7 +12,6 @@ export type MiddlewareHandler = (request: Request, response: Response, next?: Mi
 type UserRouteHandler = (request: Request, response: Response) => void;
 export interface UserRouteOptions {
     middlewares?: Array<MiddlewareHandler>,
-    expect_body?: "raw" | "text" | "json" | "urlencoded",
     stream_options?: ReadableOptions,
     max_body_length?: number
 }
