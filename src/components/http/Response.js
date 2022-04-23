@@ -837,6 +837,14 @@ class Response {
     }
 
     /**
+     * ExpressJS: Returns all pending headers from this response 
+     * @returns {Object|undefined}
+     */
+    getHeaders() {
+        return this.#headers
+    }
+
+    /**
      * ExpressJS: Removes header from this response
      * @param {String} name
      */
