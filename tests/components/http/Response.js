@@ -36,7 +36,11 @@ router.post(endpoint, async (request, response) => {
         body.forEach((operation) => {
             let method = operation[0];
             let parameters = operation[1];
-            if (Array.isArray(parameters)) {
+
+            // Utilize the Response.statusCode compatibility setter for status code modifications
+            if (method == 'status') {
+                response.statusCode = parameters;
+            } else if (Array.isArray(parameters)) {
                 // Support up to 4 multi parameters
                 response[method](parameters[0], parameters[1], parameters[2], parameters[3]);
             } else {
