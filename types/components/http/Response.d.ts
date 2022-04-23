@@ -278,6 +278,7 @@ export class Response {
     setHeaders(headers: Object): void;
     writeHeaderValues(name: string, values: Array<string>): void;
     getHeader(name: string): string | Array<string> | void;
+    getHeaders(): { [key: string]: string }
     removeHeader(name: string): void;
     setCookie(name: string, value: string, options?: CookieOptions): Response;
     hasCookie(name: string): Boolean;
