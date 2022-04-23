@@ -1,8 +1,8 @@
 import * as Stream from 'stream';
 import * as uWebsockets from 'uWebSockets.js';
+import * as EventEmitter from 'events';
 import LiveFile from '../plugins/LiveFile';
 import SSEventStream from '../plugins/SSEventStream';
-import { UserRouteHandler } from '../router/Router';
 import Server from '../Server';
 
 type SendableData = string | Buffer | ArrayBuffer;
@@ -20,7 +20,7 @@ interface CookieOptions {
     secret?: string
 }
 
-export default class Response {
+export default class Response extends EventEmitter {
     /* HyperExpress Response Methods */
 
     /**
@@ -80,9 +80,9 @@ export default class Response {
      * Binds a drain handler which gets called with a byte offset that can be used to try a failed chunk write.
      * You MUST perform a write call inside the handler for uWS chunking to work properly.
      *
-     * @param {Function} handler Synchronous callback only
+     * @param {function(number):void} handler Synchronous callback only
      */
-    drain(handler: () => void): void;
+    drain(handler: (offset: number) => void): void;
 
     /**
      * This method can be used to write the body in chunks.
@@ -270,6 +270,4 @@ export default class Response {
     sendStatus(status_code: number): Response;
     set(field: string | object, value?: string | Array<string>): Response | void;
     vary(name: string): Response;
-    on(event: string, callback: Function): void;
-    once(event: string, callback: Function): void;
 }

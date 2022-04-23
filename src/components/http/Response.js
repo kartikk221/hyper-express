@@ -285,16 +285,11 @@ class Response extends EventEmitter {
             );
     }
 
-    #last_write_result;
-    #last_write_offset;
-    #drained_write_offset;
-
     /**
      * Binds a drain handler which gets called with a byte offset that can be used to try a failed chunk write.
      * You MUST perform a write call inside the handler for uWS chunking to work properly.
-     * Be sure to return a Boolean value signifying whether the write was successful or not.
      *
-     * @param {function(number):boolean} handler Drain handler
+     * @param {function(number):void} handler Synchronous callback only
      */
     drain(handler) {
         // Ensure handler is a function type
