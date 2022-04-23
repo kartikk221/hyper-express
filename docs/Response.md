@@ -29,7 +29,7 @@ Below is a breakdown of the `response` object made available through the route/m
     * **Example:** `response.type('json')` writes `application/json`
     * **Supported:** [Mime Types](./src/constants/mime_types.json)
 * `header(String: name, String: value)`: Writes a response header.
-* `cookie(String: name, String: value, Number: expiry, Object: options, Boolean: sign_cookie)`: Writes a cookie header to set cookie on response.
+* `cookie(String: name, String?: value, Number?: expiry, Object?: options, Boolean: sign_cookie)`: Writes a cookie header to set cookie on response.
     * `expiry` specifies the cookie lifetime duration in **milliseconds**.
     * `sign_cookie` is `true` by default.
     * `options`:
@@ -41,7 +41,7 @@ Below is a breakdown of the `response` object made available through the route/m
         * `sameSite`[`Boolean`, `'none'`, `'lax'`, `'strict'`]: Cookie Same-Site Preference
         * `secret`:[`String`]: Cryptographically signs cookie value
     * **Note** cookie values are not URL encoded.
-* `delete_cookie(String: name)`: Writes a cookie header to delete/expire specified cookie.
+    * **Note** You may pass `null` as the `value` parameter to delete a cookie.
 * `upgrade(Object: context)`: Upgrades incoming request to a websocket connection.
     * **Note** `context` is optional and can be used to store data on the websocket connection object.
     * **Note** this method can only be used inside an `upgrade` route handler.

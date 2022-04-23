@@ -59,26 +59,16 @@ export default class Response {
 
     /**
      * This method is used to write a cookie to incoming request.
-     * Note! This method utilized .header() therefore it must be called
-     * after setting a custom status code.
+     * To delete a cookie, set the value to null.
      *
      * @param {String} name Cookie Name
      * @param {String} value Cookie Value
      * @param {Number} expiry In milliseconds
-     * @param {Object} options Cookie Options
+     * @param {CookieOptions} options Cookie Options
      * @param {Boolean} sign_cookie Enables/Disables Cookie Signing
      * @returns {Response} Response (Chainable)
      */
     cookie(name: string, value: string, expiry?: number, options?: CookieOptions, sign_cookie?: boolean): Response;
-
-    /**
-     * This method is used to delete cookies on sender's browser.
-     * An appropriate set-cookie header is written with maxAge as 0.
-     *
-     * @param {String} name Cookie Name
-     * @returns {Response} Response
-     */
-    delete_cookie(name: string): Response;
 
     /**
      * Binds a hook (synchronous callback) that gets executed based on specified type.

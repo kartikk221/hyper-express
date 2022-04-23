@@ -81,45 +81,38 @@ router.get(
 );
 
 // Create Backend HTTP Route with expected body of urlencoded to test request.body property
-router.any(
-    endpoint,
-    {
-        expect_body: 'urlencoded',
-    },
-    async (request, response) => {
-        let text = await request.text();
-        last_endpoint_body = text;
-        let json = await request.json();
-        let urlencoded = await request.urlencoded();
+router.any(endpoint, async (request, response) => {
+    let text = await request.text();
+    let json = await request.json();
+    let urlencoded = await request.urlencoded();
+    last_endpoint_body = text;
 
-        // Store mproperty if exists on request object to check for middleware
-        if (request.mproperty) last_endpoint_mproperty = request.mproperty;
-        if (request.mproperty2) last_endpoint_mproperty2 = request.mproperty;
+    // Store mproperty if exists on request object to check for middleware
+    if (request.mproperty) last_endpoint_mproperty = request.mproperty;
+    if (request.mproperty2) last_endpoint_mproperty2 = request.mproperty;
 
-        // Return all possible information about incoming request
-        return response.json({
-            locals: request.app.locals,
-            method: request.method,
-            url: request.url,
-            path: request.path,
-            path_query: request.path_query,
-            headers: request.headers,
-            path_parameters: request.path_parameters,
-            query_parameters: request.query_parameters,
-            ip: request.ip,
-            proxy_ip: request.proxy_ip,
-            cookies: request.cookies,
-            signature_check:
-                request.unsign(request.sign(signature_value, signature_secret), signature_secret) === signature_value,
-            body: {
-                text,
-                json,
-                urlencoded,
-                pre_parsed: request.body,
-            },
-        });
-    }
-);
+    // Return all possible information about incoming request
+    return response.json({
+        locals: request.app.locals,
+        method: request.method,
+        url: request.url,
+        path: request.path,
+        path_query: request.path_query,
+        headers: request.headers,
+        path_parameters: request.path_parameters,
+        query_parameters: request.query_parameters,
+        ip: request.ip,
+        proxy_ip: request.proxy_ip,
+        cookies: request.cookies,
+        signature_check:
+            request.unsign(request.sign(signature_value, signature_secret), signature_secret) === signature_value,
+        body: {
+            text,
+            json,
+            urlencoded,
+        },
+    });
+});
 
 function crypto_random(length) {
     return new Promise((resolve, reject) =>
@@ -181,6 +174,9 @@ async function test_request_object() {
         body: too_large_body_value,
     });
 
+    // Assert rejection status code as 413 Too Large Payload
+    assert_log(group, 'Too Large Body 413 HTTP Code Reject', () => too_large_response.status === 413);
+
     // Perform a request with a urlencoded body to test .urlencoded() method
     const urlencoded_string = `url1=${param1}&url2=${param2}`;
     const urlencoded_response = await fetch(base + url, {
@@ -188,9 +184,6 @@ async function test_request_object() {
         body: urlencoded_string,
     });
     const urlencoded_body = await urlencoded_response.json();
-
-    // Assert rejection status code as 413 Too Large Payload
-    assert_log(group, 'Too Large Body 413 HTTP Code Reject', () => too_large_response.status === 413);
 
     // Perform HTTP Request To Endpoint
     let req_start_time = Date.now();
@@ -273,15 +266,6 @@ async function test_request_object() {
 
     // Verify .cookies
     assert_log(group, candidate + '.cookies', () => body.cookies[header_test_cookie.name] === header_test_cookie.value);
-
-    // Verify .body property when options.expect_body is specified for route options
-    assert_log(
-        group,
-        candidate + '.body',
-        () =>
-            JSON.stringify(urlencoded_body.body.pre_parsed) === JSON.stringify(urlencoded_body.body.urlencoded) &&
-            middleware_body.body_error === true
-    );
 
     // Verify .stream readable request stream piping
     await test_request_stream_pipe();

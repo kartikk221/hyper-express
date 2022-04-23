@@ -22,6 +22,7 @@ class Response {
     #upgrade_socket;
     #status_code;
     #headers;
+    #cookies;
     #initiated = false;
     #completed = false;
     #type_written = false;
@@ -178,11 +179,9 @@ class Response {
      * @property {String} secret
      */
 
-    #cookies;
     /**
      * This method is used to write a cookie to incoming request.
-     * Note! This method utilized .header() therefore it must be called
-     * after setting a custom status code.
+     * To delete a cookie, set the value to null.
      *
      * @param {String} name Cookie Name
      * @param {String} value Cookie Value
@@ -202,39 +201,27 @@ class Response {
         },
         sign_cookie = true
     ) {
+        // Determine if this is a delete operation and recursively call self with appropriate options
+        if (name && value === null)
+            return this.cookie(name, '', null, {
+                maxAge: 0,
+            });
+
         // Convert expiry to a valid Date object or delete expiry altogether
-        if (typeof expiry == 'number') {
-            options.expires = new Date(Date.now() + expiry);
-        }
+        if (typeof expiry == 'number') options.expires = new Date(Date.now() + expiry);
 
         // Sign cookie value if signing is enabled and a valid secret is provided
         if (sign_cookie && typeof options.secret == 'string') {
-            value = signature.sign(value, options.secret);
             options.encode = false; // Turn off encoding to prevent loss of signature structure
+            value = signature.sign(value, options.secret);
         }
 
         // Initialize cookies holder and store cookie value
         if (this.#cookies == undefined) this.#cookies = {};
         this.#cookies[name] = value;
 
-        // Serialize cookie options -> set-cookie header and write header
-        let header = cookie.serialize(name, value, options);
-        this.header('set-cookie', header);
-        return this;
-    }
-
-    /**
-     * This method is used to delete cookies on sender's browser.
-     * An appropriate set-cookie header is written with maxAge as 0.
-     *
-     * @param {String} name Cookie Name
-     * @returns {Response} Response
-     */
-    delete_cookie(name) {
-        // null expiry and maxAge 0 will cause browser to unset cookie
-        return this.cookie(name, '', null, {
-            maxAge: 0,
-        });
+        // Serialize the cookie options and write the 'Set-Cookie' header
+        return this.header('set-cookie', cookie.serialize(name, value, options));
     }
 
     /**
@@ -248,7 +235,7 @@ class Response {
     }
 
     /**
-     * Binds a hook (synchronous callback) that gets executed based on specified type.
+     * Binds a hook (synchronous callback) that gets executed based on specified event type.
      * See documentation for supported hook types.
      *
      * @param {String} type
@@ -861,19 +848,19 @@ class Response {
     }
 
     /**
-     * ExpressJS: Alias of Response.delete_cookie()
+     * ExpressJS: Alias of Response.cookie(name, null) method.
      * @param {String} name
      */
     removeCookie(name) {
-        return this.delete_cookie(name);
+        return this.cookie(name, null);
     }
 
     /**
-     * ExpressJS: Alias of Response.delete_cookie() method.
+     * ExpressJS: Alias of Response.cookie(name, null) method.
      * @param {String} name
      */
     clearCookie(name) {
-        return this.delete_cookie(name);
+        return this.cookie(name, null);
     }
 
     /**

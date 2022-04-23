@@ -9,7 +9,6 @@ import Server from '../Server';
 
 type default_value = any;
 type MultipartHandler = (field: MultipartField) => void | Promise<void>;
-type MultipartLimitReject = "PARTS_LIMIT_REACHED" | "FILES_LIMIT_REACHED" | "FIELDS_LIMIT_REACHED";
 
 export default class Request {
     /* HyperExpress Request Methods */
@@ -40,38 +39,34 @@ export default class Request {
      *
      * @param {String} signed_value
      * @param {String} secret
-     * @returns {String} String OR undefined
+     * @returns {String=} String OR undefined
      */
     unsign(signed_value: string, secret: string): string | void;
 
     /**
-     * Asynchronously downloads and returns request body as a Buffer.
-     *
-     * @returns {Promise} Promise
+     * Downloads and returns request body as a Buffer.
+     * @returns {Promise<Buffer>}
      */
     buffer(): Promise<Buffer>;
 
     /**
-     * Asynchronously parses and returns request body as a String.
-     *
-     * @returns {Promise} Promise
+     * Downloads and parses the request body as a String.
+     * @returns {Promise<string>}
      */
     text(): Promise<string>;
 
     /**
-     * Parses and resolves an Object of json values from body.
-     * Passing default_value as undefined will lead to the function throwing an exception
-     * if JSON parsing fails.
+     * Downloads and parses the request body as a JSON object.
+     * Passing default_value as undefined will lead to the function throwing an exception if invalid JSON is received.
      *
      * @param {Any} default_value Default: {}
-     * @returns {Promise} Promise
+     * @returns {Promise}
      */
     json<T = any, D = any>(default_value?: D): Promise<T | D>;
 
     /**
      * Parses and resolves an Object of urlencoded values from body.
-     *
-     * @returns {Promise} Promise
+     * @returns {Promise}
      */
     urlencoded<T = any>(): Promise<T>;
 
@@ -79,18 +74,18 @@ export default class Request {
      * Parses incoming multipart form and allows for easy consumption of fields/values including files.
      *
      * @param {MultipartHandler} handler
-     * @returns {Promise<void|String|Error>} A promise which is resolved once all multipart fields have been processed
+     * @returns {Promise} A promise which is resolved once all multipart fields have been processed
      */
-    multipart(handler: MultipartHandler): Promise<MultipartLimitReject | Error>;
+    multipart(handler: MultipartHandler): Promise<void>;
 
     /**
      * Parses incoming multipart form and allows for easy consumption of fields/values including files.
      *
-     * @param {BusboyConfig|MultipartHandler} options
+     * @param {BusboyConfig} options
      * @param {MultipartHandler} handler
-     * @returns {Promise<void|MultipartLimitReject|Error>} A promise which is resolved once all multipart fields have been processed
+     * @returns {Promise} A promise which is resolved once all multipart fields have been processed
      */
-    multipart(options: BusboyConfig, handler: MultipartHandler): Promise<MultipartLimitReject | Error>;
+    multipart(options: BusboyConfig, handler: MultipartHandler): Promise<void>;
 
     /* HyperExpress Request Properties */
 
@@ -102,17 +97,9 @@ export default class Request {
 
     /**
      * Returns the HyperExpress.Server instance this Request object originated from.
-     *
      * @returns {Server}
      */
     get app(): Server;
-
-    /**
-     * Returns the underlying readable incoming body data stream for this request.
-     *
-     * @returns {Readable|void}
-     */
-    get stream(): Readable | void;
 
     /**
      * Returns whether this request is in a paused state and thus not consuming any body chunks.
@@ -151,19 +138,19 @@ export default class Request {
     get headers(): Record<string, string>;
 
     /**
-     * Returns cookies from incoming request.
-     * @returns {Record<string, unknown>}
+     * Returns request cookies from incoming request.
+     * @returns {Record<string, string>}
      */
-    get cookies(): Record<string, unknown>;
+    get cookies(): Record<string, string>;
 
     /**
-     * Returns path parameters from incoming request in Object form {key: value}
+     * Returns path parameters from incoming request.
      * @returns {Record<string, string>}
      */
     get path_parameters(): Record<string, string>;
 
     /**
-     * Returns query parameters from incoming request in Object form {key: value}
+     * Returns query parameters from incoming request.
      * @returns {Record<string, string>}
      */
     get query_parameters(): Record<string, string>;

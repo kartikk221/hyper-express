@@ -13,9 +13,8 @@ const parse_range = require('range-parser');
 const type_is = require('type-is');
 const is_ip = require('net').isIP;
 
-class Request {
+class Request extends stream.Readable {
     #master_context;
-    #paused = false;
     #stream_raw_chunks = false;
     #raw_request = null;
     #raw_response = null;
@@ -29,13 +28,15 @@ class Request {
     #headers = {};
     #path_parameters = {};
     #query_parameters;
-    #body_stream;
     #body_buffer;
     #body_text;
     #body_json;
     #body_urlencoded;
 
-    constructor(raw_request, raw_response, path_parameters_key, master_context) {
+    constructor(stream_options, raw_request, raw_response, path_parameters_key, master_context) {
+        // Initialize the request readable stream for body consumption
+        super(stream_options);
+
         // Pre-parse core data attached to volatile uWebsockets request/response objects
         this.#raw_request = raw_request;
         this.#raw_response = raw_response;
@@ -88,12 +89,8 @@ class Request {
      * @returns {Request}
      */
     pause() {
-        // Pause the uWS.Response if it is not already paused
-        if (!this.#paused) {
-            this.#paused = true;
-            this.#raw_response.pause();
-        }
-        return this;
+        this.#raw_response.pause();
+        return super.pause();
     }
 
     /**
@@ -101,12 +98,8 @@ class Request {
      * @returns {Request}
      */
     resume() {
-        // Pause the uWS.Response if it is not already paused
-        if (this.#paused) {
-            this.#paused = false;
-            this.#raw_response.resume();
-        }
-        return this;
+        this.#raw_response.resume();
+        return super.resume();
     }
 
     /**
@@ -125,7 +118,7 @@ class Request {
      *
      * @param {String} signed_value
      * @param {String} secret
-     * @returns {String} String OR undefined
+     * @returns {String=} String OR undefined
      */
     unsign(signed_value, secret) {
         let unsigned_value = signature.unsign(signed_value, secret);
@@ -133,36 +126,26 @@ class Request {
     }
 
     /**
-     * Initializes a readable stream which consumes body data from uWS.Response.onData() handler.
-     * Note! This stream will automatically handle backpressure by pausing/resuming the response data flow.
+     * Begins streaming incoming body data in chunks received.
      *
      * @private
-     * @param {stream.ReadableOptions} options
      */
-    _start_streaming(options) {
-        // Throw an error if we try to streaming when one is already in process
-        if (this.#body_stream)
-            throw new Error(
-                'HyperExpress.Request._start_streaming() -> This method has been called more than once which should not occur.'
-            );
-
-        // Create a readable stream which pipes data from the uWS.Response.onData() handler
-        const readable = new stream.Readable(options);
-
-        // Bind a _read() handler to the readable to resume the uWS request
-        readable._read = () => this.resume();
+    _start_streaming() {
+        // Bind a read handler for resuming stream consumption
+        this._read = () => this.resume();
 
         // Bind a uWS.Response.onData() handler which will handle incoming chunks and pipe them to the readable stream
-        const reference = this;
+        const stream = this;
         this.#raw_response.onData((array_buffer, is_last) => {
-            // Do not process chunk if we can no longer pipe it to the readable stream
-            if (reference.#body_stream === null) return;
+            // Do not process chunk if the readable stream has ended
+            if (stream.readableEnded) return;
 
             // Convert the ArrayBuffer to a Buffer reference
             // Provide raw chunks if specified and we have something consuming stream already
             // This will prevent unneccessary duplication of buffers
             let buffer;
-            if (reference.#stream_raw_chunks && readable.listenerCount('data') > 0) {
+            let raw_listeners = stream.listenerCount('data');
+            if (raw_listeners > 0 && stream.#stream_raw_chunks) {
                 // Store a direct Buffer reference as this will be immediately consumed
                 buffer = Buffer.from(array_buffer);
             } else {
@@ -173,22 +156,20 @@ class Request {
 
             // Push the incoming chunk into readable stream for consumption
             // Pause the uWS request if our stream is backed up
-            if (!readable.push(buffer)) reference.pause();
+            if (!stream.push(buffer)) stream.pause();
 
             // Push a null chunk signaling an EOF to the stream to end it if this chunk is last
-            if (is_last) readable.push(null);
+            if (is_last) stream.push(null);
         });
-
-        // Store the readable stream locally for consumption
-        this.#body_stream = readable;
     }
 
     /**
-     * Halts any active body stream from processing any further incoming chunks
+     * Halts the streaming of incoming body data for this request.
+     * @private
      */
     _stop_streaming() {
-        // Push an EOF chunk to the body stream signifying the requester was disconnected
-        if (this.#body_stream) this.#body_stream = null;
+        // Push an EOF chunk to the body stream signifying the end of the stream
+        if (!this.readableEnded) this.push(null);
     }
 
     #buffer_promise;
@@ -206,7 +187,7 @@ class Request {
         if (this.#buffer_promise) return this.#buffer_promise;
 
         // Resolve an empty buffer instantly if we have no readable body stream
-        if (this.stream === undefined) {
+        if (this.readableEnded) {
             this.#body_buffer = Buffer.from('');
             return Promise.resolve(this.#body_buffer);
         }
@@ -224,13 +205,13 @@ class Request {
             const use_fast_buffers = reference.#master_context.options.fast_buffers;
             const body = {
                 cursor: 0,
-                buffer: use_fast_buffers ? Buffer.allocUnsafe(content_length) : Buffer.alloc(content_length),
+                buffer: Buffer[use_fast_buffers ? 'allocUnsafe' : 'alloc'](content_length),
             };
 
             // Drain any previously buffered data from the readable request stream
-            if (reference.stream.readableLength > 0) {
+            if (reference.readableLength > 0) {
                 // Copy the buffered chunk from stream into our body buffer
-                const chunk = reference.stream.read(reference.stream.readableLength);
+                const chunk = reference.read(reference.readableLength);
                 chunk.copy(body.buffer, body.cursor, 0, chunk.byteLength);
 
                 // Increment the cursor by the byteLength to remember our write position
@@ -238,10 +219,10 @@ class Request {
             }
 
             // Resolve our body buffer if we have no more future chunks to read
-            if (reference.stream.readableEnded) return resolve(body.buffer);
+            if (reference.readableEnded) return resolve(body.buffer);
 
             // Begin consuming future chunks from the readable request stream
-            reference.stream.on('data', (chunk) => {
+            reference.on('data', (chunk) => {
                 // Copy the temporary chunk from uWS into our body buffer
                 chunk.copy(body.buffer, body.cursor, 0, chunk.byteLength);
 
@@ -250,19 +231,17 @@ class Request {
             });
 
             // Resolve the body buffer once the readable stream has finished
-            reference.stream.once('end', () => resolve(body.buffer));
+            reference.once('end', () => resolve(body.buffer)).resume();
         });
 
         // Bind a then handler for caching the downloaded buffer
         this.#buffer_promise.then((buffer) => (this.#body_buffer = buffer));
-
         return this.#buffer_promise;
     }
 
     /**
-     * Asynchronously downloads and returns request body as a Buffer.
-     *
-     * @returns {Promise} Promise
+     * Downloads and returns request body as a Buffer.
+     * @returns {Promise<Buffer>}
      */
     buffer() {
         // Check cache and return if body has already been parsed
@@ -280,9 +259,8 @@ class Request {
     }
 
     /**
-     * Asynchronously parses and returns request body as a String.
-     *
-     * @returns {Promise} Promise
+     * Downloads and parses the request body as a String.
+     * @returns {Promise<string>}
      */
     async text() {
         // Resolve from cache if available
@@ -294,9 +272,10 @@ class Request {
     }
 
     /**
-     * @private
-     * Parses JSON from provided string. Resolves default_value or throws exception on failure.
+     * Parses JSON from provided string.
+     * Resolves default_value or throws exception on failure.
      *
+     * @private
      * @param {String} string
      * @param {Any} default_value
      * @returns {Any}
@@ -316,12 +295,11 @@ class Request {
     }
 
     /**
-     * Parses and resolves an Object of json values from body.
-     * Passing default_value as undefined will lead to the function throwing an exception
-     * if JSON parsing fails.
+     * Downloads and parses the request body as a JSON object.
+     * Passing default_value as undefined will lead to the function throwing an exception if invalid JSON is received.
      *
      * @param {Any} default_value Default: {}
-     * @returns {Promise} Promise
+     * @returns {Promise}
      */
     async json(default_value = {}) {
         // Return from cache if available
@@ -335,8 +313,7 @@ class Request {
 
     /**
      * Parses and resolves an Object of urlencoded values from body.
-     *
-     * @returns {Promise} Promise(Object: body)
+     * @returns {Promise}
      */
     async urlencoded() {
         // Return from cache if available
@@ -401,7 +378,8 @@ class Request {
      */
 
     /**
-     * Parses incoming multipart form and allows for easy consumption of fields/values including files.
+     * Downloads and parses incoming body as a multipart form.
+     * This allows for easy consumption of fields, values and files.
      *
      * @param {busboy.BusboyConfig|SyncMultipartHandler|AsyncMultipartHandler} options
      * @param {(SyncMultipartHandler|AsyncMultipartHandler)=} handler
@@ -422,7 +400,7 @@ class Request {
             throw new Error('HyperExpress.Request.upload(handler) -> handler must be a Function.');
 
         // Resolve instantly if we have no readable body stream
-        if (this.stream === undefined) return Promise.resolve();
+        if (this.readableEnded) return Promise.resolve();
 
         // Resolve instantly if we do not have a valid multipart content type header
         const content_type = this.headers['content-type'];
@@ -463,7 +441,7 @@ class Request {
             });
 
             // Pipe the readable request stream into the busboy uploader
-            reference.stream.pipe(uploader);
+            reference.pipe(uploader);
         });
     }
 
@@ -479,7 +457,6 @@ class Request {
 
     /**
      * Returns the HyperExpress.Server instance this Request object originated from.
-     *
      * @returns {Server}
      */
     get app() {
@@ -487,20 +464,11 @@ class Request {
     }
 
     /**
-     * Returns the underlying readable incoming body data stream for this request.
-     *
-     * @returns {stream.Readable}
-     */
-    get stream() {
-        return this.#body_stream;
-    }
-
-    /**
      * Returns whether this request is in a paused state and thus not consuming any body chunks.
      * @returns {Boolean}
      */
     get paused() {
-        return this.#paused;
+        return this.isPaused();
     }
 
     /**
@@ -537,15 +505,15 @@ class Request {
 
     /**
      * Returns request headers from incoming request.
-     * @returns {Record<string, unknown>}
+     * @returns {Record<string, string>}
      */
     get headers() {
         return this.#headers;
     }
 
     /**
-     * Returns cookies from incoming request.
-     * @returns {Record<string, unknown>}
+     * Returns request cookies from incoming request.
+     * @returns {Record<string, string>}
      */
     get cookies() {
         // Return from cache if already parsed once
@@ -558,16 +526,16 @@ class Request {
     }
 
     /**
-     * Returns path parameters from incoming request in Object form {key: value}
-     * @returns {Record<string, unknown>}
+     * Returns path parameters from incoming request.
+     * @returns {Record<string, string>}
      */
     get path_parameters() {
         return this.#path_parameters;
     }
 
     /**
-     * Returns query parameters from incoming request in Object form {key: value}
-     * @returns {Record<string, unknown>}
+     * Returns query parameters from incoming request.
+     * @returns {Record<string, string>}
      */
     get query_parameters() {
         // Return from cache if already parsed once
@@ -597,7 +565,6 @@ class Request {
         // Convert Remote Proxy IP to string on first access
         if (typeof this.#remote_proxy_ip !== 'string')
             this.#remote_proxy_ip = array_buffer_to_string(this.#remote_proxy_ip);
-
         return this.#remote_proxy_ip;
     }
 

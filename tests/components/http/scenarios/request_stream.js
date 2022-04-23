@@ -22,7 +22,7 @@ router.post(scenario_endpoint, async (request, response) => {
     const writable = fs.createWriteStream(path);
 
     // Pipe the readable body stream to the writable and wait for it to finish
-    request.stream.pipe(writable);
+    request.pipe(writable);
     await new Promise((resolve) => writable.once('finish', resolve));
 
     // Read the written file's buffer and calculate its md5 hash

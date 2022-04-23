@@ -45,7 +45,7 @@ webserver.post('/api/v1/delete_user/:id', async (request, response) => {
                secure: true,
                httpOnly: true
            }) // Sets some frontend cookie for enforcing front-end timeout
-           .delete_cookie('some_sess_id') // Deletes some session id cookie
+           .cookie('some_sess_id', null) // Deletes some session id cookie
            .type('html') // Sets content-type header according to 'html'
            .send(rendered_html) // Sends response with some rendered_html as the body
    })

@@ -80,7 +80,7 @@ async function test_response_object() {
             ['type', test_mime_type],
             ['header', [header_test_name, header_test_value]],
             ['cookie', [cookie_test_name, cookie_test_value]],
-            ['delete_cookie', test_cookie.name],
+            ['cookie', [test_cookie.name, null]],
             ['send', test_html_placeholder],
         ]),
     });
@@ -96,7 +96,7 @@ async function test_response_object() {
     assert_log(group, candidate + '.header()', () => response1.headers.get(header_test_name) === header_test_value);
 
     // Verify .cookie()
-    assert_log(group, candidate + '.cookie() AND ' + candidate + '.delete_cookie()', () => {
+    assert_log(group, candidate + '.cookie() AND .cookie(name, null) to delete', () => {
         let cookies = {};
         response1.headers
             .get('set-cookie')

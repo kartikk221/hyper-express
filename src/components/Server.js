@@ -366,7 +366,13 @@ class Server extends Router {
      */
     async _handle_uws_request(route, request, response, socket) {
         // Wrap uWS.Request -> Request
-        const wrapped_request = new Request(request, response, route.path_parameters_key, route.app);
+        const wrapped_request = new Request(
+            route.options.stream_options,
+            request,
+            response,
+            route.path_parameters_key,
+            route.app
+        );
 
         // Wrap uWS.Response -> Response
         const wrapped_response = new Response(wrapped_request, response, socket, route.app);
@@ -387,28 +393,11 @@ class Server extends Router {
                 });
             }
 
-            // Begin buffering incoming body chunks and initialize underlying readable request stream
-            wrapped_request._start_streaming(route.options.stream_options);
-        }
-
-        // If route options specify an expected body type, then parse incoming body as that type
-        // If we have no viable content-length, then fill with an empty representation of that body type
-        const expected_body = route.options.expect_body;
-        if (typeof expected_body == 'string') {
-            switch (expected_body) {
-                case 'text':
-                    wrapped_request._body = content_length ? await wrapped_request.text() : '';
-                    break;
-                case 'json':
-                    wrapped_request._body = content_length ? await wrapped_request.json() : {};
-                    break;
-                case 'urlencoded':
-                    wrapped_request._body = content_length ? await wrapped_request.urlencoded() : {};
-                    break;
-                default:
-                    wrapped_request._body = content_length ? await wrapped_request.buffer() : Buffer.from('');
-                    break;
-            }
+            // Begin streaming the incoming body data
+            wrapped_request._start_streaming();
+        } else {
+            // Push an EOF chunk to signify the readable has already ended thus no more content is readable
+            wrapped_request.push(null);
         }
 
         // Chain incoming request/response through all global/local/route-specific middlewares
