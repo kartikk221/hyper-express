@@ -72,8 +72,7 @@ export default class Response {
 
     /**
      * This method is used to upgrade an incoming upgrade HTTP request to a Websocket connection.
-     *
-     * @param {Object} context Store information about the websocket connection
+     * @param {Object=} context Store information about the websocket connection
      */
     upgrade(context?: Object): void;
 

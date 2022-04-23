@@ -10,11 +10,6 @@ const SSEventStream = require('../plugins/SSEventStream.js');
 const LiveFile = require('../plugins/LiveFile.js');
 const FilePool = {};
 
-const EXPRESS_EVENT_TRANSLATIONS = {
-    close: 'complete',
-    finish: 'complete',
-};
-
 class Response extends EventEmitter {
     #wrapped_request;
     #middleware_cursor;
@@ -148,7 +143,7 @@ class Response extends EventEmitter {
      * This method can be used to write a response header and supports chaining.
      *
      * @param {String} name Header Name
-     * @param {String|Array} value Header Value
+     * @param {String|Array<String>} value Header Value
      * @returns {Response} Response (Chainable)
      */
     header(name, value) {
@@ -233,8 +228,7 @@ class Response extends EventEmitter {
 
     /**
      * This method is used to upgrade an incoming upgrade HTTP request to a Websocket connection.
-     *
-     * @param {Object} context Store information about the websocket connection
+     * @param {Object=} context Store information about the websocket connection
      */
     upgrade(context) {
         if (!this.#completed) {
