@@ -744,6 +744,12 @@ class Request {
      * Sets the req.body value
      */
     set body(value) {
+        if (this._body !== undefined) {
+            throw new Error('Request.body property is already set.')
+        }
+        if (!value) {
+            throw new Error('Request.body value must be defined.')
+        }
         this._body = value
     }
 
