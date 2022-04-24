@@ -18,7 +18,7 @@ Router.ws('/writable', async (ws) => {
 
     // Bind a handler for once readable is finished
     readable.once('close', () => {
-        // Repeat the same process as above to test twice
+        // Repeat the same process as above to test multiple pipes to the same websocket connection
         readable = fs.createReadStream(TestFilePath);
         readable.pipe(ws.writable);
 
