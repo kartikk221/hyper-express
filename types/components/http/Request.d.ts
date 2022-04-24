@@ -4,25 +4,13 @@ import { ParsedQs } from 'qs';
 import { Options, Ranges, Result } from 'range-parser';
 import { Readable } from 'stream';
 import * as uWebsockets from 'uWebSockets.js';
-import { MultipartHandler, MultipartLimitReject } from '../plugins/MultipartField';
+import { MultipartHandler } from '../plugins/MultipartField';
 import { Server } from '../Server';
 
 type default_value = any;
 
 export class Request {
     /* HyperExpress Request Methods */
-
-    /**
-     * Pauses the current request and any incoming body chunks.
-     * @returns {Request}
-     */
-    pause(): Request;
-
-    /**
-     * Resumes the current request and consumption of any remaining body chunks.
-     * @returns {Request}
-     */
-    resume(): Request;
 
     /**
      * Securely signs a value with provided secret and returns the signed value.
@@ -38,38 +26,34 @@ export class Request {
      *
      * @param {String} signed_value
      * @param {String} secret
-     * @returns {String} String OR undefined
+     * @returns {String=} String OR undefined
      */
     unsign(signed_value: string, secret: string): string | void;
 
     /**
-     * Asynchronously downloads and returns request body as a Buffer.
-     *
-     * @returns {Promise} Promise
+     * Downloads and returns request body as a Buffer.
+     * @returns {Promise<Buffer>}
      */
     buffer(): Promise<Buffer>;
 
     /**
-     * Asynchronously parses and returns request body as a String.
-     *
-     * @returns {Promise} Promise
+     * Downloads and parses the request body as a String.
+     * @returns {Promise<string>}
      */
     text(): Promise<string>;
 
     /**
-     * Parses and resolves an Object of json values from body.
-     * Passing default_value as undefined will lead to the function throwing an exception
-     * if JSON parsing fails.
+     * Downloads and parses the request body as a JSON object.
+     * Passing default_value as undefined will lead to the function throwing an exception if invalid JSON is received.
      *
      * @param {Any} default_value Default: {}
-     * @returns {Promise} Promise
+     * @returns {Promise}
      */
     json<T = any, D = any>(default_value?: D): Promise<T | D>;
 
     /**
      * Parses and resolves an Object of urlencoded values from body.
-     *
-     * @returns {Promise} Promise
+     * @returns {Promise}
      */
     urlencoded<T = any>(): Promise<T>;
 
@@ -77,18 +61,18 @@ export class Request {
      * Parses incoming multipart form and allows for easy consumption of fields/values including files.
      *
      * @param {MultipartHandler} handler
-     * @returns {Promise<void|String|Error>} A promise which is resolved once all multipart fields have been processed
+     * @returns {Promise} A promise which is resolved once all multipart fields have been processed
      */
-    multipart(handler: MultipartHandler): Promise<MultipartLimitReject | Error>;
+    multipart(handler: MultipartHandler): Promise<void>;
 
     /**
      * Parses incoming multipart form and allows for easy consumption of fields/values including files.
      *
-     * @param {BusboyConfig|MultipartHandler} options
+     * @param {BusboyConfig} options
      * @param {MultipartHandler} handler
-     * @returns {Promise<void|MultipartLimitReject|Error>} A promise which is resolved once all multipart fields have been processed
+     * @returns {Promise} A promise which is resolved once all multipart fields have been processed
      */
-    multipart(options: BusboyConfig, handler: MultipartHandler): Promise<MultipartLimitReject | Error>;
+    multipart(options: BusboyConfig, handler: MultipartHandler): Promise<void>;
 
     /* HyperExpress Request Properties */
 
@@ -100,17 +84,9 @@ export class Request {
 
     /**
      * Returns the HyperExpress.Server instance this Request object originated from.
-     *
      * @returns {Server}
      */
     get app(): Server;
-
-    /**
-     * Returns the underlying readable incoming body data stream for this request.
-     *
-     * @returns {Readable|void}
-     */
-    get stream(): Readable | void;
 
     /**
      * Returns whether this request is in a paused state and thus not consuming any body chunks.
@@ -149,19 +125,19 @@ export class Request {
     get headers(): Record<string, string>;
 
     /**
-     * Returns cookies from incoming request.
-     * @returns {Record<string, unknown>}
+     * Returns request cookies from incoming request.
+     * @returns {Record<string, string>}
      */
-    get cookies(): Record<string, unknown>;
+    get cookies(): Record<string, string>;
 
     /**
-     * Returns path parameters from incoming request in Object form {key: value}
+     * Returns path parameters from incoming request.
      * @returns {Record<string, string>}
      */
     get path_parameters(): Record<string, string>;
 
     /**
-     * Returns query parameters from incoming request in Object form {key: value}
+     * Returns query parameters from incoming request.
      * @returns {Record<string, string>}
      */
     get query_parameters(): Record<string, string>;

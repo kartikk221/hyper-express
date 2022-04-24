@@ -1,9 +1,10 @@
 import * as Stream from 'stream';
 import * as uWebsockets from 'uWebSockets.js';
+import { type EventEmitter } from 'events';
 import { LiveFile } from '../plugins/LiveFile';
 import { SSEventStream } from '../plugins/SSEventStream';
-import { UserRouteHandler } from '../router/Router';
 import { Server } from '../Server';
+import { Request } from './Request'
 
 export type SendableData = string | Buffer | ArrayBuffer;
 export type FileCachePool = {
@@ -20,7 +21,7 @@ export interface CookieOptions {
     secret?: string
 }
 
-export class Response {
+export class Response extends EventEmitter {
     /* HyperExpress Response Methods */
 
     /**
@@ -59,41 +60,20 @@ export class Response {
 
     /**
      * This method is used to write a cookie to incoming request.
-     * Note! This method utilized .header() therefore it must be called
-     * after setting a custom status code.
+     * To delete a cookie, set the value to null.
      *
      * @param {String} name Cookie Name
      * @param {String} value Cookie Value
      * @param {Number} expiry In milliseconds
-     * @param {Object} options Cookie Options
+     * @param {CookieOptions} options Cookie Options
      * @param {Boolean} sign_cookie Enables/Disables Cookie Signing
      * @returns {Response} Response (Chainable)
      */
     cookie(name: string, value: string, expiry?: number, options?: CookieOptions, sign_cookie?: boolean): Response;
 
     /**
-     * This method is used to delete cookies on sender's browser.
-     * An appropriate set-cookie header is written with maxAge as 0.
-     *
-     * @param {String} name Cookie Name
-     * @returns {Response} Response
-     */
-    delete_cookie(name: string): Response;
-
-    /**
-     * Binds a hook (synchronous callback) that gets executed based on specified type.
-     * See documentation for supported hook types.
-     *
-     * @param {String} type
-     * @param {function(Request, Response):void} handler
-     * @returns {Response} Chainable
-     */
-    hook(type: string, handler: UserRouteHandler): Response;
-
-    /**
      * This method is used to upgrade an incoming upgrade HTTP request to a Websocket connection.
-     *
-     * @param {Object} context Store information about the websocket connection
+     * @param {Object=} context Store information about the websocket connection
      */
     upgrade(context?: Object): void;
 
@@ -101,9 +81,9 @@ export class Response {
      * Binds a drain handler which gets called with a byte offset that can be used to try a failed chunk write.
      * You MUST perform a write call inside the handler for uWS chunking to work properly.
      *
-     * @param {Function} handler Synchronous callback only
+     * @param {function(number):void} handler Synchronous callback only
      */
-    drain(handler: () => void): void;
+    drain(handler: (offset: number) => void): void;
 
     /**
      * This method can be used to write the body in chunks.
@@ -206,11 +186,26 @@ export class Response {
     download(path: string, filename?: string): void;
 
     /**
-     * This method allows you to throw an error which will be caught by the global error handler.
+     * This method allows you to throw an error which will be caught by the global error handler (If one was setup with the Server instance).
      *
-     * @param {Error} error Error Class
+     * @param {Error} error 
      */
-    throw_error(error: Error): void;
+    throw(error: Error): void;
+
+    /**
+     * Valid events handlers
+     * 
+     * @param event Event name
+     * @param handler Event handler
+     */
+    on(event: 'abort', handler: (request: Request, response: Response) => void): this;
+    on(event: 'prepare', handler: (request: Request, response: Response) => void): this;
+    on(event: 'finish', handler: (request: Request, response: Response) => void): this;
+    on(event: 'close', handler: (request: Request, response: Response) => void): this;
+    once(event: 'abort', handler: (request: Request, response: Response) => void): this;
+    once(event: 'prepare', handler: (request: Request, response: Response) => void): this;
+    once(event: 'finish', handler: (request: Request, response: Response) => void): this;
+    once(event: 'close', handler: (request: Request, response: Response) => void): this;
 
     /* HyperExpress Response Properties */
 
@@ -292,6 +287,4 @@ export class Response {
     sendStatus(status_code: number): Response;
     set(field: string | object, value?: string | Array<string>): Response | void;
     vary(name: string): Response;
-    on(event: string, callback: Function): void;
-    once(event: string, callback: Function): void;
 }

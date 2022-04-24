@@ -1,3 +1,4 @@
+const EventEmitter = require('events');
 const Server = require('../Server.js'); // lgtm [js/unused-local-variable]
 const cookie = require('cookie');
 const signature = require('cookie-signature');
@@ -9,12 +10,7 @@ const SSEventStream = require('../plugins/SSEventStream.js');
 const LiveFile = require('../plugins/LiveFile.js');
 const FilePool = {};
 
-const EXPRESS_EVENT_TRANSLATIONS = {
-    close: 'complete',
-    finish: 'complete',
-};
-
-class Response {
+class Response extends EventEmitter {
     #wrapped_request;
     #middleware_cursor;
     #raw_response;
@@ -22,18 +18,24 @@ class Response {
     #upgrade_socket;
     #status_code;
     #headers;
+    #cookies;
     #initiated = false;
     #completed = false;
     #type_written = false;
-    #hooks;
     #writable;
     #sse;
 
     constructor(wrapped_request, raw_response, socket, master_context) {
+        // Initialize the event emitter
+        super();
+
+        // Store the provided parameter properties for later use
         this.#wrapped_request = wrapped_request;
         this.#raw_response = raw_response;
         this.#upgrade_socket = socket || null;
         this.#master_context = master_context;
+
+        // Bind the abort handler as required by uWebsockets.js
         this._bind_abort_handler();
     }
 
@@ -47,8 +49,8 @@ class Response {
         this.#raw_response.onAborted(() => {
             reference.#completed = true;
             reference.#wrapped_request._stop_streaming();
-            reference._call_hooks('abort');
-            reference._call_hooks('disconnect');
+            reference.emit('abort', this.#wrapped_request, this);
+            reference.emit('close', this.#wrapped_request, this);
         });
     }
 
@@ -66,7 +68,7 @@ class Response {
         if (position > this.#middleware_cursor) return (this.#middleware_cursor = position);
 
         // If position is not greater than last cursor then we likely have a double middleware execution
-        this.throw_error(
+        this.throw(
             new Error(
                 'HyperExpress: Double middleware execution detected! You have a bug where one of your middlewares is calling both the next() callback and also resolving from a Promise/async callback. You must only use one of these not both.'
             )
@@ -106,10 +108,11 @@ class Response {
      */
     status(code) {
         // Throw expection if a status change is attempted after response has been initiated
-        if (this.initiated)
+        if (this.initiated) {
             throw new Error(
                 'HyperExpress.Response.status(code) -> HTTP Status Code cannot be changed once a response has been initiated.'
             );
+        }
 
         // Set the numeric status code. Status text is appended before writing status to uws
         this.#status_code = code;
@@ -140,7 +143,7 @@ class Response {
      * This method can be used to write a response header and supports chaining.
      *
      * @param {String} name Header Name
-     * @param {String|Array} value Header Value
+     * @param {String|Array<String>} value Header Value
      * @returns {Response} Response (Chainable)
      */
     header(name, value) {
@@ -178,11 +181,9 @@ class Response {
      * @property {String} secret
      */
 
-    #cookies;
     /**
      * This method is used to write a cookie to incoming request.
-     * Note! This method utilized .header() therefore it must be called
-     * after setting a custom status code.
+     * To delete a cookie, set the value to null.
      *
      * @param {String} name Cookie Name
      * @param {String} value Cookie Value
@@ -202,75 +203,32 @@ class Response {
         },
         sign_cookie = true
     ) {
+        // Determine if this is a delete operation and recursively call self with appropriate options
+        if (name && value === null)
+            return this.cookie(name, '', null, {
+                maxAge: 0,
+            });
+
         // Convert expiry to a valid Date object or delete expiry altogether
-        if (typeof expiry == 'number') {
-            options.expires = new Date(Date.now() + expiry);
-        }
+        if (typeof expiry == 'number') options.expires = new Date(Date.now() + expiry);
 
         // Sign cookie value if signing is enabled and a valid secret is provided
         if (sign_cookie && typeof options.secret == 'string') {
-            value = signature.sign(value, options.secret);
             options.encode = false; // Turn off encoding to prevent loss of signature structure
+            value = signature.sign(value, options.secret);
         }
 
         // Initialize cookies holder and store cookie value
         if (this.#cookies == undefined) this.#cookies = {};
         this.#cookies[name] = value;
 
-        // Serialize cookie options -> set-cookie header and write header
-        let header = cookie.serialize(name, value, options);
-        this.header('set-cookie', header);
-        return this;
-    }
-
-    /**
-     * This method is used to delete cookies on sender's browser.
-     * An appropriate set-cookie header is written with maxAge as 0.
-     *
-     * @param {String} name Cookie Name
-     * @returns {Response} Response
-     */
-    delete_cookie(name) {
-        // null expiry and maxAge 0 will cause browser to unset cookie
-        return this.cookie(name, '', null, {
-            maxAge: 0,
-        });
-    }
-
-    /**
-     * @private
-     * Executes all registered hooks (callbacks) for specified type.
-     *
-     * @param {String} type
-     */
-    _call_hooks(type) {
-        if (this.#hooks && this.#hooks[type]) this.#hooks[type].forEach((hook) => hook(this.#wrapped_request, this));
-    }
-
-    /**
-     * Binds a hook (synchronous callback) that gets executed based on specified type.
-     * See documentation for supported hook types.
-     *
-     * @param {String} type
-     * @param {function(Request, Response):void} handler
-     * @returns {Response} Chainable
-     */
-    hook(type, handler) {
-        // Initialize hooks if they haven't been yet
-        if (this.#hooks == undefined) this.#hooks = {};
-
-        // Initialize hooks array on first invocation
-        if (this.#hooks[type] == undefined) this.#hooks[type] = [];
-
-        // Store hook into individual location
-        this.#hooks[type].push(handler);
-        return this;
+        // Serialize the cookie options and write the 'Set-Cookie' header
+        return this.header('set-cookie', cookie.serialize(name, value, options));
     }
 
     /**
      * This method is used to upgrade an incoming upgrade HTTP request to a Websocket connection.
-     *
-     * @param {Object} context Store information about the websocket connection
+     * @param {Object=} context Store information about the websocket connection
      */
     upgrade(context) {
         if (!this.#completed) {
@@ -308,8 +266,8 @@ class Response {
         // Ensure response can only be initiated once to prevent multiple invocations
         if (this.initiated) return;
 
-        // Call any bound hooks for type 'send' to allow any last minute modifications to response
-        this._call_hooks('send');
+        // Emit the 'prepare' event to allow for any last minute response modifications
+        this.emit('prepare', this.#wrapped_request, this);
 
         // Mark the instance as initiated signifyin that no more status/header based operations can be performed
         this.#initiated = true;
@@ -329,16 +287,11 @@ class Response {
             );
     }
 
-    #last_write_result;
-    #last_write_offset;
-    #drained_write_offset;
-
     /**
      * Binds a drain handler which gets called with a byte offset that can be used to try a failed chunk write.
      * You MUST perform a write call inside the handler for uWS chunking to work properly.
-     * Be sure to return a Boolean value signifying whether the write was successful or not.
      *
-     * @param {function(number):boolean} handler Drain handler
+     * @param {function(number):void} handler Synchronous callback only
      */
     drain(handler) {
         // Ensure handler is a function type
@@ -413,12 +366,16 @@ class Response {
             // Mark request as completed and end request using uWS.Response.end()
             const result = this.#raw_response.end(body, close_connection);
 
+            // Emit the 'finish' event to signify that the response has been sent by us
+            this.emit('finish', this.#wrapped_request, this);
+
             // Call any bound hooks for type 'complete' if no backpressure was built up
-            if (result) {
+            if (result && !this.#completed) {
                 // Mark request as completed if we were able to send response properly
                 this.#completed = true;
-                this._call_hooks('complete');
-                this._call_hooks('disconnect');
+
+                // Emit the 'close' event to signify that the response has been completed
+                this.emit('close', this.#wrapped_request, this);
             }
 
             return result;
@@ -504,8 +461,8 @@ class Response {
         if (!(readable instanceof Readable))
             throw new Error('Response.stream(readable, total_size) -> readable must be a Readable stream.');
 
-        // Bind a abort hook which will destroy the read stream if request is aborted
-        this.hook('abort', () => {
+        // Bind an 'abort' event handler which will destroy the consumed stream if request is aborted
+        this.on('abort', () => {
             if (!readable.destroyed) readable.destroy();
         });
 
@@ -621,7 +578,7 @@ class Response {
         });
 
         // Assign error handler to live file
-        FilePool[path].on('error', (error) => this.throw_error(error));
+        FilePool[path].on('error', (error) => this.throw(error));
 
         // Serve file as response
         this._send_file(FilePool[path], callback);
@@ -658,12 +615,16 @@ class Response {
     }
 
     /**
-     * This method allows you to throw an error which will be caught by the global error handler.
+     * This method allows you to throw an error which will be caught by the global error handler (If one was setup with the Server instance).
      *
-     * @param {Error} error Error Class
+     * @param {Error} error
      */
-    throw_error(error) {
-        this.#master_context.handlers.on_error(this.#wrapped_request, this, error);
+    throw(error) {
+        // Ensure error is an instance of Error
+        if (error instanceof Error) return this.#master_context.handlers.on_error(this.#wrapped_request, this, error);
+
+        // If error is not an instance of Error, throw a warning error
+        throw new Error('HyperExpress: Response.throw() expects an instance of an Error.');
     }
 
     /* Response Getters */
@@ -843,7 +804,11 @@ class Response {
      * @returns {Object|undefined}
      */
     getHeaders() {
-        return this.#headers
+        const headers = {}
+        Object.keys(this.#headers).forEach(key => {
+            headers[key] = this.#headers[key].join(',')
+        })
+        return headers
     }
 
     /**
@@ -874,19 +839,19 @@ class Response {
     }
 
     /**
-     * ExpressJS: Alias of Response.delete_cookie()
+     * ExpressJS: Alias of Response.cookie(name, null) method.
      * @param {String} name
      */
     removeCookie(name) {
-        return this.delete_cookie(name);
+        return this.cookie(name, null);
     }
 
     /**
-     * ExpressJS: Alias of Response.delete_cookie() method.
+     * ExpressJS: Alias of Response.cookie(name, null) method.
      * @param {String} name
      */
     clearCookie(name) {
-        return this.delete_cookie(name);
+        return this.cookie(name, null);
     }
 
     /**
@@ -987,27 +952,6 @@ class Response {
      */
     vary(name) {
         return this.header('Vary', name);
-    }
-
-    /**
-     * ExpressJS: compatibility function for attaching to events using `on()`.
-     * @param {string} event event name
-     * @param {Function} callback callback function
-     * @returns {Response}
-     */
-    on(event, callback) {
-        const translated = EXPRESS_EVENT_TRANSLATIONS[event] || event;
-        return this.hook(translated, callback);
-    }
-
-    /**
-     * ExpressJS: compatibility function for attaching to events using `once()`.
-     * @param {string} event event name
-     * @param {Function} callback callback function
-     * @returns {Response}
-     */
-    once(event, callback) {
-        return this.on(event, callback);
     }
 }
 

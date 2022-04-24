@@ -7,14 +7,14 @@ const endpoint_url = server.base + endpoint + scenario_endpoint;
 const response_delay = 100;
 
 const hook_emissions = {};
-function increment_hook(type) {
+function increment_event(type) {
     hook_emissions[type] = hook_emissions[type] ? hook_emissions[type] + 1 : 1;
 }
 
 // Create Backend HTTP Route
 router.get(scenario_endpoint, (request, response) => {
     // Bind all of the hooks to the response
-    ['abort', 'send', 'complete', 'disconnect'].forEach((type) => response.hook(type, () => increment_hook(type)));
+    ['abort', 'prepare', 'finish', 'close'].forEach((type) => response.on(type, () => increment_event(type)));
 
     // Send response after some delay to allow for client to prematurely abort
     setTimeout(() => (!response.completed ? response.send() : null), response_delay);
@@ -24,9 +24,9 @@ router.get(scenario_endpoint, (request, response) => {
 const { TEST_SERVER } = require('../../Server.js');
 TEST_SERVER.use(endpoint, router);
 
-async function test_response_hooks() {
+async function test_response_events() {
     const group = 'RESPONSE';
-    const candidate = 'HyperExpress.Response.hook()';
+    const candidate = 'HyperExpress.Response.on()';
 
     // Send a normal request to trigger the appropriate hooks
     await fetch(endpoint_url);
@@ -34,8 +34,8 @@ async function test_response_hooks() {
     // Assert that only the appropriate hooks were called
     assert_log(
         group,
-        `${candidate} - Normal Request Hooks Test`,
-        () => hook_emissions['send'] === 1 && hook_emissions['complete'] === 1 && hook_emissions['disconnect'] === 1
+        `${candidate} - Normal Request Events Test`,
+        () => hook_emissions['prepare'] === 1 && hook_emissions['finish'] === 1 && hook_emissions['close'] === 1
     );
 
     // Send and prematurely abort a request to trigger the appropriate hooks
@@ -56,13 +56,13 @@ async function test_response_hooks() {
         group,
         `${candidate} - Premature Aborted Request Hooks Test`,
         () =>
-            hook_emissions['send'] === 1 &&
-            hook_emissions['complete'] === 1 &&
-            hook_emissions['disconnect'] === 2 &&
+            hook_emissions['prepare'] === 1 &&
+            hook_emissions['finish'] === 1 &&
+            hook_emissions['close'] === 2 &&
             hook_emissions['abort'] === 1
     );
 }
 
 module.exports = {
-    test_response_hooks,
+    test_response_events,
 };

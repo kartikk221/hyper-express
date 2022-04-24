@@ -4,21 +4,21 @@ const { test_livefile_object } = require('../../components/features/LiveFile.js'
 const { test_response_stream_method } = require('./scenarios/response_stream.js');
 const { test_response_chunked_write } = require('./scenarios/response_chunked_write.js');
 const { test_response_piped_write } = require('./scenarios/response_piped.js');
-const { test_response_hooks } = require('./scenarios/response_hooks.js');
+const { test_response_events } = require('./scenarios/response_hooks.js');
 const { test_response_sse } = require('./scenarios/response_sse.js');
 const router = new HyperExpress.Router();
 const endpoint = '/tests/response/operators';
 const endpoint_url = server.base + endpoint;
 
-function send_hook(request, response) {
+function write_prepare_event(request, response) {
     if (typeof request.url == 'string' && !response.completed) {
-        response.header('hook-called', 'send');
-        hook_invocations.push('send');
+        response.header('hook-called', 'prepare');
+        events_emitted.push('prepare');
     }
 }
 
 // Create Backend HTTP Route
-const hook_invocations = [];
+const events_emitted = [];
 router.post(endpoint, async (request, response) => {
     let body = await request.json();
 
@@ -26,9 +26,10 @@ router.post(endpoint, async (request, response) => {
     if (response.app.locals.some_reference.some_data !== true) throw new Error('Invalid Response App Locals Detected!');
 
     // Test hooks
-    response.on('finish', () => hook_invocations.push('complete'));
-    response.hook('abort', () => hook_invocations.push('abort'));
-    response.hook('send', send_hook); // Test for function reference based hooks
+    response.on('abort', () => events_emitted.push('abort'));
+    response.on('prepare', write_prepare_event);
+    response.on('finish', () => events_emitted.push('finish'));
+    response.on('close', () => events_emitted.push('close'));
 
     // Perform Requested Operations For Testing
     if (Array.isArray(body))
@@ -84,7 +85,7 @@ async function test_response_object() {
             ['type', test_mime_type],
             ['header', [header_test_name, header_test_value]],
             ['cookie', [cookie_test_name, cookie_test_value]],
-            ['delete_cookie', test_cookie.name],
+            ['cookie', [test_cookie.name, null]],
             ['send', test_html_placeholder],
         ]),
     });
@@ -100,7 +101,7 @@ async function test_response_object() {
     assert_log(group, candidate + '.header()', () => response1.headers.get(header_test_name) === header_test_value);
 
     // Verify .cookie()
-    assert_log(group, candidate + '.cookie() AND ' + candidate + '.delete_cookie()', () => {
+    assert_log(group, candidate + '.cookie() AND .cookie(name, null) to delete', () => {
         let cookies = {};
         response1.headers
             .get('set-cookie')
@@ -127,8 +128,8 @@ async function test_response_object() {
     // Verify .sse - "Server-Sent Events" Stream
     await test_response_sse();
 
-    // Verify .hook()
-    await test_response_hooks();
+    // Verify .on() aka. Response events
+    await test_response_events();
 
     // Verify .send()
     assert_log(group, candidate + '.send()', () => body1 === test_html_placeholder);
@@ -145,15 +146,16 @@ async function test_response_object() {
     // Test Response.LiveFile object
     await test_livefile_object();
 
-    // Verify .hook()
+    // Verify .on() aka. Response events
     assert_log(
         group,
-        candidate + '.hook()',
+        candidate + '.on()',
         () =>
-            hook_invocations.length == 2 &&
-            hook_invocations[0] === 'send' &&
-            hook_invocations[1] === 'complete' &&
-            response1.headers.get('hook-called') === 'send'
+            events_emitted.length == 3 &&
+            events_emitted[0] === 'prepare' &&
+            events_emitted[1] === 'finish' &&
+            events_emitted[2] === 'close' &&
+            response1.headers.get('hook-called') === 'prepare'
     );
 
     log(group, `Finished Testing ${candidate} In ${Date.now() - start_time}ms\n`);

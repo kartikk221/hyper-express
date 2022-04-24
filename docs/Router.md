@@ -45,9 +45,6 @@ webserver.use('/api/v1', api_v1_router);
     * **See** [`> [Websocket]`](./Websocket.md) for usage documentation on the `upgrade()` alias method.
     * **Parameter** `options`[`Object`]: This parameter is **optional** thus you can simply provide a `pattern` and `handler` for simpler code.
       * `max_body_length`[`Number`]: Overrides the global `Server.max_body_length` parameter used to enforce a maximum body size limit for this route.
-      * `expect_body`[`String`]: Pre-parses and Populates `Request.body` property with appropriate body for ExpressJS compatibility.
-        * **Note!** This property specification is required for the ExpressJS `Request.body` property to work properly.
-        * **Supported Types** [`raw`, `text`, `json`, `urlencoded`]
       * `middlewares`[`Array`]: Can be used to provide route specific middlewares.
         * **Note!** Route specific middlewares **NOT** supported with `any` method routes.
         * **Note!** Middlewares are executed in the order provided in the `Array` provided.

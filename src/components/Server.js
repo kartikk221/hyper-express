@@ -342,20 +342,16 @@ class Server extends Router {
     /* uWS -> Server Request/Response Handling Logic */
 
     /**
-     * This method is used to determine if request body should be pre-parsed in anticipation for future call.
+     * This method attempts to parse a valid content-length number value from header if present.
      *
      * @private
-     * @param {Route} route
      * @param {Request} wrapped_request
-     * @returns {Boolean}
+     * @returns {Number=}
      */
-    _can_parse_body(route, wrapped_request) {
-        // Return true to pre-parsing if we are expecting a specific type of body
-        if (typeof route.options.expect_body == 'string') return true;
-
+    _parse_content_length(wrapped_request) {
         // Ensure we have some content-length value which specifies incoming bytes
         const content_length = +wrapped_request.headers['content-length'];
-        return !isNaN(content_length) && content_length > 0;
+        return !isNaN(content_length) && content_length > 0 ? content_length : undefined;
     }
 
     /**
@@ -370,48 +366,38 @@ class Server extends Router {
      */
     async _handle_uws_request(route, request, response, socket) {
         // Wrap uWS.Request -> Request
-        const wrapped_request = new Request(request, response, route.path_parameters_key, route.app);
+        const wrapped_request = new Request(
+            route.options.stream_options,
+            request,
+            response,
+            route.path_parameters_key,
+            route.app
+        );
 
         // Wrap uWS.Response -> Response
         const wrapped_response = new Response(wrapped_request, response, socket, route.app);
 
-        // Determine if we have body chunks to parse, If so we must do it now as uWS.Response.onData() will be deallocated after this execution
-        if (this._can_parse_body(route, wrapped_request)) {
-            // Check incoming content-length to ensure it is within max_body_length bounds
-            // Abort request with a 413 Payload Too Large status code
-            const content_length = +wrapped_request.headers['content-length'];
+        // Determine the incoming content length if present
+        const content_length = this._parse_content_length(wrapped_request);
+        if (content_length) {
+            // Determine and compare against a maximum incoming content length from the route options with a fallback to the server options
             const max_body_length = route.options.max_body_length || route.app._options.max_body_length;
-            if (!isNaN(content_length) && content_length > max_body_length) {
-                // Use fast abort scheme if specified
+            if (content_length > max_body_length) {
+                // Use fast abort scheme if specified in the server options
                 if (route.app._options.fast_abort === true) return response.close();
 
-                // According to uWebsockets developer, we have to drain incoming data before aborting and closing request
-                // Prematurely closing request with a 413 leads to an ECONNRESET in which we lose 413 error from server
+                // For slow abort scheme, according to uWebsockets developer, we have to drain incoming data before aborting and closing request
+                // Prematurely closing request with a 413 leads to an ECONNRESET in which we lose 413 status code from server
                 return response.onData((_, is_last) => {
                     if (is_last) wrapped_response.status(413).send();
                 });
             }
 
-            // Begin buffering incoming body chunks and initialize underlying readable request stream
-            wrapped_request._start_streaming(route.options.stream_options);
-
-            // If a body type is expected, parse body based on one of the expected types and populate the request.body property
-            if (typeof route.options.expect_body == 'string') {
-                switch (route.options.expect_body) {
-                    case 'text':
-                        wrapped_request._body = await wrapped_request.text();
-                        break;
-                    case 'json':
-                        wrapped_request._body = await wrapped_request.json();
-                        break;
-                    case 'urlencoded':
-                        wrapped_request._body = await wrapped_request.urlencoded();
-                        break;
-                    default:
-                        wrapped_request._body = await wrapped_request.buffer();
-                        break;
-                }
-            }
+            // Begin streaming the incoming body data
+            wrapped_request._start_streaming();
+        } else {
+            // Push an EOF chunk to signify the readable has already ended thus no more content is readable
+            wrapped_request.push(null);
         }
 
         // Chain incoming request/response through all global/local/route-specific middlewares
@@ -432,7 +418,7 @@ class Server extends Router {
         if (response.aborted) return;
 
         // Trigger error handler if an error was provided by a middleware
-        if (error instanceof Error) return response.throw_error(error);
+        if (error instanceof Error) return response.throw(error);
 
         // Determine next callback based on if either global or route middlewares exist
         const has_global_middlewares = this.#middlewares['/'].length > 0;
