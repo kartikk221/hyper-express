@@ -12,14 +12,7 @@ const test_file_path = path.resolve(path.join(__dirname, '../../../content/large
 const test_file_stats = fs.statSync(test_file_path);
 
 function safe_write_chunk(response, chunk, callback) {
-    // Write chunk using Response.write(chunk) method
-    const sent = response.write(chunk);
-
-    // If chunk wasn't sent fully due to backpressure, drain and try again
-    if (!sent) return response.drain(() => safe_write_chunk(response, chunk, callback));
-
-    // Execute callback so Node.js Writable can proceed
-    callback();
+    return response.write(chunk, 'utf8', callback);
 }
 
 // Create Backend HTTP Route
