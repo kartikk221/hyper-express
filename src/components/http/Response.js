@@ -5,6 +5,7 @@ const status_codes = require('../../constants/status_codes.json');
 const mime_types = require('mime-types');
 const { Readable, Writable } = require('stream');
 
+const SSEventStream = require('../plugins/SSEventStream.js');
 const LiveFile = require('../plugins/LiveFile.js');
 const FilePool = {};
 
@@ -21,6 +22,7 @@ class Response extends Writable {
     #status_code;
     #headers;
     #cookies;
+    #sse;
 
     constructor(stream_options = {}, wrapped_request, raw_response, socket, master_context) {
         // Initialize the writable stream for this response
@@ -704,6 +706,21 @@ class Response extends Writable {
      */
     get upgrade_socket() {
         return this.#upgrade_socket;
+    }
+
+    /**
+     * Returns a "Server-Sent Events" connection object to allow for SSE functionality.
+     * This property will only be available for GET requests as per the SSE specification.
+     *
+     * @returns {SSEventStream=}
+     */
+    get sse() {
+        // Return a new SSE instance if one has not been created yet
+        if (this.#wrapped_request.method === 'GET') {
+            // Create new SSE instance if one has not been created yet
+            if (this.#sse === undefined) this.#sse = new SSEventStream(this);
+            return this.#sse;
+        }
     }
 
     /* ExpressJS compatibility properties & methods */

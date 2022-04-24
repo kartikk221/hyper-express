@@ -1,6 +1,6 @@
 const Route = require('./router/Route.js');
 const Router = require('./router/Router.js');
-const Stream = require('stream');
+const Stream = require('stream'); // lgtm [js/unused-local-variable]
 const Request = require('./http/Request.js');
 const Response = require('./http/Response.js');
 const uWebSockets = require('uWebSockets.js');

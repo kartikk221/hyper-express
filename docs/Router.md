@@ -49,8 +49,11 @@ webserver.use('/api/v1', api_v1_router);
         * **Note!** Route specific middlewares **NOT** supported with `any` method routes.
         * **Note!** Middlewares are executed in the order provided in the `Array` provided.
         * **Note!** Global/Router middlewares will be executed before route specific middlewares are executed.
-      * `stream_options`[`Object`]: Specifies the options to use when constructing a readable stream for consuming the request body content for this route.
-        * **See** [`> [ReadableOptions]`](https://nodejs.org/api/stream.html#new-streamreadableoptions) for all available `ReadableOptions` properties that can be specified under `stream_options`.
+      * `streaming`[`Object`]: Specifies global constructor options for internal readable and writable streams.
+        * `readable`[`stream.ReadableOptions`]: Constructor options for `Request` body readable streams.
+          * See the official [`> [ReadableOptions]`](https://nodejs.org/api/stream.html#new-streamreadableoptions) Node.js documentation for more information.
+        * `writable`[`stream.WritableOptions`]:  Constructor options for `Response` body writable streams.
+          * See the official [`> [WritableOptions]`](https://nodejs.org/api/stream.html#new-streamwritableoptions) Node.js documentation for more information.
     * **Note** `pattern` is treated as a **strict** match and trailing-slashes will be treated as different paths.
     * **Supports** both synchronous and asynchronous handler.
     * **Supports** path parameters with `:param` prefix. 

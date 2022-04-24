@@ -131,6 +131,9 @@ async function test_response_object() {
     // Verify .send()
     assert_log(group, candidate + '.send()', () => body1 === test_html_placeholder);
 
+    // Test Response.sse (Server-Sent Events) support
+    await test_response_sse();
+
     // Test Response.stream()
     await test_response_stream_method();
 

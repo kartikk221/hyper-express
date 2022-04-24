@@ -1,5 +1,5 @@
 # Response
-Below is a breakdown of the `response` object made available through the route/middleware handler(s). Most [ExpressJS](https://github.com/expressjs/express) properties and methods are also implemented for compatibility.
+Below is a breakdown of the `Response` component which is an extended `Writable` stream matching official Node.js specification. Most [ExpressJS](https://github.com/expressjs/express) properties and methods are also implemented for compatibility.
 
 #### Response Properties
 | Property  | Type     | Description                |
@@ -61,10 +61,10 @@ Below is a breakdown of the `response` object made available through the route/m
 * See [ExpressJS](https://github.com/expressjs/express) documentation for more properties/methods that are also implemented for compatibility.
 
 #### Response Events
-The `Response` component extends an `EventEmitter` meaning your application can listen for the following lifecycle events of a response.
+The `Response` component extends an `EventEmitter`/`Writable` stream meaning your application can listen for the following lifecycle events.
 - [`abort`]: This event will get emitted when the request was aborted unexpectedly by the client or the underlying connection was closed.
 - [`prepare`]: This event will get emitted when the response is internally ready to be sent. Use this to perform any last minute modifications to the response.
 - [`finish`]: This event will get emitted when the response has been sent by HyperExpress. This does not mean the client has received anything yet.
 - [`close`]: This event will get emitted when the underlying connection has closed.
-- **Note!** you should utilize the [`close`] event to detect the end of a request as it signifies connection closure.
-- See [http.ServerResponse](https://nodejs.org/api/http.html#class-httpserverresponse) documentation for more information on these emited events.
+- **Note!** you should utilize the [`close`] event to detect the absolute end of a request as it signifies connection closure.
+- See the official [`> [http.ServerResponse]`](https://nodejs.org/api/http.html#class-httpserverresponse) Node.js documentation for more information.
