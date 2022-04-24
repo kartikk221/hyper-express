@@ -231,21 +231,6 @@ export default class Response extends EventEmitter {
      */
     get upgrade_socket(): uWebsockets.us_socket_context_t;
 
-
-    /**
-     * Returns a "Server-Sent Events" connection object to allow for SSE functionality.
-     * This property will only be available for GET requests as per the SSE specification.
-     *
-     * @returns {SSEventStream=}
-     */
-    get sse(): SSEventStream;
-
-    /**
-     * Returns a Writable stream associated with this response to be used for piping streams.
-     * @returns {Writable}
-     */
-    get writable(): Stream.Writable;
-
     /* ExpressJS Compatibility Methods & Properties */
     get headersSent(): boolean;
     get statusCode(): number | undefined
