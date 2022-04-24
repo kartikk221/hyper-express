@@ -1,4 +1,3 @@
-const EventEmitter = require('events');
 const Server = require('../Server.js'); // lgtm [js/unused-local-variable]
 const cookie = require('cookie');
 const signature = require('cookie-signature');
@@ -6,11 +5,14 @@ const status_codes = require('../../constants/status_codes.json');
 const mime_types = require('mime-types');
 const { Readable, Writable } = require('stream');
 
-const SSEventStream = require('../plugins/SSEventStream.js');
 const LiveFile = require('../plugins/LiveFile.js');
 const FilePool = {};
 
-class Response extends EventEmitter {
+class Response extends Writable {
+    #streaming = false;
+    #initiated = false;
+    #completed = false;
+    #type_written = false;
     #wrapped_request;
     #middleware_cursor;
     #raw_response;
@@ -19,16 +21,10 @@ class Response extends EventEmitter {
     #status_code;
     #headers;
     #cookies;
-    #initiated = false;
-    #completed = false;
-    #type_written = false;
-    #hooks;
-    #writable;
-    #sse;
 
-    constructor(wrapped_request, raw_response, socket, master_context) {
-        // Initialize the event emitter
-        super();
+    constructor(stream_options = {}, wrapped_request, raw_response, socket, master_context) {
+        // Initialize the writable stream for this response
+        super(stream_options);
 
         // Store the provided parameter properties for later use
         this.#wrapped_request = wrapped_request;
@@ -38,6 +34,9 @@ class Response extends EventEmitter {
 
         // Bind the abort handler as required by uWebsockets.js
         this._bind_abort_handler();
+
+        // Bind a finish/close handler which will end the response once writable has closed
+        super.once('finish', () => (this.#streaming ? this.send() : undefined));
     }
 
     /**
@@ -120,15 +119,14 @@ class Response extends EventEmitter {
     }
 
     /**
-     * This method is used to set the response content type header
-     * based on the provided mime type. Example: type('json')
+     * This method is used to set the response content type header based on the provided mime type. Example: type('json')
      *
      * @param {String} mime_type Mime type
      * @returns {Response} Response (Chainable)
      */
     type(mime_type) {
-        // Remove leading extension . if specified
-        if (mime_type.startsWith('.')) mime_type = mime_type.substr(1);
+        // Remove leading dot from mime type if present
+        if (mime_type.startsWith('.')) mime_type = mime_type.substring(1);
 
         // Determine proper mime type and send response
         let mime_header = mime_types.lookup(mime_type) || 'text/plain';
@@ -301,17 +299,20 @@ class Response extends EventEmitter {
     }
 
     /**
-     * This method can be used to write the body in chunks.
-     * Note! You must still call the send() method to send the response and complete the request.
+     * Writes the provided chunk to the client over uWS with backpressure handling if a callback is provided.
      *
+     * @private
      * @param {String|Buffer|ArrayBuffer} chunk
      * @param {String=} encoding
      * @param {Function=} callback
      * @returns {Boolean} 'false' signifies that the chunk was not sent due to built up backpressure.
      */
-    write(chunk, encoding, callback) {
+    _write(chunk, encoding, callback) {
         // Ensure the client is still connected and request is pending
         if (!this.#completed) {
+            // Mark this response as streaming
+            this.#streaming = true;
+
             // Ensure response has been initiated before writing any chunks
             this._initiate_response();
 
@@ -344,16 +345,43 @@ class Response extends EventEmitter {
 
         // Trigger callback with an error if a write() is performed after response has completed
         if (callback) callback(new Error('Response is already completed/aborted'));
+
         return false;
+    }
+
+    /**
+     * Writes multiples chunks for the response to the client over uWS with backpressure handling if a callback is provided.
+     *
+     * @private
+     * @param {Array<Buffer>} chunks
+     * @param {Function} callback
+     */
+    _writev(chunks, callback) {
+        // Serve the first chunk in the array
+        const reference = this;
+        this._write(chunks[0], null, (error) => {
+            // Pass the error to the callback if one was provided
+            if (error) return callback(error);
+
+            // Determine if we have more chunks after the first chunk we just served
+            if (chunks.length > 1) {
+                // Recursively serve the remaining chunks
+                reference._writev(chunks.slice(1), callback);
+            } else {
+                // Trigger the callback as all chunks have been served
+                callback();
+            }
+        });
     }
 
     /**
      * This method is used to end the current request and send response with specified body and headers.
      *
      * @param {String|Buffer|ArrayBuffer} body Optional
-     * @returns {Boolean} 'false' signifies that the result was not sent due to built up backpressure.
+     * @returns {Boolean} 'false' signifies that the body was not sent due to built up backpressure or closed connection.
      */
     send(body, close_connection) {
+        // Ensure response connection is still active
         if (!this.#completed) {
             // Abort body download buffer just to be safe for large incoming requests
             this.#wrapped_request._stop_streaming();
@@ -362,13 +390,13 @@ class Response extends EventEmitter {
             this._initiate_response();
 
             // Mark request as completed and end request using uWS.Response.end()
-            const result = this.#raw_response.end(body, close_connection);
+            const sent = this.#raw_response.end(body, close_connection);
 
-            // Emit the 'finish' event to signify that the response has been sent by us
-            this.emit('finish', this.#wrapped_request, this);
+            // Emit the 'finish' event to signify that the response has been sent without streaming
+            if (!this.#streaming) this.emit('finish', this.#wrapped_request, this);
 
             // Call any bound hooks for type 'complete' if no backpressure was built up
-            if (result && !this.#completed) {
+            if (sent && !this.#completed) {
                 // Mark request as completed if we were able to send response properly
                 this.#completed = true;
 
@@ -376,8 +404,9 @@ class Response extends EventEmitter {
                 this.emit('close', this.#wrapped_request, this);
             }
 
-            return result;
+            return sent;
         }
+
         return false;
     }
 
@@ -675,40 +704,6 @@ class Response extends EventEmitter {
      */
     get upgrade_socket() {
         return this.#upgrade_socket;
-    }
-
-    /**
-     * Returns a "Server-Sent Events" connection object to allow for SSE functionality.
-     * This property will only be available for GET requests as per the SSE specification.
-     *
-     * @returns {SSEventStream=}
-     */
-    get sse() {
-        // Return a new SSE instance if one has not been created yet
-        if (this.#wrapped_request.method === 'GET') {
-            // Create new SSE instance if one has not been created yet
-            if (this.#sse === undefined) this.#sse = new SSEventStream(this);
-            return this.#sse;
-        }
-    }
-
-    /**
-     * Returns a Writable stream associated with this response to be used for piping streams.
-     * @returns {Writable}
-     */
-    get writable() {
-        // Return from cache if one already exists
-        if (this.#writable) return this.#writable;
-
-        // Create a new writable stream object which writes with Response.write()
-        this.#writable = new Writable({
-            write: (chunk, encoding, callback) => this.write(chunk, encoding, callback),
-        });
-
-        // Bind a finish/close handler which will end the response once writable has closed
-        this.#writable.once('finish', () => this.send());
-
-        return this.#writable;
     }
 
     /* ExpressJS compatibility properties & methods */
