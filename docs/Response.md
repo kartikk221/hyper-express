@@ -6,7 +6,7 @@ Below is a breakdown of the `Response` component which is an extended `Writable`
 | :-------- | :------- | :------------------------- |
 | `app` | `HyperExpress.Server`  | HyperExpress Server instance this `Response` originated from. |
 | `raw` | `uWS.Response`  | Underlying uWebsockets.js response object. |
-| `sse` | `SSEConnection`  | Returns a "Server-Sent Events" connection object for SSE functionality. |
+| `sse` | `SSEventStream`  | Returns a "Server-Sent Events" connection object for SSE functionality. |
 | `initiated` | `Boolean`  | Signifies whether the response has been initiated and the status code/headers have been sent. |
 | `aborted` | `Boolean`  | Signifies whether the request has been aborted/completed. |
 | `completed` | `Boolean`  | Alias of `aborted` property. |
