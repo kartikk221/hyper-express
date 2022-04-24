@@ -19,7 +19,7 @@ router.get(scenario_endpoint, async (request, response) => {
     const readable = fs.createReadStream(test_file_path);
 
     // Pipe the readable stream into the response
-    readable.pipe(response.writable);
+    readable.pipe(response);
 });
 
 // Bind router to webserver
