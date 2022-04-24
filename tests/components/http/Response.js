@@ -125,9 +125,6 @@ async function test_response_object() {
         return test_cookie_test && delete_cookie_value_test && delete_cookie_props_test;
     });
 
-    // Verify .sse - "Server-Sent Events" Stream
-    await test_response_sse();
-
     // Verify .on() aka. Response events
     await test_response_events();
 
