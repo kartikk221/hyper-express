@@ -1,8 +1,9 @@
-const uWebSockets = require('uWebSockets.js');
+const Route = require('./router/Route.js');
+const Router = require('./router/Router.js');
+const Stream = require('stream');
 const Request = require('./http/Request.js');
 const Response = require('./http/Response.js');
-const Router = require('./router/Router.js');
-const Route = require('./router/Route.js');
+const uWebSockets = require('uWebSockets.js');
 const WebsocketRoute = require('./ws/WebsocketRoute.js');
 
 const { wrap_object } = require('../shared/operators.js');
@@ -11,12 +12,13 @@ class Server extends Router {
     #uws_instance;
     #listen_socket;
     #options = {
+        is_ssl: false,
+        auto_close: true,
+        fast_abort: false,
         trust_proxy: false,
         unsafe_buffers: false,
-        fast_abort: false,
-        is_ssl: false,
         max_body_length: 250 * 1000,
-        auto_close: true,
+        streaming: {},
     };
 
     /**
@@ -31,6 +33,9 @@ class Server extends Router {
      * @param {Boolean} options.trust_proxy Specifies whether to trust incoming request data from intermediate proxy(s)
      * @param {Number} options.max_body_length Maximum body content length allowed in bytes. For Reference: 1kb = 1000 bytes and 1mb = 1000kb.
      * @param {Boolean} options.auto_close Whether to automatically close the server instance when the process exits. Default: true
+     * @param {Object} options.streaming Global content streaming options.
+     * @param {Stream.ReadableOptions} options.streaming.readable Global content streaming options for Readable streams.
+     * @param {Stream.WritableOptions} options.streaming.writable Global content streaming options for Writable streams.
      */
     constructor(options = {}) {
         // Only accept object as a parameter type for options
@@ -367,7 +372,7 @@ class Server extends Router {
     async _handle_uws_request(route, request, response, socket) {
         // Wrap uWS.Request -> Request
         const wrapped_request = new Request(
-            route.options.stream_options,
+            route.streaming.readable,
             request,
             response,
             route.path_parameters_key,
@@ -375,7 +380,7 @@ class Server extends Router {
         );
 
         // Wrap uWS.Response -> Response
-        const wrapped_response = new Response(wrapped_request, response, socket, route.app);
+        const wrapped_response = new Response(route.streaming.writable, wrapped_request, response, socket, route.app);
 
         // Determine the incoming content length if present
         const content_length = this._parse_content_length(wrapped_request);

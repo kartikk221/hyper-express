@@ -10,7 +10,6 @@ Below is a breakdown of the `response` object made available through the route/m
 | `initiated` | `Boolean`  | Signifies whether the response has been initiated and the status code/headers have been sent. |
 | `aborted` | `Boolean`  | Signifies whether the request has been aborted/completed. |
 | `completed` | `Boolean`  | Alias of `aborted` property. |
-| `writable` | `stream.Writable` | Writable stream object to be used for piping. |
 * See [`> [SSEventStream]`](./SSEventStream.md) for more information on the `Response.sse` property.
 
 #### Response Methods
@@ -41,7 +40,7 @@ Below is a breakdown of the `response` object made available through the route/m
 * `write(String|Buffer|ArrayBuffer: chunk, String?: encoding, Function?: callback)`: Writes specified chunk using chunked transfer. Use this method to stream large amounts of data.
     * **Returns** a `Boolean` in which `false` signifies chunk was not fully sent due to built up backpressure. 
     * **Note** the `send()` must still be called in the end after writing all chunks to end the chunked transfer.
-    * **Note** this method mimics `Writable.write()` method thus you may use direct piping by piping a `Readable` to the `Response.writable` property.
+    * **Note** this method mimics `Writable.write()` method thus you may use direct piping by piping from a `Readable` stream.
 * `drain(Function: handler)`: Binds a one-time handler which is called once the built up backpressure from a failed `write()` call has been drained.
   * **Note** you **MUST** retry the failed `write()` call with the same chunk from before proceeding to writing future chunks.
   * **Note** this handler must be **synchronous** only.
@@ -67,4 +66,5 @@ The `Response` component extends an `EventEmitter` meaning your application can 
 - [`prepare`]: This event will get emitted when the response is internally ready to be sent. Use this to perform any last minute modifications to the response.
 - [`finish`]: This event will get emitted when the response has been sent by HyperExpress. This does not mean the client has received anything yet.
 - [`close`]: This event will get emitted when the underlying connection has closed.
+- **Note!** you should utilize the [`close`] event to detect the end of a request as it signifies connection closure.
 - See [http.ServerResponse](https://nodejs.org/api/http.html#class-httpserverresponse) documentation for more information on these emited events.

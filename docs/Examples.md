@@ -77,7 +77,7 @@ webserver.post('/stream/some-data', async (request, response) => {
     const readable = getReadableStreamForOurData();
 
     // Simply pipe the stream to the Response writable to serve it to the client
-    readable.pipe(response.writable);
+    readable.pipe(response);
 });
 ```
 
