@@ -47,27 +47,41 @@ class Router {
      * @param {Object} options Route processor options (Optional)
      * @param {Function} handler Example: (request, response) => {}
      */
-    _register_route(method, pattern, options, handler = null) {
-        // Determine final options object and final handler for route
-        const parsedOptions =
-            options && typeof options == 'object' && !Array.isArray(options) ? options : this._default_options(method);
-        const parsedHandler = typeof handler == 'function' ? handler : options;
+    _register_route() {
+        // Initialize property holders for building a route record
+        let method = arguments[0]; // First argument will always be the method (in lowercase)
+        let pattern = arguments[1]; // Second argument will always be the pattern
+        let options, handler;
 
-        // Detect and inject middlewares from the options parameter to match Express.js pattern
-        if (
-            parsedOptions.middlewares &&
-            typeof handler == 'function' &&
-            (typeof options == 'function' || Array.isArray(options))
-        ) {
-            // Parse the middlewares from the options parameter as an array
-            parsedOptions.middlewares = Array.isArray(options) ? options : [options];
+        // Look for object/function types to parse route options, potential middlewares and route handler from remaining arguments
+        const callbacks = [];
+        for (let i = 2; i < arguments.length; i++) {
+            const parameter = arguments[i];
+            if (typeof parameter == 'function') {
+                // Scenario: Single function
+                callbacks.push(parameter);
+            } else if (Array.isArray(parameter)) {
+                // Scenario: Array of functions
+                callbacks.push(...parameter);
+            } else if (parameter && typeof parameter == 'object') {
+                // Scenario: Route options object
+                options = parameter;
+            }
         }
 
+        // Write the route handler and route options object with fallback to the default options
+        handler = callbacks.pop();
+        options = options || this._default_options(method);
+
+        // Concatenate any remaining callbacks to the route options middlewares property
+        if (callbacks.length > 0) options.middlewares = (options.middlewares || []).concat(callbacks);
+
+        // Initialize the record object which will hold information about this route
         const record = {
             method,
             pattern,
-            options: parsedOptions,
-            handler: parsedHandler,
+            options,
+            handler,
         };
 
         // Store record for future subscribers
@@ -229,8 +243,8 @@ class Router {
      * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    any(pattern, options, handler) {
-        return this._register_route('any', pattern, options, handler);
+    any() {
+        return this._register_route('any', ...arguments);
     }
 
     /**
@@ -240,8 +254,8 @@ class Router {
      * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    get(pattern, options, handler) {
-        return this._register_route('get', pattern, options, handler);
+    get() {
+        return this._register_route('get', ...arguments);
     }
 
     /**
@@ -251,8 +265,8 @@ class Router {
      * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    post(pattern, options, handler) {
-        return this._register_route('post', pattern, options, handler);
+    post() {
+        return this._register_route('post', ...arguments);
     }
 
     /**
@@ -262,8 +276,8 @@ class Router {
      * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    put(pattern, options, handler) {
-        return this._register_route('put', pattern, options, handler);
+    put() {
+        return this._register_route('put', ...arguments);
     }
 
     /**
@@ -273,8 +287,8 @@ class Router {
      * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    delete(pattern, options, handler) {
-        return this._register_route('del', pattern, options, handler);
+    delete() {
+        return this._register_route('del', ...arguments);
     }
 
     /**
@@ -284,8 +298,8 @@ class Router {
      * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    head(pattern, options, handler) {
-        return this._register_route('head', pattern, options, handler);
+    head() {
+        return this._register_route('head', ...arguments);
     }
 
     /**
@@ -295,8 +309,8 @@ class Router {
      * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    options(pattern, options, handler) {
-        return this._register_route('options', pattern, options, handler);
+    options() {
+        return this._register_route('options', ...arguments);
     }
 
     /**
@@ -306,8 +320,8 @@ class Router {
      * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    patch(pattern, options, handler) {
-        return this._register_route('patch', pattern, options, handler);
+    patch() {
+        return this._register_route('patch', ...arguments);
     }
 
     /**
@@ -317,8 +331,8 @@ class Router {
      * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    trace(pattern, options, handler) {
-        return this._register_route('trace', pattern, options, handler);
+    trace() {
+        return this._register_route('trace', ...arguments);
     }
 
     /**
@@ -328,8 +342,8 @@ class Router {
      * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    connect(pattern, options, handler) {
-        return this._register_route('connect', pattern, options, handler);
+    connect() {
+        return this._register_route('connect', ...arguments);
     }
 
     /**
@@ -340,8 +354,8 @@ class Router {
      * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
-    upgrade(pattern, options, handler) {
-        return this._register_route('upgrade', pattern, options, handler);
+    upgrade() {
+        return this._register_route('upgrade', ...arguments);
     }
 
     /**

@@ -17,9 +17,18 @@ const double_iteration_middleware = async (request, response, next) => {
 const delay_middleware = (request, response, next) => setTimeout(next, 10);
 
 // Create Backend HTTP Route
-router.get(scenario_endpoint, [double_iteration_middleware, delay_middleware], async (request, response) => {
-    return response.send('Good');
-});
+router.get(
+    scenario_endpoint,
+    double_iteration_middleware,
+    [delay_middleware], // This weird parameter pattern is to test Express.js compatibility pattern for providing multiple middlewares through parameters/arrays
+    delay_middleware,
+    {
+        max_body_length: 1024 * 1024 * 10,
+    },
+    async (request, response) => {
+        return response.send('Good');
+    }
+);
 
 // Bind router to webserver
 const { TEST_SERVER } = require('../../Server.js');
