@@ -10,6 +10,7 @@ const LiveFile = require('../plugins/LiveFile.js');
 const FilePool = {};
 
 class Response extends Writable {
+    locals = {};
     #streaming = false;
     #initiated = false;
     #completed = false;
@@ -756,8 +757,6 @@ class Response extends Writable {
     set statusCode(code) {
         this.status(code);
     }
-
-    locals = {};
 
     /**
      * ExpressJS: Alias of header() method

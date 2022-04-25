@@ -14,6 +14,7 @@ const type_is = require('type-is');
 const is_ip = require('net').isIP;
 
 class Request extends stream.Readable {
+    locals = {};
     #master_context;
     #stream_raw_chunks = false;
     #raw_request = null;
