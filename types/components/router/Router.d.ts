@@ -38,15 +38,17 @@ export class Router {
     constructor()
 
     /**
-     * Registers a middleware/router with specified path.
+     * Registers middlewares and router instances on the specified pattern if specified.
+     * If no pattern is specified, the middleware/router instance will be mounted on the '/' root path by default of this instance.
      *
-     * @param {String|...MiddlewareHandler|Router} pattern
-     * @param {...MiddlewareHandler|Router} handler (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
+     * @param {...MiddlewareHandler|Router|String} args (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
      */
     use(router: Router): void;
-    use(...handler: MiddlewareHandler[]): void;
+    use(...routers: Router[]): void;
+    use(...middlewares: MiddlewareHandler[]): void;
     use(pattern: string, router: Router): void;
-    use(pattern: string, ...handler: MiddlewareHandler[]): void;
+    use(pattern: string, ...routers: Router[]): void;
+    use(pattern: string, ...middlewares: MiddlewareHandler[]): void;
 
     /**
      * Creates an HTTP route that handles any HTTP method requests.

@@ -1,5 +1,7 @@
 # Request
-Below is a breakdown of the `Request` component which is an extended `Readable` stream matching official Node.js specification. Most [ExpressJS](https://github.com/expressjs/express) properties and methods are also implemented for compatibility.
+Below is a breakdown of the `Request` component which is an extended `Readable` stream matching official Node.js specification.
+* See [`> [ExpressJS]`](https://expressjs.com/en/4x/api.html#req) for more information on additional compatibility methods and properties.
+* See [`> [Stream.Readable]`](https://nodejs.org/api/stream.html#new-streamreadableoptions) for more information on additional native methods and properties.
 
 #### Request Properties
 | Property  | Type     | Description                |
@@ -32,19 +34,21 @@ Below is a breakdown of the `Request` component which is an extended `Readable` 
     * **Returns** `Promise` which is then resolved to an `Object` or `typeof default_value`.
     * **Note** this method returns the specified `default_value` if JSON parsing fails instead of throwing an exception. To have this method throw an exception, pass `undefined` for `default_value`.
     * **Note** `default_value` is `{}` by default meaning `json()` is a safe method even if incoming body is invalid json.
-* `multipart(options?: BusboyConfig, handler: Function)`: Parses incoming multipart form based request allowing for file uploads.
-    * **Returns** `Promise` which is **resolved** once all fields have been processed.
+* `multipart(...2 Overloads)`: Parses incoming multipart form based requests allowing for file uploads.
+    * **Returns** a `Promise` which is **resolved** once **all** of the fields have been processed.
         * **Note** you may provide an async `handler` to ensure all fields get executed after each `handler` invocaton has finished.
-    * **Handler Example**: `(field: MultipartField) => { /* Your Code Here */}`
-        * **Note** this `handler` can be either a synchronous or asynchronous callback.
-        * **Note** HyperExpress will automatically pause and wait for your handler `Promise` to resolve before resuming with the next field.
-    * **Note** the returnd `Promise` can **reject** with one of the `String` constants below or an uncaught `Error` object.
-        * `PARTS_LIMIT_REACHED`: This error is rejected when the configured Busboy `limits.parts` limit has been reached.
-        * `FILES_LIMIT_REACHED`: This error is rejected when the configured Busboy `limits.files` limit has been reached.
-        * `FIELDS_LIMIT_REACHED`: This error is rejected when the configured Busboy `limits.fields` limit has been reached.
-    * **Note** you may only provide the `handler` parameter to rely on the Busboy parser defaults.
-    * **See** [`> [Busboy]`](https://github.com/mscdex/busboy) to view `BusboyConfig` and learn more about the Busboy multipart parser.
-    * **Note** HyperExpress currently **does not support** chunked transfer requests.
-    * **See** [`> [MultipartField]`](./MultipartField.md) to view all properties and methods available for each multipart field.
+        * **Note** the returnd `Promise` can **reject** with one of the `String` constants below or an uncaught `Error` object.
+            * `PARTS_LIMIT_REACHED`: This error is rejected when the configured Busboy `limits.parts` limit has been reached.
+            * `FILES_LIMIT_REACHED`: This error is rejected when the configured Busboy `limits.files` limit has been reached.
+            * `FIELDS_LIMIT_REACHED`: This error is rejected when the configured Busboy `limits.fields` limit has been reached.
+    * **Overload Types**:
+      * `multipart(Function: handler)`: Parses the incoming multipart request with the default Busboy `options` through the specified `handler`.
+      * `multipart(BusboyConfig: options, Function: handler)`: Parses the incoming multipart request with the spcified `options` through the specified `handler`.
+      * **Handler Example**: `(field: MultipartField) => { /* Your Code Here */}`
+        * **Note** this `handler` can be either a synchronous or asynchronous function.
+        * **Note** HyperExpress will automatically pause and wait for your **async** handler to resolve on **each** field.
+      * **See** [`> [MultipartField]`](./MultipartField.md) to view all properties and methods available for each multipart field.
+      * **See** [`> [Busboy]`](https://github.com/mscdex/busboy) to view all customizable `BusboyConfig` options and learn more about the Busboy multipart parser.
     * **Note** the body parser uses the global `Server.max_body_length` by default. You can **override** this property on a route by specifying a higher `max_body_length` in the route options when creating that route.
+    * **Note** HyperExpress currently **does not support** chunked transfer requests.
 * See [ExpressJS](https://github.com/expressjs/express) documentation for more properties/methods that are also implemented for compatibility.

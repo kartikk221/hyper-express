@@ -1,16 +1,18 @@
 # Response
-Below is a breakdown of the `Response` component which is an extended `Writable` stream matching official Node.js specification. Most [ExpressJS](https://github.com/expressjs/express) properties and methods are also implemented for compatibility.
+Below is a breakdown of the `Response` component which is an **extended** `Writable` **stream** matching official Node.js network specification. 
+* See [`> [ExpressJS]`](https://expressjs.com/en/4x/api.html#res) for more information on additional compatibility methods and properties.
+* See [`> [Stream.Writable]`](https://nodejs.org/api/stream.html#new-streamwritableoptions) for more information on additional native methods and properties.
 
 #### Response Properties
 | Property  | Type     | Description                |
 | :-------- | :------- | :------------------------- |
 | `app` | `HyperExpress.Server`  | HyperExpress Server instance this `Response` originated from. |
 | `raw` | `uWS.Response`  | Underlying uWebsockets.js response object. |
-| `sse` | `SSEventStream`  | Returns a "Server-Sent Events" connection object for SSE functionality. |
+| `sse` | `undefined`, `SSEventStream`  | Returns a "Server-Sent Events" connection object for SSE functionality. |
 | `initiated` | `Boolean`  | Signifies whether the response has been initiated and the status code/headers have been sent. |
 | `aborted` | `Boolean`  | Signifies whether the request has been aborted/completed. |
 | `completed` | `Boolean`  | Alias of `aborted` property. |
-* See [`> [SSEventStream]`](./SSEventStream.md) for more information on the `Response.sse` property.
+* See [`> [SSEventStream]`](./SSEventStream.md) for more information on the `Response.sse` property for working with Server-Sent Events.
 
 #### Response Methods
 * `atomic(Function: callback)`: Alias of uWebsockets's `cork(callback)` method.
@@ -48,10 +50,10 @@ Below is a breakdown of the `Response` component which is an extended `Writable`
   * This method can be useful for serving large amounts of data through Node.js streaming functionalities.
   * **Note** the `total_size` is an **optional** number in `bytes` which can be specified if you need a `content-length` header on the receiver side.
   * **Note** you must do your own error handling on the readable stream to prevent triggering the global error handler.
-* `send(String|Buffer|ArrayBuffer: body)`: Writes specified body and sends response.
+* `send(String|Buffer|ArrayBuffer?: body)`: Writes specified body and sends response.
   * **Returns** a `Boolean` in which `false` signifies body was not fully sent due to built up backpressure.
 * `json(Object: body)`: Alias of `send()`. Sets mime type to `json` and sends response.
-* `jsonp(Object: body, String: name)`: Alias of `send()`. Sets mime type to `js` and sends response.
+* `jsonp(Object: body, String?: name)`: Alias of `send()`. Sets mime type to `js` and sends response.
   * **Note!** This method uses `callback` query parameter as callback name by default if `name` parameter is not specified.
 * `html(String: body)`: Alias of `send()`. Sets mime type to `html` and sends response.
 * `attachment(String: path)`: Writes appropriate `Content-Disposition` and `Content-Type` headers for file specified at `path`.

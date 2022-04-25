@@ -186,10 +186,10 @@ class Router {
      */
 
     /**
-     * Registers a middleware/router with specified path.
+     * Registers middlewares and router instances on the specified pattern if specified.
+     * If no pattern is specified, the middleware/router instance will be mounted on the '/' root path by default of this instance.
      *
-     * @param {String|...MiddlewareHandler|Router} pattern
-     * @param {...MiddlewareHandler|Router} handler (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
+     * @param {...MiddlewareHandler|Router|String} args (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
      */
     use() {
         // Parse a pattern for this use call with a fallback to the local-global scope aka. '/' pattern

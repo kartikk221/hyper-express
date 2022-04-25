@@ -1,8 +1,9 @@
 # Middlewares
-HyperExpress follows the standard format of middlewares and implements similar API to ExpressJS. This allows for full compatibility with most existing ExpressJS middlewares while maintaining high performance. See [`> [Server]`](./Server.md) and [`> [Router]`](./Router.md) for details about the `use()` method and parameter types.
+HyperExpress follows the standard format of middlewares and implements similar API to ExpressJS. This allows for full compatibility with most existing ExpressJS middlewares while maintaining high performance. 
+* See [`> [Server]`](./Server.md) and [`> [Router]`](./Router.md) for details about the `use()` method and parameter types.
 
 # How To Use
-Middlewares support both callback and promise based iteration similar to ExpressJS. Throwing or iterating with an `Error` object will trigger the global error handler.
+Middlewares support both callback and promise based iteration similar to ExpressJS. Throwing or iterating `next` with an `Error` object will trigger the global error handler.
 
 #### Callback-Based Iteration
 ```javascript
@@ -14,7 +15,7 @@ router.use('/api', (request, response, next) => {
 });
 ```
 
-#### Promise-Based Iteration
+#### Async/Promise-Based Iteration
 ```javascript
 // Binds a global middleware that will run on all routes.
 server.use(async (request, response) => {

@@ -1,5 +1,6 @@
 # Server
-Below is a breakdown of the `Server` object class generated while creating a new webserver instance.
+Below is a breakdown of the `Server` component which is an extended `Router` instance for modularity support.
+* See [`> [Router]`](./Router.md) for more information on additional methods and properties available.
 
 ### Server Constructor Options
 * `key_file_name` [`String`]: Path to SSL private key file to be used for SSL/TLS.
@@ -15,7 +16,7 @@ Below is a breakdown of the `Server` object class generated while creating a new
     * **Example**: `'misc/dhparam4096.pm'`
     * **Optional** for an **SSL** server.
 * `ssl_prefer_low_memory_usage` [`Boolean`]: Specifies uWebsockets to prefer lower memory usage while serving SSL requests.
-* `auto_close` [`Boolean`]: Specifies whether the `Server` instance should automatically closed when process exits.
+* `auto_close` [`Boolean`]: Specifies whether the `Server` instance should automatically be closed when process exits.
   * **Default:** `true`
 * `fast_buffers` [`Boolean`]: Specifies HyperExpress to use `Buffer.allocUnsafe` for storing incoming request body data for faster performance.
   * **Default:** `false` 
@@ -36,29 +37,29 @@ Below is a breakdown of the `Server` object class generated while creating a new
 ### Server Instance Properties
 | Property  | Type     | Description                |
 | :-------- | :------- | :------------------------- |
-| `locals` | `Object` | Stores references local to this instance. |
+| `locals` | `Object` | Can be used to stores references local to this instance. |
 | `uws_instance` | `uWS` | Underlying uWebsockets TemplatedApp instance. |
 | `routes` | `Object` | All routes created on current instance. |
 | `middlewares` | `Object` | All non route specific midddlewares on current instance. |
 | `handlers` | `Object` | Global handlers for current instance. |
 
 ### Server Instance Methods
-* `listen(Number: port, String: host)`: Starts the uWebsockets server on specified port.
+* `listen(Number: port, String?: host)`: Starts the uWebsockets server on specified port.
     * **Returns** a `Promise` and resolves `uw_listen_socket`.
     * **Note** port is required and host is `0.0.0.0` by default.
-* `close(uws_socket: socket)`: Closes the uWebsockets se@Brver gracefully.
+* `close(uws_socket?: socket)`: Closes the uWebsockets se@Brver gracefully.
     * **Note**: socket is not required.
 * `set_error_handler(Function: handler)`: Binds a global catch-all error handler that will attempt to catch mostsynchronous/asynchronous errors.
     * **Handler Parameters:** `(Request: request, Response: response, Error: error) => {}`.
 * `set_not_found_handler(Function: handler)`: Binds a global catch-all not found handler that will handle all requests which are not handled by any routes.
     * **Handler Parameters:** `(Request: request, Response: response) => {}`.
-* `use(...2 Overloads)`: Accepts a `middleware` method or `Router` instance to bind middlewares and routes depending on provided pattern and handler.
+* `use(...2 Overloads)`: Binds middlewares and mounts `Router` instances on the optionally specified pattern hierarchy.
     * **Overload Types**:
-      * `use(Function | Router: handler)`: Binds the specified `Function` as a `middleware` or inherits the `Router` instance as a sub-router on the `/` pattern.
-      * `use(String: pattern, Function | Router: handler)`: Binds the specified `Function` as a `middleware` or inherits the `Router` instance as a sub-router on the specified `pattern` path.
+      * `use(Function | Router: ...handler)`: Binds the specified functions as middlewares and mounts the `Router` instances on the `/` pattern.
+      * `use(String: pattern, Function | Router: ...handler)`: Binds the specified functions as middlewares and mounts the `Router` instances on the specified `pattern` hierarchy.
     * **Note** `pattern` is treated as a wildcard match by default and does not support `*`/`:param` prefixes.
-    * **See** [`> [Router]`](./Router.md) & [`> [Middlewares]`](./Middlewares.md) for full documentation on this method.
-* `any(...4 Overloads)`: Creates an HTTP route on specified pattern. Alias methods are listed below for HTTP method specific routes.
+    * **See** [`> [Router]`](./Router.md) & [`> [Middlewares]`](./Middlewares.md) for **full documentation** on this method.
+* `any(...4 Overloads)`: Creates an HTTP route on the specified pattern. Alias methods are listed below for all available HTTP methods.
     * **Alias Methods:** `get()`, `post()`, `put()`, `delete()`, `head()`, `options()`, `patch()`, `trace()`, `connect()`, `upgrade()`, `ws()`.
     * **Overload Types**:
       * `any(String: pattern, Function: handler)`: Creates an any method HTTP route with the specified `handler`.
@@ -67,4 +68,4 @@ Below is a breakdown of the `Server` object class generated while creating a new
       * `any(String: pattern, Function[]: middlewares, Function: handler)`: Creates an any method HTTP route with the specified set of route-specific `middlewares` and `handler`.
     * **See** [`> [Router]`](./Router.md) for full documentation on this method.
     * **See** [`> [Websocket]`](./Websocket.md) for usage documentation on the `upgrade()` and `ws()` alias method.
-* `publish(String: topic, String|Buffer|ArrayBuffer: message, Boolean: is_binary, Boolean: compress)`: Publishes the specified message to the specified topic in **MQTT syntax** to all WebSocket connections on this Server instance.
+* `publish(String: topic, String|Buffer|ArrayBuffer: message, Boolean?: is_binary, Boolean?: compress)`: Publishes the specified message to the specified topic in **MQTT syntax** to all WebSocket connections on this Server instance.
