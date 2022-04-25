@@ -19,7 +19,7 @@ export interface CookieOptions {
     secret?: string
 }
 
-export class Response {
+export class Response extends Stream.Writable {
     /* HyperExpress Response Methods */
 
     /**
@@ -179,27 +179,6 @@ export class Response {
      */
     throw(error: Error): void;
 
-    /**
-     * Valid events handlers
-     * 
-     * @param event Event name
-     * @param handler Event handler
-     */
-    on(event: 'abort', handler: (request: Request, response: Response) => void): this;
-    on(event: 'prepare', handler: (request: Request, response: Response) => void): this;
-    on(event: 'finish', handler: (request: Request, response: Response) => void): this;
-    on(event: 'close', handler: (request: Request, response: Response) => void): this;
-
-    once(event: 'abort', handler: (request: Request, response: Response) => void): this;
-    once(event: 'prepare', handler: (request: Request, response: Response) => void): this;
-    once(event: 'finish', handler: (request: Request, response: Response) => void): this;
-    once(event: 'close', handler: (request: Request, response: Response) => void): this;
-
-    off(event: 'abort', handler: (request: Request, response: Response) => void): this;
-    off(event: 'prepare', handler: (request: Request, response: Response) => void): this;
-    off(event: 'finish', handler: (request: Request, response: Response) => void): this;
-    off(event: 'close', handler: (request: Request, response: Response) => void): this;
-
     /* HyperExpress Response Properties */
 
     /**
@@ -257,7 +236,6 @@ export class Response {
     hasCookie(name: string): Boolean;
     removeCookie(name: string): Response;
     clearCookie(name: string): Response;
-    end(data: SendableData): void;
     get(name: string): string | Array<string>;
     links(links: Object): string;
     location(path: string): Response;
