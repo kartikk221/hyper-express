@@ -1,4 +1,5 @@
 {
+    "hostname": "localhost",
     "port_start": 3000,
     "multi_core": false
 }

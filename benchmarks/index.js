@@ -7,7 +7,7 @@ import { log } from './utils.js';
 
 // Load the server instances to be benchmarked
 import uWebsockets from './setup/uwebsockets.js';
-import NanoExpress from './setup/nanoexpress.js';
+// import NanoExpress from './setup/nanoexpress.js';
 import HyperExpress from './setup/hyperexpress.js';
 import Fastify from './setup/fastify.js';
 import Express from './setup/express.js';
@@ -33,27 +33,31 @@ let uws_socket;
         const initial_port = configuration.port_start;
 
         // Initialize the uWebsockets server instance
-        uws_socket = await new Promise((resolve) => uWebsockets.listen(configuration.port_start, resolve));
+        uws_socket = await new Promise((resolve) =>
+            uWebsockets.listen(configuration.hostname, configuration.port_start, resolve)
+        );
         log(`uWebsockets.js server listening on port ${configuration.port_start}`);
 
         // Initialize the NanoExpress server instance
-        configuration.port_start++;
+        // Commented out NanoExpress as it is not properly updated to Node.js v18
+        /* configuration.port_start++;
         await NanoExpress.listen(configuration.port_start);
         log(`NanoExpress server listening on port ${configuration.port_start}`);
+        */
 
         // Initialize the NanoExpress server instance
         configuration.port_start++;
-        await HyperExpress.listen(configuration.port_start);
+        await HyperExpress.listen(configuration.port_start, configuration.hostname);
         log(`HyperExpress server listening on port ${configuration.port_start}`);
 
         // Initialize the Fastify server instance
         configuration.port_start++;
-        await Fastify.listen(configuration.port_start);
+        await Fastify.listen(configuration.port_start, configuration.hostname);
         log(`Fastify server listening on port ${configuration.port_start}`);
 
         // Initialize the Express server instance
         configuration.port_start++;
-        await new Promise((resolve) => Express.listen(configuration.port_start, resolve));
+        await new Promise((resolve) => Express.listen(configuration.port_start, configuration.hostname, resolve));
         log(`Express.js server listening on port ${configuration.port_start}`);
 
         // Make HTTP GET requests to all used ports to test the servers
@@ -83,7 +87,7 @@ let uws_socket;
         // Close all the webserver instances
         try {
             uWebsocketsJS.us_listen_socket_close(uws_socket);
-            NanoExpress.close();
+            // NanoExpress.close();
             HyperExpress.close();
             Fastify.close();
         } catch (error) {

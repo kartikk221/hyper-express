@@ -12,3 +12,13 @@ export function log(message, primary_only = true) {
     if (primary_only && cluster.isWorker) return;
     console.log(message);
 }
+
+/**
+ * Returns a Promise which is resolved after the given number of milliseconds.
+ *
+ * @param {Number} ms
+ * @returns {Promise<void>}
+ */
+export function async_wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
