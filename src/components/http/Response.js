@@ -111,13 +111,14 @@ class Response extends Writable {
      */
     status(code) {
         // Throw expection if a status change is attempted after response has been initiated
-        if (this.initiated)
+        if (this.initiated) {
             throw new Error(
                 'HyperExpress.Response.status(code) -> HTTP Status Code cannot be changed once a response has been initiated.'
             );
+        }
 
-        // Match status code Number to a status message and call uWS.Response.writeStatus
-        this.#status_code = code + ' ' + status_codes[code];
+        // Set the numeric status code. Status text is appended before writing status to uws
+        this.#status_code = code;
         return this;
     }
 
@@ -270,14 +271,16 @@ class Response extends Writable {
         // Emit the 'prepare' event to allow for any last minute response modifications
         this.emit('prepare', this.#wrapped_request, this);
 
-        // Mark the instance as initiated signifyin that no more status/header based operations can be performed
+        // Mark the instance as initiated signifying that no more status/header based operations can be performed
         this.#initiated = true;
 
         // Ensure our associated request is not paused for whatever reason
         this._resume_if_paused();
 
-        // Write custom HTTP status if specified
-        if (this.#status_code) this.#raw_response.writeStatus(this.#status_code);
+        // Match status code Number to a status message and call uWS.Response.writeStatus
+        if (this.#status_code) {
+            this.#raw_response.writeStatus(this.#status_code + ' ' + status_codes[this.#status_code]);
+        }
 
         // Write headers if specified
         if (this.#headers)
@@ -806,6 +809,18 @@ class Response extends Writable {
      */
     getHeader(name) {
         return this.#headers ? this.#headers[name] : undefined;
+    }
+
+    /**
+     * ExpressJS: Returns all pending headers from this response 
+     * @returns {Object|undefined}
+     */
+    getHeaders() {
+        const headers = {}
+        Object.keys(this.#headers).forEach(key => {
+            headers[key] = this.#headers[key].join(',')
+        })
+        return headers
     }
 
     /**

@@ -1,10 +1,10 @@
 import * as uWebsockets from 'uWebSockets.js';
 import { SendableData } from './http/Response';
-import Request from './http/Request';
-import Response from './http/Response';
-import Router from './router/Router'
+import { Request } from './http/Request';
+import { Response } from './http/Response';
+import { Router } from './router/Router'
 
-interface ServerConstructorOptions {
+export interface ServerConstructorOptions {
     key_file_name?: string,
     cert_file_name?: string,
     passphrase?: string,
@@ -17,10 +17,10 @@ interface ServerConstructorOptions {
     auto_close?: boolean
 }
 
-type GlobalErrorHandler = (request: Request, response: Response, error: Error) => void;
-type GlobalNotFoundHandler = (request: Request, response: Response) => void;
+export type GlobalErrorHandler = (request: Request, response: Response, error: Error) => void;
+export type GlobalNotFoundHandler = (request: Request, response: Response) => void;
 
-export default class Server extends Router {
+export class Server extends Router {
     constructor(options?: ServerConstructorOptions)
 
     /**

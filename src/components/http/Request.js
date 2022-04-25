@@ -320,7 +320,7 @@ class Request extends stream.Readable {
         // Return from cache if available
         if (this.#body_urlencoded) return this.#body_urlencoded;
 
-        // Retrive text body, parse as a query string, cache and resolve
+        // Retrieve text body, parse as a query string, cache and resolve
         this.#body_urlencoded = querystring.parse(this.#body_text || (await this.text()));
         return this.#body_urlencoded;
     }

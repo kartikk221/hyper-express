@@ -1,16 +1,15 @@
 import * as Stream from 'stream';
 import * as uWebsockets from 'uWebSockets.js';
-import * as EventEmitter from 'events';
-import LiveFile from '../plugins/LiveFile';
-import SSEventStream from '../plugins/SSEventStream';
-import Server from '../Server';
+import { LiveFile } from '../plugins/LiveFile';
+import { Server } from '../Server';
+import { Request } from './Request'
 
-type SendableData = string | Buffer | ArrayBuffer;
-type FileCachePool = {
+export type SendableData = string | Buffer | ArrayBuffer;
+export type FileCachePool = {
     [key: string]: LiveFile
 };
 
-interface CookieOptions {
+export interface CookieOptions {
     domain?: string,
     path?: string,
     maxAge?: number,
@@ -20,7 +19,11 @@ interface CookieOptions {
     secret?: string
 }
 
-export default class Response extends EventEmitter {
+type DefaultLocals = {
+    [key: string]: any
+}
+
+export class Response<Locals = DefaultLocals> extends Stream.Writable {
     /* HyperExpress Response Methods */
 
     /**
@@ -83,17 +86,6 @@ export default class Response extends EventEmitter {
      * @param {function(number):void} handler Synchronous callback only
      */
     drain(handler: (offset: number) => void): void;
-
-    /**
-     * This method can be used to write the body in chunks.
-     * Note! You must still call the send() method to send the response and complete the request.
-     *
-     * @param {String|Buffer|ArrayBuffer} chunk
-     * @param {String=} encoding
-     * @param {Function=} callback
-     * @returns {Boolean} 'false' signifies that the chunk was not sent due to built up backpressure.
-     */
-    write(chunk: SendableData, encoding?: string, callback?: () => void): boolean;
 
     /**
      * This method is used to end the current request and send response with specified body and headers.
@@ -234,7 +226,7 @@ export default class Response extends EventEmitter {
     /* ExpressJS Compatibility Methods & Properties */
     get headersSent(): boolean;
     get statusCode(): number | undefined
-    locals: Object;
+    locals: Locals
     append(name: string, values: string | Array<string>): Response;
     writeHead(name: string, values: string | Array<string>): Response;
     setHeader(name: string, values: string | Array<string>): Response;
@@ -242,12 +234,12 @@ export default class Response extends EventEmitter {
     setHeaders(headers: Object): void;
     writeHeaderValues(name: string, values: Array<string>): void;
     getHeader(name: string): string | Array<string> | void;
+    getHeaders(): { [key: string]: Array<string> }
     removeHeader(name: string): void;
     setCookie(name: string, value: string, options?: CookieOptions): Response;
     hasCookie(name: string): Boolean;
     removeCookie(name: string): Response;
     clearCookie(name: string): Response;
-    end(data: SendableData): void;
     get(name: string): string | Array<string>;
     links(links: Object): string;
     location(path: string): Response;

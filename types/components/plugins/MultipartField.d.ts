@@ -1,16 +1,16 @@
 import { Readable, WritableOptions } from 'stream';
 
-type MultipartFile = {
+export type MultipartFile = {
     name?: string,
     stream: Readable
-};
+}
 
-type Truncations = {
+export type Truncations = {
     name: boolean,
     value: boolean
-};
+}
 
-export default class MultipartField {
+export class MultipartField {
     /* MultipartField Methods */
 
     /**
@@ -67,3 +67,7 @@ export default class MultipartField {
      */
     get truncated(): Truncations | void;
 }
+
+export type MultipartHandler = (field: MultipartField) => void | Promise<void>;
+
+export type MultipartLimitReject = "PARTS_LIMIT_REACHED" | "FILES_LIMIT_REACHED" | "FIELDS_LIMIT_REACHED";

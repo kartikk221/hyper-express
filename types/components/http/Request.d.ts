@@ -4,13 +4,16 @@ import { ParsedQs } from 'qs';
 import { Options, Ranges, Result } from 'range-parser';
 import { Readable } from 'stream';
 import * as uWebsockets from 'uWebSockets.js';
-import MultipartField from '../plugins/MultipartField';
-import Server from '../Server';
+import { MultipartHandler } from '../plugins/MultipartField';
+import { Server } from '../Server';
 
 type default_value = any;
-type MultipartHandler = (field: MultipartField) => void | Promise<void>;
 
-export default class Request extends Readable {
+type DefaultLocals = {
+    [key: string]: any
+}
+
+export class Request<Locals = DefaultLocals> {
     /* HyperExpress Request Methods */
 
     /**
@@ -179,6 +182,7 @@ export default class Request extends Readable {
     range(size: number, options?: Options): Ranges | Result;
     param(name: string, defaultValue?: any): string;
     is(type: string | string[]): string | false;
+    locals: Locals;
     protocol: string;
     secure: boolean;
     ips: string[];
