@@ -9,7 +9,11 @@ import { Server } from '../Server';
 
 type default_value = any;
 
-export class Request {
+type DefaultLocals = {
+    [key: string]: any
+}
+
+export class Request<Locals = DefaultLocals> {
     /* HyperExpress Request Methods */
 
     /**
@@ -178,6 +182,7 @@ export class Request {
     range(size: number, options?: Options): Ranges | Result;
     param(name: string, defaultValue?: any): string;
     is(type: string | string[]): string | false;
+    locals: Locals;
     protocol: string;
     secure: boolean;
     ips: string[];

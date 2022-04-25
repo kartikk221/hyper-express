@@ -40,11 +40,13 @@ export class Router {
     /**
      * Registers a middleware/router with specified path.
      *
-     * @param {String|MiddlewareHandler|Router} pattern
-     * @param {MiddlewareHandler|Router} handler (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
+     * @param {String|...MiddlewareHandler|Router} pattern
+     * @param {...MiddlewareHandler|Router} handler (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
      */
-    use(handler: MiddlewareHandler | Router): void;
-    use(pattern: string, handler: MiddlewareHandler | Router): void;
+    use(router: Router): void;
+    use(...handler: MiddlewareHandler[]): void;
+    use(pattern: string, router: Router): void;
+    use(pattern: string, ...handler: MiddlewareHandler[]): void;
 
     /**
      * Creates an HTTP route that handles any HTTP method requests.

@@ -19,7 +19,11 @@ export interface CookieOptions {
     secret?: string
 }
 
-export class Response extends Stream.Writable {
+type DefaultLocals = {
+    [key: string]: any
+}
+
+export class Response<Locals = DefaultLocals> extends Stream.Writable {
     /* HyperExpress Response Methods */
 
     /**
@@ -222,7 +226,7 @@ export class Response extends Stream.Writable {
     /* ExpressJS Compatibility Methods & Properties */
     get headersSent(): boolean;
     get statusCode(): number | undefined
-    locals: Object;
+    locals: Locals
     append(name: string, values: string | Array<string>): Response;
     writeHead(name: string, values: string | Array<string>): Response;
     setHeader(name: string, values: string | Array<string>): Response;
