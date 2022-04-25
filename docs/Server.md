@@ -26,6 +26,12 @@ Below is a breakdown of the `Server` object class generated while creating a new
   * **Default:** `false`
 * `max_body_length` [`Number`]: Maximum number of `bytes` allowed for incoming request body size. For reference, **1kb** = **1000 Bytes** and **1mb** = **1000kb**.
   * **Default:** `250 * 1000` or **250kb**
+* `streaming`[`Object`]: Specifies global constructor options for internal readable and writable streams.
+  * `readable`[`stream.ReadableOptions`]: Constructor options for `Request` body readable streams.
+    * See the official [`> [ReadableOptions]`](https://nodejs.org/api/stream.html#new-streamreadableoptions) Node.js documentation for more information.
+  * `writable`[`stream.WritableOptions`]:  Constructor options for `Response` body writable streams.
+    * See the official [`> [WritableOptions]`](https://nodejs.org/api/stream.html#new-streamwritableoptions) Node.js documentation for more information.
+  * **Note** you can also override globally specified `streaming` options on a per-route basis in the route options.
 
 ### Server Instance Properties
 | Property  | Type     | Description                |

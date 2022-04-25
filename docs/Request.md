@@ -1,5 +1,5 @@
 # Request
-Below is a breakdown of the `request` object made available through the route/middleware handler(s). Most [ExpressJS](https://github.com/expressjs/express) properties and methods are also implemented for compatibility.
+Below is a breakdown of the `Request` component which is an extended `Readable` stream matching official Node.js specification. Most [ExpressJS](https://github.com/expressjs/express) properties and methods are also implemented for compatibility.
 
 #### Request Properties
 | Property  | Type     | Description                |
@@ -16,7 +16,6 @@ Below is a breakdown of the `request` object made available through the route/mi
 | `query_parameters` | `Object`  | Query parameters from incoming request. |
 | `ip` | `String`  | Remote connection IP. |
 | `proxy_ip` | `String`  | Remote proxy connection IP. |
-| `stream` | `stream.Readable`  | Readable stream to consume request body chunks. |
 
 #### Request Methods
 * `sign(String: string, String: secret)`: Signs provided string with provided secret.

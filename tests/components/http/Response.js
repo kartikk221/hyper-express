@@ -125,14 +125,14 @@ async function test_response_object() {
         return test_cookie_test && delete_cookie_value_test && delete_cookie_props_test;
     });
 
-    // Verify .sse - "Server-Sent Events" Stream
-    await test_response_sse();
-
     // Verify .on() aka. Response events
     await test_response_events();
 
     // Verify .send()
     assert_log(group, candidate + '.send()', () => body1 === test_html_placeholder);
+
+    // Test Response.sse (Server-Sent Events) support
+    await test_response_sse();
 
     // Test Response.stream()
     await test_response_stream_method();

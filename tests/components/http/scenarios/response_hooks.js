@@ -54,7 +54,7 @@ async function test_response_events() {
     // Assert that only the appropriate hooks were called
     assert_log(
         group,
-        `${candidate} - Premature Aborted Request Hooks Test`,
+        `${candidate} - Premature Aborted Request Events Test`,
         () =>
             hook_emissions['prepare'] === 1 &&
             hook_emissions['finish'] === 1 &&
