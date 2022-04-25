@@ -191,33 +191,32 @@ class Router {
      * @param {String|MiddlewareHandler|Router} pattern
      * @param {MiddlewareHandler|Router} handler (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
      */
-    use(pattern, handler) {
-        const fPattern = typeof pattern == 'string' ? pattern : '/'; // Final Pattern parameter
-        const pHandler = typeof pattern !== 'string' ? pattern : handler; // Parsed Handler parameter
+    use() {
+        // Parse a pattern for this use call with a fallback to the local-global scope aka. '/' pattern
+        const pattern = arguments[0] && typeof arguments[0] == 'string' ? arguments[0] : '/';
 
-        // Middleware Handler - Attempts to parse middleware property from a hyper-express middleware package
-        const mHandler =
-            typeof pHandler == 'object' && typeof pHandler.middleware == 'function' ? pHandler.middleware : undefined;
-
-        // Final Handler - This is a catchall constant that contains the parsed handler for a middleware
-        const fHandler = mHandler || pHandler; // Prioritize middleware handler with parsed handler as fallback
-
-        // Ensure we have a valid handler which is either a router or function
-        const isRouter = fHandler.constructor.name === 'Router';
-        if (!isRouter && typeof fHandler !== 'function')
-            throw new Error('Server/Router.use() -> handler must be a Function or Router instance.');
-
-        // Ensure no wildcards or parameter path prefixes are found in pattern
-        if (fPattern.indexOf('*') > -1 || fPattern.indexOf(':') > -1)
+        // Validate that the pattern value does not contain any wildcard or path parameter prefixes which are not allowed
+        if (pattern.indexOf('*') > -1 || pattern.indexOf(':') > -1)
             throw new Error(
-                'Server/Router.use() -> Wildcard * & :parameter prefixed paths are not allowed when binding middlewares or routers using this method.'
+                'HyperExpress: Server/Router.use() -> Wildcard "*" & ":parameter" prefixed paths are not allowed when binding middlewares or routers using this method.'
             );
 
-        // Register Router/Handler to self instance
-        if (isRouter) {
-            this._register_router(fPattern, fHandler);
-        } else {
-            this._register_middleware(fPattern, fHandler);
+        // Register each candidate individually depending on the type of candidate value
+        for (let i = 0; i < arguments.length; i++) {
+            const candidate = arguments[i];
+            if (typeof candidate == 'function') {
+                // Scenario: Single function
+                this._register_middleware(pattern, candidate);
+            } else if (Array.isArray(candidate)) {
+                // Scenario: Array of functions
+                candidate.forEach((middleware) => this._register_middleware(pattern, middleware));
+            } else if (typeof candidate == 'object' && candidate.constructor.name === 'Router') {
+                // Scenario: Router instance
+                this._register_router(pattern, candidate);
+            } else if (candidate && typeof candidate == 'object' && typeof candidate.middleware == 'function') {
+                // Scenario: Inferred middleware
+                this._register_middleware(pattern, candidate.middleware);
+            }
         }
     }
 
