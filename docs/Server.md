@@ -52,12 +52,19 @@ Below is a breakdown of the `Server` object class generated while creating a new
     * **Handler Parameters:** `(Request: request, Response: response, Error: error) => {}`.
 * `set_not_found_handler(Function: handler)`: Binds a global catch-all not found handler that will handle all requests which are not handled by any routes.
     * **Handler Parameters:** `(Request: request, Response: response) => {}`.
-* `use(String: pattern, Function|Router: handler)`: Accepts a `middleware` method or `Router` instance to bind middlewares and routes depending on provided pattern and handler.
-    * **Note** `pattern` is **optional** and you may only provide a handler.
+* `use(...2 Overloads)`: Accepts a `middleware` method or `Router` instance to bind middlewares and routes depending on provided pattern and handler.
+    * **Overload Types**:
+      * `use(Function | Router: handler)`: Binds the specified `Function` as a `middleware` or inherits the `Router` instance as a sub-router on the `/` pattern.
+      * `use(String: pattern, Function | Router: handler)`: Binds the specified `Function` as a `middleware` or inherits the `Router` instance as a sub-router on the specified `pattern` path.
     * **Note** `pattern` is treated as a wildcard match by default and does not support `*`/`:param` prefixes.
     * **See** [`> [Router]`](./Router.md) & [`> [Middlewares]`](./Middlewares.md) for full documentation on this method.
-* `any(String: pattern, Object: options, Function: handler)`: Creates an HTTP route on specified pattern. Alias methods are listed below for HTTP method specific routes.
+* `any(...4 Overloads)`: Creates an HTTP route on specified pattern. Alias methods are listed below for HTTP method specific routes.
     * **Alias Methods:** `get()`, `post()`, `put()`, `delete()`, `head()`, `options()`, `patch()`, `trace()`, `connect()`, `upgrade()`, `ws()`.
+    * **Overload Types**:
+      * `any(String: pattern, Function: handler)`: Creates an any method HTTP route with the specified `handler`.
+      * `any(String: pattern, Object: options, Function: handler)`: Creates an any method HTTP route with the specified `options` and `handler`.
+      * `any(String: pattern, Function: middleware, Function: handler)`: Creates an any method HTTP route with the specified route-specific `middleware` and `handler`.
+      * `any(String: pattern, Function[]: middlewares, Function: handler)`: Creates an any method HTTP route with the specified set of route-specific `middlewares` and `handler`.
     * **See** [`> [Router]`](./Router.md) for full documentation on this method.
     * **See** [`> [Websocket]`](./Websocket.md) for usage documentation on the `upgrade()` and `ws()` alias method.
 * `publish(String: topic, String|Buffer|ArrayBuffer: message, Boolean: is_binary, Boolean: compress)`: Publishes the specified message to the specified topic in **MQTT syntax** to all WebSocket connections on this Server instance.
