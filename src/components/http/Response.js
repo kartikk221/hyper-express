@@ -278,7 +278,7 @@ class Response extends Writable {
 
         // Match status code Number to a status message and call uWS.Response.writeStatus
         if (this.#status_code) {
-            this.#raw_response.writeStatus(this.#status_code + ' ' + status_codes[code]);
+            this.#raw_response.writeStatus(this.#status_code + ' ' + status_codes[this.#status_code]);
         }
 
         // Write headers if specified
