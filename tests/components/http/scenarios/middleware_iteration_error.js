@@ -5,16 +5,16 @@ const endpoint = '/tests/request';
 const scenario_endpoint = '/middleware-error';
 const endpoint_url = server.base + endpoint + scenario_endpoint;
 
-router.use(scenario_endpoint, (request, response, next) => {
+const middleware = (request, response, next) => {
     // Bind an artificial error handler so we don't treat this as uncaught error
     request.expected_error = () => response.status(501).send('MIDDLEWARE_ERROR');
 
     // Assume some problem occured, so we pass an error to next
     next(new Error('EXPECTED_ERROR'));
-});
+};
 
 // Create Backend HTTP Route
-router.get(scenario_endpoint, async (request, response) => {
+router.get(scenario_endpoint, middleware, async (request, response) => {
     return response.send('Good');
 });
 

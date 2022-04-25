@@ -6,26 +6,20 @@ const scenario_endpoint = '/middleware-double-iteration';
 const endpoint_url = server.base + endpoint + scenario_endpoint;
 
 // This middleware should only run on this endpoint
-router.use(scenario_endpoint, async (request, response, next) => {
+const double_iteration_middleware = async (request, response, next) => {
     // Bind an artificial error handler so we don't treat this as uncaught error
     request.expected_error = () => response.status(501).send('DOUBLE_ITERATION_VIOLATION');
 
     // Since this is an async callback, calling next and the async callback resolving will trigger a double iteration violation
     next();
-});
+};
 
 const delay_middleware = (request, response, next) => setTimeout(next, 10);
 
 // Create Backend HTTP Route
-router.get(
-    scenario_endpoint,
-    {
-        middlewares: [delay_middleware],
-    },
-    async (request, response) => {
-        return response.send('Good');
-    }
-);
+router.get(scenario_endpoint, [double_iteration_middleware, delay_middleware], async (request, response) => {
+    return response.send('Good');
+});
 
 // Bind router to webserver
 const { TEST_SERVER } = require('../../Server.js');

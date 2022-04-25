@@ -49,13 +49,25 @@ class Router {
      */
     _register_route(method, pattern, options, handler = null) {
         // Determine final options object and final handler for route
-        const fOptions = options && typeof options == 'object' ? options : this._default_options(method);
-        const fHandler = typeof options == 'function' ? options : handler;
+        const parsedOptions =
+            options && typeof options == 'object' && !Array.isArray(options) ? options : this._default_options(method);
+        const parsedHandler = typeof handler == 'function' ? handler : options;
+
+        // Detect and inject middlewares from the options parameter to match Express.js pattern
+        if (
+            parsedOptions.middlewares &&
+            typeof handler == 'function' &&
+            (typeof options == 'function' || Array.isArray(options))
+        ) {
+            // Parse the middlewares from the options parameter as an array
+            parsedOptions.middlewares = Array.isArray(options) ? options : [options];
+        }
+
         const record = {
             method,
             pattern,
-            options: fOptions,
-            handler: fHandler,
+            options: parsedOptions,
+            handler: parsedHandler,
         };
 
         // Store record for future subscribers
@@ -214,7 +226,7 @@ class Router {
      * Note! ANY routes do not support route specific middlewares.
      *
      * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
     any(pattern, options, handler) {
@@ -225,7 +237,7 @@ class Router {
      * Creates an HTTP route that handles GET method requests.
      *
      * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
     get(pattern, options, handler) {
@@ -236,7 +248,7 @@ class Router {
      * Creates an HTTP route that handles POST method requests.
      *
      * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
     post(pattern, options, handler) {
@@ -247,7 +259,7 @@ class Router {
      * Creates an HTTP route that handles PUT method requests.
      *
      * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
     put(pattern, options, handler) {
@@ -258,7 +270,7 @@ class Router {
      * Creates an HTTP route that handles DELETE method requests.
      *
      * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
     delete(pattern, options, handler) {
@@ -269,7 +281,7 @@ class Router {
      * Creates an HTTP route that handles HEAD method requests.
      *
      * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
     head(pattern, options, handler) {
@@ -280,7 +292,7 @@ class Router {
      * Creates an HTTP route that handles OPTIONS method requests.
      *
      * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
     options(pattern, options, handler) {
@@ -291,7 +303,7 @@ class Router {
      * Creates an HTTP route that handles PATCH method requests.
      *
      * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
     patch(pattern, options, handler) {
@@ -302,7 +314,7 @@ class Router {
      * Creates an HTTP route that handles TRACE method requests.
      *
      * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
     trace(pattern, options, handler) {
@@ -313,7 +325,7 @@ class Router {
      * Creates an HTTP route that handles CONNECT method requests.
      *
      * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
     connect(pattern, options, handler) {
@@ -325,7 +337,7 @@ class Router {
      * Note! You must call response.upgrade(data) at some point in this route to open a websocket connection.
      *
      * @param {String} pattern
-     * @param {RouteOptions|RouteHandler} options
+     * @param {RouteOptions|Array<MiddlewareHandler>|MiddlewareHandler|RouteHandler} options
      * @param {RouteHandler} handler
      */
     upgrade(pattern, options, handler) {
