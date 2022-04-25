@@ -269,7 +269,7 @@ class Response extends EventEmitter {
         // Emit the 'prepare' event to allow for any last minute response modifications
         this.emit('prepare', this.#wrapped_request, this);
 
-        // Mark the instance as initiated signifyin that no more status/header based operations can be performed
+        // Mark the instance as initiated signifying that no more status/header based operations can be performed
         this.#initiated = true;
 
         // Ensure our associated request is not paused for whatever reason
