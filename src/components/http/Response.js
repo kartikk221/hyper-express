@@ -167,6 +167,10 @@ class Response extends Writable {
         // Initialize header values as an array to allow for multiple values
         if (this.#headers[name] == undefined) this.#headers[name] = [];
 
+        // Ensure that the value is always a string type
+        if (typeof value !== 'string')
+            throw new Error('HyperExpress: header(name, value) -> value candidates must always be of type string');
+
         // Push current header value onto values array
         this.#headers[name].push(value);
         return this;
@@ -812,15 +816,15 @@ class Response extends Writable {
     }
 
     /**
-     * ExpressJS: Returns all pending headers from this response 
+     * ExpressJS: Returns all pending headers from this response
      * @returns {Object|undefined}
      */
     getHeaders() {
-        const headers = {}
-        Object.keys(this.#headers).forEach(key => {
-            headers[key] = this.#headers[key].join(',')
-        })
-        return headers
+        const headers = {};
+        Object.keys(this.#headers).forEach((key) => {
+            headers[key] = this.#headers[key].join(',');
+        });
+        return headers;
     }
 
     /**

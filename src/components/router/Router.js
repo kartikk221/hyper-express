@@ -189,7 +189,7 @@ class Router {
      * Registers middlewares and router instances on the specified pattern if specified.
      * If no pattern is specified, the middleware/router instance will be mounted on the '/' root path by default of this instance.
      *
-     * @param {...MiddlewareHandler|Router|String} args (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
+     * @param {...(String|MiddlewareHandler|Router)} args (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
      */
     use() {
         // Parse a pattern for this use call with a fallback to the local-global scope aka. '/' pattern
@@ -239,8 +239,7 @@ class Router {
      * Note! ANY routes do not support route specific middlewares.
      *
      * @param {String} pattern
-     * @param {RouteOptions|...[...MiddlewareHandler, RouteHandler]} options
-     * @param {...[...MiddlewareHandler, RouteHandler]} handler
+     * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     any() {
         return this._register_route('any', ...arguments);
@@ -250,8 +249,7 @@ class Router {
      * Creates an HTTP route that handles GET method requests.
      *
      * @param {String} pattern
-     * @param {RouteOptions|...[...MiddlewareHandler, RouteHandler]} options
-     * @param {...[...MiddlewareHandler, RouteHandler]} handler
+     * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     get() {
         return this._register_route('get', ...arguments);
@@ -261,8 +259,7 @@ class Router {
      * Creates an HTTP route that handles POST method requests.
      *
      * @param {String} pattern
-     * @param {RouteOptions|...[...MiddlewareHandler, RouteHandler]} options
-     * @param {...[...MiddlewareHandler, RouteHandler]} handler
+     * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     post() {
         return this._register_route('post', ...arguments);
@@ -272,8 +269,7 @@ class Router {
      * Creates an HTTP route that handles PUT method requests.
      *
      * @param {String} pattern
-     * @param {RouteOptions|...[...MiddlewareHandler, RouteHandler]} options
-     * @param {...[...MiddlewareHandler, RouteHandler]} handler
+     * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     put() {
         return this._register_route('put', ...arguments);
@@ -283,8 +279,7 @@ class Router {
      * Creates an HTTP route that handles DELETE method requests.
      *
      * @param {String} pattern
-     * @param {RouteOptions|...[...MiddlewareHandler, RouteHandler]} options
-     * @param {...[...MiddlewareHandler, RouteHandler]} handler
+     * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     delete() {
         return this._register_route('del', ...arguments);
@@ -294,8 +289,7 @@ class Router {
      * Creates an HTTP route that handles HEAD method requests.
      *
      * @param {String} pattern
-     * @param {RouteOptions|...[...MiddlewareHandler, RouteHandler]} options
-     * @param {...[...MiddlewareHandler, RouteHandler]} handler
+     * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     head() {
         return this._register_route('head', ...arguments);
@@ -305,8 +299,7 @@ class Router {
      * Creates an HTTP route that handles OPTIONS method requests.
      *
      * @param {String} pattern
-     * @param {RouteOptions|...[...MiddlewareHandler, RouteHandler]} options
-     * @param {...[...MiddlewareHandler, RouteHandler]} handler
+     * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     options() {
         return this._register_route('options', ...arguments);
@@ -316,8 +309,7 @@ class Router {
      * Creates an HTTP route that handles PATCH method requests.
      *
      * @param {String} pattern
-     * @param {RouteOptions|...[...MiddlewareHandler, RouteHandler]} options
-     * @param {...[...MiddlewareHandler, RouteHandler]} handler
+     * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     patch() {
         return this._register_route('patch', ...arguments);
@@ -327,8 +319,7 @@ class Router {
      * Creates an HTTP route that handles TRACE method requests.
      *
      * @param {String} pattern
-     * @param {RouteOptions|...[...MiddlewareHandler, RouteHandler]} options
-     * @param {...[...MiddlewareHandler, RouteHandler]} handler
+     * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     trace() {
         return this._register_route('trace', ...arguments);
@@ -338,8 +329,7 @@ class Router {
      * Creates an HTTP route that handles CONNECT method requests.
      *
      * @param {String} pattern
-     * @param {RouteOptions|...[...MiddlewareHandler, RouteHandler]} options
-     * @param {...[...MiddlewareHandler, RouteHandler]} handler
+     * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     connect() {
         return this._register_route('connect', ...arguments);
@@ -350,8 +340,7 @@ class Router {
      * Note! You must call response.upgrade(data) at some point in this route to open a websocket connection.
      *
      * @param {String} pattern
-     * @param {RouteOptions|...[...MiddlewareHandler, RouteHandler]} options
-     * @param {...[...MiddlewareHandler, RouteHandler]} handler
+     * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     upgrade() {
         return this._register_route('upgrade', ...arguments);
