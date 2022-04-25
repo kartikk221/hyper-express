@@ -16,7 +16,6 @@
 HyperExpress aims to be a simple yet perfomant HTTP & Websocket Server. Combined with the power of uWebsockets.js, a Node.js binding of uSockets written in C++, HyperExpress allows developers to unlock higher throughput for their web applications with their existing hardware. This can allow many web applications to become much more performant on optimized data serving endpoints without having to scale hardware.
 
 Some of the prominent features implemented are:
-- Asynchronous By Nature
 - Simplified HTTP & Websocket API
 - Global & Route-Specific Middlewares Support
 - Modular Routers Support
@@ -50,14 +49,10 @@ npm i hyper-express
 While there may be other uWebsockets.js based packages available, HyperExpress differentiates itself in the following ways:
 - Instantaneous Request Handling
     - HyperExpress implements a request handling model similar to fetch where a request is passed almost instantly to the route handler and the request body can be asynchronously dowloaded/accessed. This behavior allows for aborting of a request and potentially saving on memory usage for endpoints that deal with relatively larger body sizes as the body simply won't be downloaded into memory without access.
-- Simple To Use API
-    - HyperExpress implements simple yet understandable methods/properties for its components to allow for clear and concise code that is at many times chainable and asynchronous.
+- High Maintainability
+    - Whether you decide to develop on your own fork or expand upon HyperExpress through middlewares, You will be greeted with a concise codebase with descriptive logic comments, JSDoc and Typescript types allowing for high maintainability.
 - Lightweight Package Size
     - HyperExpress is extremely lightweight while implementing almost all of the core functionalities of a webserver providing users with flexibility.
-- High Maintainability
-    - Whether you decide to develop on your own fork or expand upon HyperExpress through middlewares, You will be greeted with a concise codebase with descriptive logic comments and JSDoc types that allow for high maintainability.
-- MIT License
-    - Some other webserver packages are released under more restrictive licenses and often provide paid "performance efficient" versions of their package. HyperExpress is provided with a flexible MIT licence in which you are free to expand upon the package as you desire while also being able to take advantage of the efficient and maintainable codebase at no cost.
 
 ## Benchmarks
 Below benchmark results were derived using the **[autocannon](https://www.npmjs.com/package/autocannon)** HTTP benchmarking utility. The benchmark source code is included in this repository in the benchmarks folder.
