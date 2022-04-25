@@ -19,7 +19,7 @@ export interface CookieOptions {
     secret?: string
 }
 
-export class Response extends Stream.Writable {
+export class Response {
     /* HyperExpress Response Methods */
 
     /**
@@ -82,17 +82,6 @@ export class Response extends Stream.Writable {
      * @param {function(number):void} handler Synchronous callback only
      */
     drain(handler: (offset: number) => void): void;
-
-    /**
-     * This method can be used to write the body in chunks.
-     * Note! You must still call the send() method to send the response and complete the request.
-     *
-     * @param {String|Buffer|ArrayBuffer} chunk
-     * @param {String=} encoding
-     * @param {Function=} callback
-     * @returns {Boolean} 'false' signifies that the chunk was not sent due to built up backpressure.
-     */
-    write(chunk: SendableData, encoding?: string, callback?: () => void): boolean;
 
     /**
      * This method is used to end the current request and send response with specified body and headers.
