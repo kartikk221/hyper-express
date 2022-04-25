@@ -19,11 +19,11 @@ export interface CookieOptions {
     secret?: string
 }
 
-type DefaultLocals = {
+type DefaultResponseLocals = {
     [key: string]: any
 }
 
-export class Response<Locals = DefaultLocals> extends Stream.Writable {
+export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
     /* HyperExpress Response Methods */
 
     /**

@@ -9,11 +9,11 @@ import { Server } from '../Server';
 
 type default_value = any;
 
-type DefaultLocals = {
+type DefaultRequestLocals = {
     [key: string]: any
 }
 
-export class Request<Locals = DefaultLocals> {
+export class Request<Locals = DefaultRequestLocals> {
     /* HyperExpress Request Methods */
 
     /**
