@@ -27,7 +27,7 @@ Some of the prominent features implemented are:
 - ExpressJS API Compatibility Through Shared Methods/Properties
 - TypeScript Types Support
 
-See [`> [Benchmarks]`](./docs/LiveDirectory.md) for **performance metrics** against other webservers in real world deployments.
+See [`> [Benchmarks]`](./docs/Benchmarks.md) for **performance metrics** against other webservers in real world deployments.
 
 ## Documentation
 HyperExpress requires Node.js version 14+ and can be installed using Node Package Manager (`npm`).
