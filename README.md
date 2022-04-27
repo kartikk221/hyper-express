@@ -27,6 +27,8 @@ Some of the prominent features implemented are:
 - ExpressJS API Compatibility Through Shared Methods/Properties
 - TypeScript Types Support
 
+See [`> [Benchmarks]`](./docs/LiveDirectory.md) for **performance metrics** against other webservers in real world deployments.
+
 ## Documentation
 HyperExpress requires Node.js version 14+ and can be installed using Node Package Manager (`npm`).
 ```
@@ -53,33 +55,6 @@ While there may be other uWebsockets.js based packages available, HyperExpress d
     - Whether you decide to develop on your own fork or expand upon HyperExpress through middlewares, You will be greeted with a concise codebase with descriptive logic comments, JSDoc and Typescript types allowing for high maintainability.
 - Lightweight Package Size
     - HyperExpress is extremely lightweight while implementing almost all of the core functionalities of a webserver providing users with flexibility.
-
-## Benchmarks
-Below benchmark results were derived using the **[autocannon](https://www.npmjs.com/package/autocannon)** HTTP benchmarking utility. The benchmark source code is included in this repository in the benchmarks folder.
-
-#### CLI Command
-This command simulates a high stress situation where **2500 unique visitors** visit your website at the same time and their browsers on average make **4 pipelined requests** per TCP connection sustained for **30 seconds**.
-```
-autocannon -c 2500 -d 30 -p 4 http://HOST:PORT/benchmark
-```
-
-### Environment Specifications
-* __Machine:__ Ubuntu 20.04 | 1 vCPU | 1GB Mem | 32GB Nvme | Vultr @ $6/Month
-* __Node:__ `v16.0.0`
-* __Method:__ Two rounds; one to warm-up, one to measure
-* __Response Body:__ Small HTML page with a dynamic timestamp generated with `Date`. See more in [HTML Test](./benchmarks/tests/simple_html.js).
-* __Linux Optimizations:__ None.
-
-### Benchmark Results
-**Note!** uWebsockets.js and HyperExpress were bottlenecked by the network speed of the Vultr instance. While, Fastify and Express were bottlenecked by high CPU usage resulting in a much lower throughput with relatively higher latency numbers. For average use cases, all webservers below can serve requests at lower than **50ms** latency.
-
-|                          | Version | Requests/s | Latency | Throughput/s |
-| :--                      | --:     | :-:        | --:     | --:          |
-| uWebsockets.js           | 20.0.0  | 197,223    | 441 ms  | 106 Mb/s     |
-| HyperExpress             | 5.7.0   | 195,413    | 411 ms  | 106 Mb/s     |
-| nanoexpress              | 5.1.1   | 196,828    | 421 ms  | 106 Mb/s     |
-| Fastify                  | 3.22.0  | 42,332     | 571 ms  | 26 Mb/s      |
-| Express                  | 4.17.1  | 5,922      | 1860 ms | 3.9 Mb/s     |
 
 ## Testing Changes
 To run HyperExpress functionality tests locally on your machine, you must follow the steps below.
