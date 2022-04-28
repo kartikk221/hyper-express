@@ -16,6 +16,7 @@ const is_ip = require('net').isIP;
 class Request extends stream.Readable {
     locals = {};
     #master_context;
+    #stream_ended = false;
     #stream_raw_chunks = false;
     #raw_request = null;
     #raw_response = null;
@@ -162,7 +163,7 @@ class Request extends stream.Readable {
         const stream = this;
         this.#raw_response.onData((array_buffer, is_last) => {
             // Do not process chunk if the readable stream is no longer active
-            if (stream.destroyed || stream.readableEnded || stream.readableAborted) return;
+            if (stream.#stream_ended || stream.readableEnded || stream.readableAborted) return;
 
             // Convert the ArrayBuffer to a Buffer reference
             // Provide raw chunks if specified and we have something consuming stream already
@@ -194,6 +195,9 @@ class Request extends stream.Readable {
     _stop_streaming() {
         // Push an EOF chunk to the body stream signifying the end of the stream
         if (!this.readableEnded) this.push(null);
+
+        // Mark the stream as ended
+        this.#stream_ended = true;
     }
 
     #buffer_promise;
