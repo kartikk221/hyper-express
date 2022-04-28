@@ -161,8 +161,8 @@ class Request extends stream.Readable {
         // Bind a uWS.Response.onData() handler which will handle incoming chunks and pipe them to the readable stream
         const stream = this;
         this.#raw_response.onData((array_buffer, is_last) => {
-            // Do not process chunk if the readable stream has ended
-            if (stream.readableEnded) return;
+            // Do not process chunk if the readable stream is no longer active
+            if (stream.destroyed || stream.readableEnded || stream.readableAborted) return;
 
             // Convert the ArrayBuffer to a Buffer reference
             // Provide raw chunks if specified and we have something consuming stream already

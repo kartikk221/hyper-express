@@ -278,15 +278,14 @@ class Response extends Writable {
         // Mark the instance as initiated signifying that no more status/header based operations can be performed
         this.#initiated = true;
 
-        // Ensure our associated request is not paused for whatever reason
+        // Ensure we are not in a paused state as uWS requires us to be a in a flowing state to be able to write status and headers
         this._resume_if_paused();
 
-        // Match status code Number to a status message and call uWS.Response.writeStatus
-        if (this.#status_code) {
+        // Write the appropriate status code to the response along with mapped status code message
+        if (this.#status_code)
             this.#raw_response.writeStatus(this.#status_code + ' ' + status_codes[this.#status_code]);
-        }
 
-        // Write headers if specified
+        // Iterate through all headers and write them to uWS
         if (this.#headers)
             Object.keys(this.#headers).forEach((name) =>
                 this.#headers[name].forEach((value) => this.#raw_response.writeHeader(name, value))
@@ -393,11 +392,11 @@ class Response extends Writable {
     send(body, close_connection) {
         // Ensure response connection is still active
         if (!this.#completed) {
-            // Abort body download buffer just to be safe for large incoming requests
-            this.#wrapped_request._stop_streaming();
-
             // Initiate response to write status code and headers
             this._initiate_response();
+
+            // Stop downloading further body chunks as we are done with the response
+            this.#wrapped_request._stop_streaming();
 
             // Mark request as completed and end request using uWS.Response.end()
             const sent = this.#raw_response.end(body, close_connection);
@@ -524,6 +523,7 @@ class Response extends Writable {
         if (!this.#completed) {
             this.#completed = true;
             this._resume_if_paused();
+            this.#wrapped_request._stop_streaming();
             this.#raw_response.close();
         }
     }
