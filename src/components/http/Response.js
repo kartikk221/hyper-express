@@ -73,7 +73,7 @@ class Response extends Writable {
         // If position is not greater than last cursor then we likely have a double middleware execution
         this.throw(
             new Error(
-                'HyperExpress: Double middleware execution detected! You have a bug where one of your middlewares is calling both the next() callback and also resolving from a Promise/async callback. You must only use one of these not both.'
+                'HyperExpress: Double middleware execution detected! You have a bug where one of your middlewares is calling both the next() callback and also resolving from a Promise/async middleware. You must only use one of these not both.'
             )
         );
     }

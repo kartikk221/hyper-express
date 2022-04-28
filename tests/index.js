@@ -1,4 +1,4 @@
-const { log, async_wait, assert_log } = require('./scripts/operators.js');
+const { log } = require('./scripts/operators.js');
 const { test_request_object } = require('./components/http/Request.js');
 const { test_response_object } = require('./components/http/Response.js');
 const { test_websocket_route } = require('./components/ws/WebsocketRoute.js');

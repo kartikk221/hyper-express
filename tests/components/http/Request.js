@@ -2,6 +2,7 @@ const { log, assert_log, random_string } = require('../../scripts/operators.js')
 const { HyperExpress, fetch, server } = require('../../configuration.js');
 const { test_request_multipart } = require('./scenarios/request_multipart.js');
 const { test_request_stream_pipe } = require('./scenarios/request_stream.js');
+const { test_request_body_echo_test } = require('./scenarios/request_body_echo_test.js');
 const crypto = require('crypto');
 const router = new HyperExpress.Router();
 const endpoint = '/tests/request/:param1/:param2';
@@ -208,7 +209,6 @@ async function test_request_object() {
         },
     });
 
-    const middleware_body = await middleware_response.json();
     assert_log(
         group,
         'Route Specific Middleware Binding & Property Test',
@@ -282,6 +282,9 @@ async function test_request_object() {
 
     // Verify .json()
     assert_log(group, candidate + '.json()', () => JSON.stringify(body.body.json) === options.body);
+
+    // Verify .json() with small body payload echo test
+    await test_request_body_echo_test();
 
     // Verify .urlencoded()
     assert_log(group, candidate + '.urlencoded()', () => {

@@ -86,20 +86,43 @@ class Request extends stream.Readable {
     /* Request Methods/Operators */
 
     /**
-     * Pauses the current request and any incoming body chunks.
+     * Pauses the current request and flow of incoming body data.
      * @returns {Request}
      */
     pause() {
-        this.#raw_response.pause();
-        return super.pause();
+        // Ensure request is not already paused before pausing
+        if (!super.isPaused()) {
+            this.#raw_response.pause();
+            return super.pause();
+        }
+        return this;
     }
 
     /**
-     * Resumes the current request and consumption of any remaining body chunks.
+     * Resumes the current request and flow of incoming body data.
      * @returns {Request}
      */
     resume() {
-        this.#raw_response.resume();
+        // Ensure request is paused before resuming
+        if (super.isPaused()) {
+            this.#raw_response.resume();
+            return super.resume();
+        }
+        return this;
+    }
+
+    /**
+     * Pipes the request body stream data to the provided destination stream with the provided set of options.
+     *
+     * @param {stream.Writable} destination
+     * @param {stream.WritableOptions} options
+     * @returns {Request}
+     */
+    pipe(destination, options) {
+        // Pipe the arguments to the request body stream
+        super.pipe(destination, options);
+
+        // Resume the request body stream as it will be in a paused state by default
         return super.resume();
     }
 
@@ -232,7 +255,10 @@ class Request extends stream.Readable {
             });
 
             // Resolve the body buffer once the readable stream has finished
-            reference.once('end', () => resolve(body.buffer)).resume();
+            reference.once('end', () => resolve(body.buffer));
+
+            // We must directly resume the readable stream to make it begin accepting data
+            super.resume();
         });
 
         // Bind a then handler for caching the downloaded buffer
