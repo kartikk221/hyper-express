@@ -387,9 +387,10 @@ class Response extends Writable {
      * This method is used to end the current request and send response with specified body and headers.
      *
      * @param {String|Buffer|ArrayBuffer} body Optional
+     * @param {Boolean=} close_connection
      * @returns {Boolean} 'false' signifies that the body was not sent due to built up backpressure or closed connection.
      */
-    send(body, close_connection) {
+    send(body, close_connection = true) {
         // Ensure response connection is still active
         if (!this.#completed) {
             // Initiate response to write status code and headers
