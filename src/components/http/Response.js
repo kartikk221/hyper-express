@@ -97,7 +97,7 @@ class Response extends Writable {
      */
     atomic(handler) {
         if (typeof handler !== 'function')
-            throw new Error('HyperExpress: atomic(handler) -> handler must be a Javascript function');
+            this.throw(new Error('HyperExpress: atomic(handler) -> handler must be a Javascript function'));
 
         this._resume_if_paused();
         return this.#raw_response.cork(handler);
@@ -112,8 +112,10 @@ class Response extends Writable {
     status(code) {
         // Throw expection if a status change is attempted after response has been initiated
         if (this.initiated) {
-            throw new Error(
-                'HyperExpress.Response.status(code) -> HTTP Status Code cannot be changed once a response has been initiated.'
+            this.throw(
+                new Error(
+                    'HyperExpress: Response.status(code) -> HTTP Status Code cannot be changed once a response has been initiated.'
+                )
             );
         }
 
@@ -151,8 +153,10 @@ class Response extends Writable {
     header(name, value) {
         // Throw expection if a header write is attempted after response has been initiated
         if (this.initiated)
-            throw new Error(
-                'HyperExpress.Response.header(name, value) -> Headers cannot be written after a response has already been initiated.'
+            this.throw(
+                new Error(
+                    'HyperExpress: Response.header(name, value) -> Headers cannot be written after a response has already been initiated.'
+                )
             );
 
         // Call self for all specified values in values array
@@ -169,7 +173,9 @@ class Response extends Writable {
 
         // Ensure that the value is always a string type
         if (typeof value !== 'string')
-            throw new Error('HyperExpress: header(name, value) -> value candidates must always be of type string');
+            this.throw(
+                new Error('HyperExpress: header(name, value) -> value candidates must always be of type string')
+            );
 
         // Push current header value onto values array
         this.#headers[name].push(value);
@@ -240,8 +246,10 @@ class Response extends Writable {
         if (!this.#completed) {
             // Ensure a upgrade_socket exists before upgrading ensuring only upgrade handler requests are handled
             if (this.#upgrade_socket == null)
-                throw new Error(
-                    'You cannot upgrade a request that does not come from an upgrade handler. No upgrade socket was found.'
+                this.throw(
+                    new Error(
+                        'HyperExpress: You cannot upgrade a request that does not come from an upgrade handler. No upgrade socket was found.'
+                    )
                 );
 
             // Ensure our request is not paused for whatever reason
@@ -295,16 +303,31 @@ class Response extends Writable {
     /**
      * Binds a drain handler which gets called with a byte offset that can be used to try a failed chunk write.
      * You MUST perform a write call inside the handler for uWS chunking to work properly.
+     * You MUST return a boolean value indicating if the write was successful or not.
      *
-     * @param {function(number):void} handler Synchronous callback only
+     * @param {function(number):boolean} handler Synchronous callback only
      */
     drain(handler) {
         // Ensure handler is a function type
         if (typeof handler !== 'function')
-            throw new Error('HyperExpress.Response.drain(handler) -> handler must be a Function.');
+            this.throw(new Error('HyperExpress: Response.drain(handler) -> handler must be a Function.'));
 
         // Bind a writable handler with a fallback return value to true as uWS expects a Boolean
-        this.#raw_response.onWritable((offset) => handler(offset) || true);
+        this.#raw_response.onWritable((offset) => {
+            // Retrieve the write result from the handler
+            const output = handler(offset);
+
+            // Throw an exception if the handler did not return a boolean value as that is an improper implementation
+            if (typeof output !== 'boolean')
+                this.throw(
+                    new Error(
+                        'HyperExpress: Response.drain(handler) -> handler must return a boolean value stating if the write was successful or not.'
+                    )
+                );
+
+            // Return the boolean value to uWS as required by uWS documentation
+            return output;
+        });
     }
 
     /**
@@ -326,7 +349,7 @@ class Response extends Writable {
             this._initiate_response();
 
             // Attempt to write the chunk to the client
-            const last_offset = this.#raw_response.getWriteOffset();
+            const last_offset = this.write_offset;
             const written = this.#raw_response.write(chunk);
 
             if (written) {
@@ -436,7 +459,7 @@ class Response extends Writable {
             // Attempt to stream the chunk using appropriate uWS.Response chunk serving method
             // This will depend on whether a total_size is specified or not
             let sent, finished;
-            let last_offset = this.#raw_response.getWriteOffset();
+            let last_offset = this.write_offset;
             if (total_size) {
                 // Attempt to stream the current chunk using uWS.tryEnd with a total size
                 const [ok, done] = this.#raw_response.tryEnd(chunk, total_size);
@@ -496,7 +519,9 @@ class Response extends Writable {
     stream(readable, total_size) {
         // Ensure readable is an instance of a stream.Readable
         if (!(readable instanceof Readable))
-            throw new Error('Response.stream(readable, total_size) -> readable must be a Readable stream.');
+            this.throw(
+                new Error('HyperExpress: Response.stream(readable, total_size) -> readable must be a Readable stream.')
+            );
 
         // Bind an 'abort' event handler which will destroy the consumed stream if request is aborted
         this.on('abort', () => {
@@ -732,6 +757,15 @@ class Response extends Writable {
         }
     }
 
+    /**
+     * Returns the current response body content write offset in bytes.
+     * Use in conjunction with the drain() offset handler to retry writing failed chunks.
+     * @returns {Number}
+     */
+    get write_offset() {
+        return this.#completed ? -1 : this.#raw_response.getWriteOffset();
+    }
+
     /* ExpressJS compatibility properties & methods */
 
     /**
@@ -740,8 +774,10 @@ class Response extends Writable {
      * @param {String} name
      */
     _throw_unsupported(name) {
-        throw new Error(
-            `One of your middlewares or logic tried to call Response.${name} which is unsupported with HyperExpress.`
+        this.throw(
+            new Error(
+                `HyperExpress: One of your middlewares or logic tried to call Response.${name} which is unsupported with HyperExpress.`
+            )
         );
     }
 
@@ -904,7 +940,7 @@ class Response extends Writable {
      */
     links(links) {
         if (typeof links !== 'object' || links == null)
-            throw new Error('Response.links(links) -> links must be an Object');
+            this.throw(new Error('HyperExpress: Response.links(links) -> links must be an Object'));
 
         // Build chunks of links and combine into header spec
         let chunks = [];

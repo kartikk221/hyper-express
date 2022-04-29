@@ -428,7 +428,7 @@ class Request extends stream.Readable {
 
         // Ensure the provided handler is a function type
         if (typeof handler !== 'function')
-            throw new Error('HyperExpress.Request.upload(handler) -> handler must be a Function.');
+            throw new Error('HyperExpress: Request.multipart(handler) -> handler must be a Function.');
 
         // Resolve instantly if we have no readable body stream
         if (this.readableEnded) return Promise.resolve();
@@ -721,7 +721,7 @@ class Request extends stream.Readable {
      */
     _throw_unsupported(name) {
         throw new Error(
-            `One of your middlewares or logic tried to call Request.${name} which is unsupported with HyperExpress.`
+            `HyperExpress: One of your middlewares or logic tried to call Request.${name} which is unsupported with HyperExpress.`
         );
     }
 

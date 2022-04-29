@@ -82,10 +82,11 @@ export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
     /**
      * Binds a drain handler which gets called with a byte offset that can be used to try a failed chunk write.
      * You MUST perform a write call inside the handler for uWS chunking to work properly.
+     * You MUST return a boolean value indicating if the write was successful or not.
      *
-     * @param {function(number):void} handler Synchronous callback only
+     * @param {function(number):boolean} handler Synchronous callback only
      */
-    drain(handler: (offset: number) => void): void;
+    drain(handler: (offset: number) => boolean): void;
 
     /**
      * This method is used to end the current request and send response with specified body and headers.
@@ -216,6 +217,13 @@ export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
      * @returns {Boolean}
      */
     get completed(): boolean;
+
+    /**
+     * Returns the current response body content write offset in bytes.
+     * Use in conjunction with the drain() offset handler to retry writing failed chunks.
+     * @returns {Number}
+     */
+    get write_offset(): number;
 
     /**
      * Upgrade socket context for upgrade requests.

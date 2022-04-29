@@ -12,6 +12,7 @@ Below is a breakdown of the `Response` component which is an **extended** `Writa
 | `initiated` | `Boolean`  | Signifies whether the response has been initiated and the status code/headers have been sent. |
 | `aborted` | `Boolean`  | Signifies whether the request has been aborted/completed. |
 | `completed` | `Boolean`  | Alias of `aborted` property. |
+| `write_offset` | `Number`  | Returns the current response body content write offset in bytes. |
 * See [`> [SSEventStream]`](./SSEventStream.md) for more information on the `Response.sse` property for working with Server-Sent Events.
 
 #### Response Methods
@@ -44,7 +45,11 @@ Below is a breakdown of the `Response` component which is an **extended** `Writa
     * **Note** the `send()` must still be called in the end after writing all chunks to end the chunked transfer.
     * **Note** this method mimics `Writable.write()` method thus you may use direct piping by piping from a `Readable` stream.
 * `drain(Function: handler)`: Binds a one-time handler which is called once the built up backpressure from a failed `write()` call has been drained.
-  * **Note** you **MUST** retry the failed `write()` call with the same chunk from before proceeding to writing future chunks.
+  * **Handle Example**: `(Number: offset) => boolean`
+  * **Proper Usage**:
+    * You **MUST** retry the failed chunk `write()` call with the same **sliced** chunk from before proceeding to writing future chunks.
+    * You should **slice** the chunk using `chunk.slice(offset - Response.write_offset)` to retry the chunk with the `write()` call.
+    * This handler may be called **multiple** times with different `offset` values until the chunk is fully written.
   * **Note** this handler must be **synchronous** only.
 * `stream(ReadableStream: readable, Number?: total_size)`: Pipes the provided readable stream as body and sends response.
   * This method can be useful for serving large amounts of data through Node.js streaming functionalities.
