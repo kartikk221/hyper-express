@@ -196,7 +196,7 @@ class Request extends stream.Readable {
         // Push an EOF chunk to the body stream signifying the end of the stream
         if (!this.readableEnded) this.push(null);
 
-        // Mark the stream as ended
+        // Mark the stream as ended so all incoming chunks will be ignored from uWS.HttpResponse.onData() handler
         this.#stream_ended = true;
     }
 
