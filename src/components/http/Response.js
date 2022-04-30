@@ -413,7 +413,7 @@ class Response extends Writable {
      * @param {Boolean=} close_connection
      * @returns {Boolean} 'false' signifies that the body was not sent due to built up backpressure or closed connection.
      */
-    send(body, close_connection = true) {
+    send(body, close_connection) {
         // Ensure response connection is still active
         if (!this.#completed) {
             // Initiate response to write status code and headers
