@@ -1,7 +1,7 @@
 const Server = require('../Server.js'); // lgtm [js/unused-local-variable]
 const cookie = require('cookie');
 const signature = require('cookie-signature');
-const querystring = require('query-string');
+const querystring = require('qs');
 const stream = require('stream');
 const busboy = require('busboy');
 const MultipartField = require('../plugins/MultipartField.js');
