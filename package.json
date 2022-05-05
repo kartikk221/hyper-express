@@ -43,7 +43,7 @@
         "cookie-signature": "^1.1.0",
         "eventsource": "^2.0.0",
         "mime-types": "^2.1.33",
-        "query-string": "^7.0.1",
+        "qs": "^6.10.3",
         "range-parser": "^1.2.1",
         "type-is": "^1.6.18",
         "uid-safe": "^2.1.5",
