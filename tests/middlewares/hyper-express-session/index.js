@@ -4,12 +4,14 @@ const { TEST_ENGINE } = require('./test_engine.js');
 const { path } = require('./configuration.json');
 TEST_SERVER.use(path, TEST_ENGINE);
 
+const { test_properties_scenario } = require('./scenarios/properties.js');
 const { test_brute_scenario } = require('./scenarios/brute.js');
 const { test_duration_scenario } = require('./scenarios/duration.js');
 const { test_roll_scenario } = require('./scenarios/roll.js');
 const { test_visits_scenario } = require('./scenarios/visits.js');
 
 async function test_session_middleware() {
+    await test_properties_scenario();
     await test_brute_scenario();
     await test_roll_scenario();
     await test_visits_scenario();
