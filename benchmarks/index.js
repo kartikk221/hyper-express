@@ -17,9 +17,7 @@ const configuration = JSON.parse(fs.readFileSync('./configuration.json', 'utf8')
 
 // Launch workers for each CPU core if this is a primary instance of a cluster
 if (!cluster.isWorker) {
-    for (let i = 0; i < os.cpus().length; i++) {
-        cluster.fork();
-    }
+    for (let i = 0; i < os.cpus().length; i++) cluster.fork();
 }
 
 // Perform startup tasks

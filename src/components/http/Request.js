@@ -44,9 +44,11 @@ class Request extends stream.Readable {
         this.#raw_response = raw_response;
         this.#master_context = master_context;
 
-        // Execute request operators for pre-parsing common access data
-        this._request_information();
-        this._path_parameters(path_parameters_key);
+        // Parse basic request information that will be made unavailable after this synchronous call from uWS.HttpRequest
+        this._parse_request_information();
+
+        // Parse path parameters from request path if we have a path parameters parsing key
+        if (path_parameters_key.length) this._parse_path_parameters(path_parameters_key);
     }
 
     /**
@@ -55,19 +57,17 @@ class Request extends stream.Readable {
      * This method parses initial data from uWS.Request and uWS.Response to prevent forbidden
      * stack memory access errors for asynchronous usage
      */
-    _request_information() {
-        // Retrieve raw uWS request & response objects
-        let request = this.#raw_request;
-        let response = this.#raw_response;
-
+    _parse_request_information() {
         // Perform request pre-parsing for common access data
         // This is required as uWS.Request is forbidden for access after initial execution
-        this.#method = request.getMethod().toUpperCase();
-        this.#path = request.getUrl();
-        this.#query = request.getQuery();
+        this.#method = this.#raw_request.getMethod().toUpperCase();
+        this.#path = this.#raw_request.getUrl();
+        this.#query = this.#raw_request.getQuery();
         this.#url = this.#path + (this.#query ? '?' + this.#query : '');
-        this.#remote_ip = response.getRemoteAddressAsText();
-        this.#remote_proxy_ip = response.getProxiedRemoteAddressAsText();
+        this.#remote_ip = this.#raw_response.getRemoteAddressAsText();
+        this.#remote_proxy_ip = this.#raw_response.getProxiedRemoteAddressAsText();
+
+        // Parse headers into a key-value object
         this.#raw_request.forEach((key, value) => (this.#headers[key] = value));
     }
 
@@ -76,12 +76,11 @@ class Request extends stream.Readable {
      * @private
      * @param {Array} parameters_key [[key, index], ...]
      */
-    _path_parameters(parameters_key) {
-        if (parameters_key.length > 0) {
-            parameters_key.forEach(
-                (keySet) => (this.#path_parameters[keySet[0]] = this.#raw_request.getParameter(keySet[1]))
-            );
-        }
+    _parse_path_parameters(parameters_key) {
+        // Iterate over each expected path parameter key value pair and parse the value from uWS.HttpRequest.getParameter()
+        parameters_key.forEach(
+            (key_set) => (this.#path_parameters[key_set[0]] = this.#raw_request.getParameter(key_set[1]))
+        );
     }
 
     /* Request Methods/Operators */

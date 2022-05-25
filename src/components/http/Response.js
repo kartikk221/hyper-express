@@ -165,7 +165,7 @@ class Response extends Writable {
             return this;
         }
 
-        // Initialize headers container
+        // Initialize headers container object if it does not exist
         if (this.#headers == undefined) this.#headers = {};
 
         // Initialize header values as an array to allow for multiple values

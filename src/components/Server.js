@@ -356,7 +356,7 @@ class Server extends Router {
     _parse_content_length(wrapped_request) {
         // Ensure we have some content-length value which specifies incoming bytes
         const content_length = +wrapped_request.headers['content-length'];
-        return !isNaN(content_length) && content_length > 0 ? content_length : undefined;
+        return !isNaN(content_length) ? content_length : undefined;
     }
 
     /**
@@ -369,7 +369,7 @@ class Server extends Router {
      * @param {Response} response
      * @param {uWebSockets.us_socket_context_t} [socket]
      */
-    async _handle_uws_request(route, request, response, socket) {
+    _handle_uws_request(route, request, response, socket) {
         // Wrap uWS.Request -> Request
         const wrapped_request = new Request(
             route.streaming.readable,
@@ -459,16 +459,15 @@ class Server extends Router {
             }
         }
 
-        // Trigger user assigned route handler with wrapped request/response objects.
-        // Provide socket_context for upgrade requests.
-        // Safely execute the user assigned handler and catch both sync/async errors.
-        new Promise((resolve, reject) => {
-            try {
-                resolve(route.handler(request, response, response.upgrade_socket));
-            } catch (error) {
-                reject(error);
-            }
-        }).catch(next);
+        // Safely execute the user provided route handler
+        try {
+            // If route handler returns a Promise, bind a catch handler to trigger the error handler
+            const output = route.handler(request, response, response.upgrade_socket);
+            if (output instanceof Promise) output.catch(next);
+        } catch (error) {
+            // If route handler throws an error, trigger error handler
+            next(error);
+        }
     }
 
     /* Safe Server Getters */
