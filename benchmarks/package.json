@@ -14,6 +14,6 @@
         "fastify": "^3.28.0",
         "nanoexpress": "^5.2.4",
         "node-fetch": "^3.2.3",
-        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.8.0"
+        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.10.0"
     }
 }
