@@ -367,7 +367,7 @@ class Server extends Router {
      * @param {Route} route
      * @param {Request} request
      * @param {Response} response
-     * @param {uWebSockets.us_socket_context_t} [socket]
+     * @param {uWebSockets.us_socket_context_t=} socket
      */
     _handle_uws_request(route, request, response, socket) {
         // Wrap uWS.Request -> Request
@@ -406,7 +406,7 @@ class Server extends Router {
         }
 
         // Chain incoming request/response through all global/local/route-specific middlewares
-        route.app._chain_middlewares(route, wrapped_request, wrapped_response);
+        return route.app._chain_middlewares(route, wrapped_request, wrapped_response);
     }
 
     /**
