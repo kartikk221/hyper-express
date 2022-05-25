@@ -60,7 +60,7 @@ Below is a breakdown of the `Server` component which is an extended `Router` ins
     * **Note** `pattern` is treated as a wildcard match by default and does not support `*`/`:param` prefixes.
     * **See** [`> [Router]`](./Router.md) & [`> [Middlewares]`](./Middlewares.md) for **full documentation** on this method.
 * `any(...4 Overloads)`: Creates an HTTP route on the specified pattern. Alias methods are listed below for all available HTTP methods.
-    * **Alias Methods:** `get()`, `post()`, `put()`, `delete()`, `head()`, `options()`, `patch()`, `trace()`, `connect()`, `upgrade()`, `ws()`.
+    * **Alias Methods:** `all()`, `get()`, `post()`, `put()`, `delete()`, `head()`, `options()`, `patch()`, `trace()`, `connect()`, `upgrade()`, `ws()`.
     * **Overload Types**:
       * `any(String: pattern, Function: handler)`: Creates an any method HTTP route with the specified `handler`.
       * `any(String: pattern, Object: options, Function: handler)`: Creates an any method HTTP route with the specified `options` and `handler`.

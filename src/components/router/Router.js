@@ -246,6 +246,19 @@ class Router {
     }
 
     /**
+     * Alias of any() method.
+     * Creates an HTTP route that handles any HTTP method requests.
+     * Note! ANY routes do not support route specific middlewares.
+     *
+     * @param {String} pattern
+     * @param {...(RouteOptions|MiddlewareHandler)} args
+     */
+    all() {
+        // Alias of any() method
+        return this.any(...arguments);
+    }
+
+    /**
      * Creates an HTTP route that handles GET method requests.
      *
      * @param {String} pattern

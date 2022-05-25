@@ -45,7 +45,7 @@ webserver.use('/api/v1', api_v1_router);
         * **Example:** A `GET /users/:id` route from a `Router` used with `use('/api/v1', router)` call will be created as `GET /api/v1/users/:id`.
         * **Example:** A middleware assigned directly to a `Router` used with `use('/api', router)` will execute for all routes that begin with `/api`.
 * `any(...4 Overloads)`: Creates an HTTP route on the specified pattern. Alias methods are listed below for all available HTTP methods.
-    * **Alias Methods:** `get()`, `post()`, `put() `, `delete()`, `head()`, `options()`, `patch()`, `trace()`, `connect()`, `upgrade()`.
+    * **Alias Methods:** `all()`, `get()`, `post()`, `put() `, `delete()`, `head()`, `options()`, `patch()`, `trace()`, `connect()`, `upgrade()`.
     * **Overload Types**:
       * `any(String: pattern, Function: handler)`: Creates an `any` method HTTP route with the specified `handler`.
       * `any(String: pattern, Object: options, Function: handler)`: Creates an `any` method HTTP route with the specified route `options` and `handler`.
