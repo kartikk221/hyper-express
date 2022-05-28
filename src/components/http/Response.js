@@ -491,8 +491,8 @@ class Response extends Writable {
                     // Resume the stream if it is paused
                     if (stream.isPaused()) stream.resume();
 
-                    // Return the write boolean to uWS based on whether the stream is paused or not
-                    return stream.isPaused();
+                    // Return the write boolean to uWS based on whether the stream is active or not
+                    return !stream.isPaused();
                 });
             }
         }
