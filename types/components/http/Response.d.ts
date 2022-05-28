@@ -94,7 +94,7 @@ export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
      * @param {String|Buffer|ArrayBuffer} body Optional
      * @returns {Boolean} 'false' signifies that the result was not sent due to built up backpressure.
      */
-    send(body: SendableData, close_connection?: boolean): Response;
+    send(body?: SendableData, close_connection?: boolean): Response;
 
     /**
      * This method is used to pipe a readable stream as response body and send response.

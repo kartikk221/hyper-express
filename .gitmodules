@@ -1,3 +1,9 @@
 [submodule "middlewares/hyper-express-session"]
 	path = middlewares/hyper-express-session
 	url = git@github.com:kartikk221/hyper-express-session.git
+[submodule "middlewares/hyper-express-body-parser"]
+	path = middlewares/hyper-express-body-parser
+	url = git@github.com:kartikk221/hyper-express-body-parser.git
+[submodule "middlewares/hyper-express-serve-static"]
+	path = middlewares/hyper-express-serve-static
+	url = git@github.com:kartikk221/hyper-express-serve-static.git

@@ -1,6 +1,7 @@
 const { log, assert_log, random_string } = require('../../scripts/operators.js');
 const { HyperExpress, fetch, server } = require('../../configuration.js');
 const { test_livefile_object } = require('../../components/features/LiveFile.js');
+const { test_response_send_no_body } = require('./scenarios/response_send_no_body.js');
 const { test_response_stream_method } = require('./scenarios/response_stream.js');
 const { test_response_chunked_write } = require('./scenarios/response_chunked_write.js');
 const { test_response_piped_write } = require('./scenarios/response_piped.js');
@@ -130,6 +131,9 @@ async function test_response_object() {
 
     // Verify .send()
     assert_log(group, candidate + '.send()', () => body1 === test_html_placeholder);
+
+    // Verify .send() with no body and custom content-length
+    await test_response_send_no_body();
 
     // Test Response.sse (Server-Sent Events) support
     await test_response_sse();

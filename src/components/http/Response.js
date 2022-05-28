@@ -15,6 +15,7 @@ class Response extends Writable {
     #initiated = false;
     #completed = false;
     #type_written = false;
+    #custom_content_length;
     #wrapped_request;
     #middleware_cursor;
     #raw_response;
@@ -177,6 +178,9 @@ class Response extends Writable {
                 new Error('HyperExpress: header(name, value) -> value candidates must always be of type string')
             );
 
+        // Determine if the header being written is a "content-length" header and if so, set the length
+        if (name.toLowerCase() === 'content-length') this.#custom_content_length = parseInt(value);
+
         // Push current header value onto values array
         this.#headers[name].push(value);
         return this;
@@ -277,8 +281,8 @@ class Response extends Writable {
      * Initiates response process by writing HTTP status code and then writing the appropriate headers.
      */
     _initiate_response() {
-        // Ensure response can only be initiated once to prevent multiple invocations
-        if (this.initiated) return;
+        // Halt execution if response has already been initiated or completed
+        if (this.#initiated || this.#completed) return;
 
         // Emit the 'prepare' event to allow for any last minute response modifications
         this.emit('prepare', this.#wrapped_request, this);
@@ -349,9 +353,7 @@ class Response extends Writable {
             this._initiate_response();
 
             // Attempt to write the chunk to the client
-            const last_offset = this.write_offset;
             const written = this.#raw_response.write(chunk);
-
             if (written) {
                 // If chunk write was a success, we can move onto consuming the next chunk
                 if (callback) callback();
@@ -359,18 +361,17 @@ class Response extends Writable {
                 // Return true here to signify that this chunk was written successfully
                 return true;
             } else if (callback) {
-                // Wait for backpressure to be drained before attempting to write the chunk again
-                const reference = this;
-                return this.drain((offset) => {
-                    // Retry the sliced chunk based on the drained offset - last offset
-                    const sliced = chunk.slice(offset - last_offset);
-                    const retried = reference.#raw_response.write(sliced);
+                // Wait for this chunk to be written to the client
+                let drained = false;
+                return this.drain(() => {
+                    // Call the callback once the chunk is drained
+                    if (!drained) {
+                        drained = true;
+                        callback();
+                    }
 
-                    // Only call the callback to consume more chunks we are able to successfully retry this chunk
-                    if (retried) callback();
-
-                    // We must return a boolean to indicate whether the chunk was successfully written or not to uWS
-                    return retried;
+                    // Return true here to signify that this chunk was written successfully to uWS
+                    return drained;
                 });
             }
         }
@@ -409,9 +410,9 @@ class Response extends Writable {
     /**
      * This method is used to end the current request and send response with specified body and headers.
      *
-     * @param {String|Buffer|ArrayBuffer} body Optional
+     * @param {String|Buffer|ArrayBuffer=} body Optional
      * @param {Boolean=} close_connection
-     * @returns {Boolean} 'false' signifies that the body was not sent due to built up backpressure or closed connection.
+     * @returns {Response}
      */
     send(body, close_connection) {
         // Ensure response connection is still active
@@ -422,25 +423,30 @@ class Response extends Writable {
             // Stop downloading further body chunks as we are done with the response
             this.#wrapped_request._stop_streaming();
 
-            // Mark request as completed and end request using uWS.Response.end()
-            const sent = this.#raw_response.end(body, close_connection);
+            // Attempt to write the body to the client and end the response
+            if (!this.#streaming && !body && !isNaN(this.#custom_content_length)) {
+                // Send the response with the uWS.HttpResponse.endWithoutBody(length, close_connection) method as we have no body data
+                // NOTE: This method is completely undocumented by uWS but exists in the source code to solve the problem of no body being sent with a custom content-length
+                this.#raw_response.endWithoutBody();
+            } else {
+                // Send the response with the uWS.HttpResponse.end(body, close_connection) method as we have some body data
+                this.#raw_response.end(body, close_connection);
+            }
 
             // Emit the 'finish' event to signify that the response has been sent without streaming
             if (!this.#streaming) this.emit('finish', this.#wrapped_request, this);
 
             // Call any bound hooks for type 'complete' if no backpressure was built up
-            if (sent && !this.#completed) {
+            if (!this.#completed) {
                 // Mark request as completed if we were able to send response properly
                 this.#completed = true;
 
                 // Emit the 'close' event to signify that the response has been completed
                 this.emit('close', this.#wrapped_request, this);
             }
-
-            return sent;
         }
 
-        return false;
+        return this;
     }
 
     /**
@@ -481,28 +487,12 @@ class Response extends Writable {
                 stream.pause();
 
                 // Bind a drain handler which gets called with a byte offset that can be used to try a failed chunk write
-                const reference = this;
-                this.drain((offset) => {
-                    // Retry writing the sliced chunk based on the drained offset - last offset
-                    const sliced = chunk.slice(offset - last_offset);
-                    if (total_size) {
-                        // Attempt to stream the current chunk using uWS.tryEnd with a total size
-                        const [ok, done] = reference.#raw_response.tryEnd(sliced, total_size);
-                        sent = ok;
-                        finished = done;
-                    } else {
-                        // Attempt to stream the current chunk uWS.write()
-                        sent = reference.#raw_response.write(sliced);
+                this.drain(() => {
+                    // Resume the stream if it is paused
+                    if (stream.isPaused()) stream.resume();
 
-                        // Since we are streaming without a total size, we are not finished
-                        finished = false;
-                    }
-
-                    // Resume stream once this chunk has been successfully retried
-                    if (sent) stream.resume();
-
-                    // We must return a boolean to indicate whether the chunk was successfully written or not to uWS
-                    return sent;
+                    // Return the write boolean to uWS based on whether the stream is paused or not
+                    return stream.isPaused();
                 });
             }
         }
@@ -523,21 +513,24 @@ class Response extends Writable {
                 new Error('HyperExpress: Response.stream(readable, total_size) -> readable must be a Readable stream.')
             );
 
-        // Bind an 'abort' event handler which will destroy the consumed stream if request is aborted
-        this.on('abort', () => {
-            if (!readable.destroyed) readable.destroy();
-        });
+        // Do not allow streaming if response has already been aborted or completed
+        if (!this.#completed) {
+            // Bind an 'abort' event handler which will destroy the consumed stream if request is aborted
+            this.on('abort', () => {
+                if (!readable.destroyed) readable.destroy();
+            });
 
-        // Initiate response as we will begin writing body chunks
-        this._initiate_response();
+            // Initiate response as we will begin writing body chunks
+            this._initiate_response();
 
-        // Bind a listener for the 'data' event to consume chunks
-        readable.on('data', (chunk) => this._stream_chunk(readable, chunk, total_size));
+            // Bind a listener for the 'data' event to consume chunks
+            readable.on('data', (chunk) => this._stream_chunk(readable, chunk, total_size));
 
-        // Bind listeners to end request on stream closure if no total size was specified and thus we delivered with chunked transfer
-        if (total_size === undefined) {
-            const end_request = () => this.send();
-            readable.once('end', end_request);
+            // Bind listeners to end request on stream closure if no total size was specified and thus we delivered with chunked transfer
+            if (total_size === undefined) {
+                const end_request = () => this.send();
+                readable.once('end', end_request);
+            }
         }
     }
 
