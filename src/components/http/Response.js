@@ -465,7 +465,6 @@ class Response extends Writable {
             // Attempt to stream the chunk using appropriate uWS.Response chunk serving method
             // This will depend on whether a total_size is specified or not
             let sent, finished;
-            let last_offset = this.write_offset;
             if (total_size) {
                 // Attempt to stream the current chunk using uWS.tryEnd with a total size
                 const [ok, done] = this.#raw_response.tryEnd(chunk, total_size);
@@ -486,7 +485,7 @@ class Response extends Writable {
                 // Pause the readable stream to prevent any further data from being read
                 stream.pause();
 
-                // Bind a drain handler which gets called with a byte offset that can be used to try a failed chunk write
+                // Bind a drain handler which will resume the once the backpressure is cleared
                 this.drain(() => {
                     // Resume the stream if it is paused
                     if (stream.isPaused()) stream.resume();
