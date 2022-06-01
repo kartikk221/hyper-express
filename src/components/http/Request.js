@@ -16,7 +16,9 @@ const is_ip = require('net').isIP;
 class Request extends stream.Readable {
     locals = {};
     #master_context;
+    #received = false;
     #stream_ended = false;
+    #stream_flushing = false;
     #stream_raw_chunks = false;
     #raw_request = null;
     #raw_response = null;
@@ -30,6 +32,10 @@ class Request extends stream.Readable {
     #headers = {};
     #path_parameters = {};
     #query_parameters;
+    #body_limit_bytes;
+    #body_expected_bytes;
+    #body_received_bytes;
+    #body_flushed = false;
     #body_buffer;
     #body_text;
     #body_json;
@@ -49,6 +55,9 @@ class Request extends stream.Readable {
 
         // Parse path parameters from request path if we have a path parameters parsing key
         if (path_parameters_key.length) this._parse_path_parameters(path_parameters_key);
+
+        // Bind a 'limit' event handler to this request to stop streaming
+        this.once('limit', () => this._stop_streaming());
     }
 
     /**
@@ -150,46 +159,129 @@ class Request extends stream.Readable {
     }
 
     /**
-     * Begins streaming incoming body data in chunks received.
+     * Returns whether body streaming is forbidden for this request.
      *
      * @private
+     * @returns {Boolean}
      */
-    _start_streaming() {
-        // Bind a read handler for resuming stream consumption
-        this._read = () => this.resume();
+    _stream_forbidden() {
+        return this.#stream_ended || this.#stream_flushing || this.readableEnded || this.readableAborted;
+    }
 
-        // Bind a uWS.Response.onData() handler which will handle incoming chunks and pipe them to the readable stream
-        const stream = this;
-        this.#raw_response.onData((array_buffer, is_last) => {
-            // Do not process chunk if the readable stream is no longer active
-            if (stream.#stream_ended || stream.readableEnded || stream.readableAborted) return;
+    /**
+     * Returns whether the incoming body stream has reached the allowed limit in received bytes.
+     *
+     * @private
+     * @returns {Boolean}
+     */
+    _stream_limit_reached() {
+        return this.#body_limit_bytes && this.#body_received_bytes >= this.#body_limit_bytes;
+    }
 
-            // Convert the ArrayBuffer to a Buffer reference
-            // Provide raw chunks if specified and we have something consuming stream already
-            // This will prevent unneccessary duplication of buffers
-            let buffer;
-            let raw_listeners = stream.listenerCount('data');
-            if (raw_listeners > 0 && stream.#stream_raw_chunks) {
-                // Store a direct Buffer reference as this will be immediately consumed
-                buffer = Buffer.from(array_buffer);
-            } else {
-                // Store a copy of the array_buffer as we have no immediate consumer yet
-                // If we do not copy, this chunk will be lost in stream queue as it will be deallocated by uWebsockets
-                buffer = Buffer.concat([Buffer.from(array_buffer)]);
+    /**
+     * Streams the incoming request body with a limit of the provided bytes.
+     * This method will be a no-op if there is no expected body based on the content-length header.
+     * This method will mark this request to emit the 'limit' event when the bytes limit is reached.
+     * Returns whether this request will be providing viable body data.
+     *
+     * @private
+     * @param {Number} bytes
+     * @returns {Boolean}
+     */
+    _stream_with_limit(bytes) {
+        // Set the body limit in bytes
+        this.#body_limit_bytes = bytes;
+
+        // Ensure body streaming is not forbidden for this request
+        if (!this._stream_forbidden()) {
+            // Initialize the expected body size if it hasn't been yet
+            if (this.#body_expected_bytes == undefined) {
+                const content_length = +this.#headers['content-length'];
+                this.#body_expected_bytes = isNaN(content_length) || content_length < 1 ? 0 : content_length;
             }
 
-            // Push the incoming chunk into readable stream for consumption
-            // Pause the uWS request if our stream is backed up
-            if (!stream.push(buffer)) stream.pause();
+            // Determine if we have some expected body bytes to stream
+            if (this.#body_expected_bytes > 0) {
+                // Determine if the expected body bytes is greater than the specified body limit in bytes
+                if (this.#body_expected_bytes > this.#body_limit_bytes) {
+                    // Mark the incoming body data to be flushed
+                    this.#stream_flushing = true;
+                    this.emit('limit', this.#body_received_bytes, this.#body_flushed);
+                }
 
-            // Push a null chunk signaling an EOF to the stream to end it if this chunk is last
-            if (is_last) stream.push(null);
-        });
+                // Begin streaming incoming body chunks if we have not initialized a body received bytes counter yet
+                if (this.#body_received_bytes == undefined) {
+                    // Initialize the body received bytes counter
+                    this.#body_received_bytes = 0;
+
+                    // Overwrite the underlying readable _read handler to resume the request when more chunks are requested
+                    this._read = () => this.resume();
+
+                    // Bind a uWS.Response.onData() handler which will provide incoming raw body chunks from uWS
+                    const reference = this;
+                    this.#raw_response.onData((array_buffer, is_last) => {
+                        // Determine if this is the last chunk from uWS
+                        if (is_last) {
+                            // Mark the request body as flushed
+                            reference.#body_flushed = true;
+
+                            // Emit a final 'limit' event if we have crossed the body limit in bytes or the stream flushing
+                            if (reference._stream_limit_reached() || reference.#stream_flushing) {
+                                // Emit the 'limit' event with the body flushed flag
+                                this.emit('limit', this.#body_received_bytes, reference.#body_flushed);
+                            }
+                        }
+
+                        // Determine if streaming is still allowed for this request
+                        if (!reference._stream_forbidden()) {
+                            // Determine if we have direct consumers from the 'data' event
+                            const raw_listeners = reference.listenerCount('data');
+
+                            // Convert the incoming temporary ArrayBuffer to a Buffer
+                            let buffer;
+                            if (raw_listeners > 0 && reference.#stream_raw_chunks) {
+                                // Store a direct Buffer reference as we have some consumer requesting raw chunks
+                                buffer = Buffer.from(array_buffer);
+                            } else {
+                                // Store a copy of the array_buffer as we have no immediate consumer yet
+                                // If we do not copy, this chunk will be lost in stream queue as it will be deallocated by uWS
+                                buffer = Buffer.concat([Buffer.from(array_buffer)]);
+                            }
+
+                            // Increment the body received bytes counter
+                            reference.#body_received_bytes += buffer.byteLength;
+
+                            // Push the incoming chunk into readable stream for consumption
+                            // Pause the uWS request if our stream is backed up
+                            if (!reference.push(buffer)) reference.pause();
+
+                            // Determine if this is the last chunk from uWS
+                            if (is_last) {
+                                // Push a null chunk signaling an EOF to the stream to end
+                                reference.push(null);
+                            } else {
+                                // Determine if we have crossed the body limit in bytes
+                                if (reference._stream_limit_reached()) {
+                                    // Emit the 'limit' event with the body flushed flag
+                                    this.emit('limit', this.#body_received_bytes, reference.#body_flushed);
+                                }
+                            }
+                        }
+                    });
+                }
+            } else {
+                // Push an EOF chunk to signify the readable has already ended thus no more content is readable
+                this.push(null);
+            }
+        }
+
+        return !this.#stream_flushing;
     }
 
     /**
      * Halts the streaming of incoming body data for this request.
      * @private
+     * @returns {Request}
      */
     _stop_streaming() {
         // Push an EOF chunk to the body stream signifying the end of the stream
@@ -197,6 +289,7 @@ class Request extends stream.Readable {
 
         // Mark the stream as ended so all incoming chunks will be ignored from uWS.HttpResponse.onData() handler
         this.#stream_ended = true;
+        return this;
     }
 
     #buffer_promise;
@@ -249,6 +342,7 @@ class Request extends stream.Readable {
             if (reference.readableEnded) return resolve(body.buffer);
 
             // Begin consuming future chunks from the readable request stream
+            let downloaded = false;
             reference.on('data', (chunk) => {
                 // Copy the temporary chunk from uWS into our body buffer
                 chunk.copy(body.buffer, body.cursor, 0, chunk.byteLength);
@@ -257,8 +351,30 @@ class Request extends stream.Readable {
                 body.cursor += chunk.byteLength;
             });
 
-            // Resolve the body buffer once the readable stream has finished
-            reference.once('end', () => resolve(body.buffer));
+            // Resolve an empty buffer if we hit the body limit in bytes
+            reference.once('limit', (received_bytes, flushed) => {
+                // Ensure a buffer has not been downloaded yet
+                if (flushed && !downloaded) {
+                    // Mark the buffer as downloaded
+                    downloaded = true;
+
+                    // Cache and resolve an empty buffer
+                    reference.#body_buffer = Buffer.from('');
+                    resolve(reference.#body_buffer);
+                }
+            });
+
+            // Resolve the filled body buffer once the readable stream has finished
+            reference.once('end', () => {
+                // Ensure a buffer has not been downloaded yet
+                if (!reference._stream_limit_reached() && !downloaded) {
+                    // Mark the buffer as downloaded
+                    downloaded = true;
+
+                    // Resolve the body buffer
+                    resolve(body.buffer);
+                }
+            });
 
             // We must directly resume the readable stream to make it begin accepting data
             super.resume();

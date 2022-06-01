@@ -370,7 +370,7 @@ class Server extends Router {
      * @param {uWebSockets.us_socket_context_t=} socket
      */
     _handle_uws_request(route, request, response, socket) {
-        // Wrap uWS.Request -> Request
+        // Wrap uWS.Request -> HyperExpress.Request
         const wrapped_request = new Request(
             route.streaming.readable,
             request,
@@ -379,34 +379,26 @@ class Server extends Router {
             route.app
         );
 
-        // Wrap uWS.Response -> Response
+        // Wrap uWS.Response -> HyperExpress.Response
         const wrapped_response = new Response(route.streaming.writable, wrapped_request, response, socket, route.app);
 
-        // Determine the incoming content length if present
-        const content_length = this._parse_content_length(wrapped_request);
-        if (content_length) {
-            // Determine and compare against a maximum incoming content length from the route options with a fallback to the server options
-            const max_body_length = route.options.max_body_length || route.app._options.max_body_length;
-            if (content_length > max_body_length) {
-                // Use fast abort scheme if specified in the server options
-                if (route.app._options.fast_abort === true) return response.close();
-
-                // For slow abort scheme, according to uWebsockets developer, we have to drain incoming data before aborting and closing request
-                // Prematurely closing request with a 413 leads to an ECONNRESET in which we lose 413 status code from server
-                return response.onData((_, is_last) => {
-                    if (is_last) wrapped_response.status(413).send();
-                });
+        // Bind a 'limit' event handler which will send the appropriate response if the request body size exceeds the limit
+        wrapped_request.on('limit', (received_bytes, flushed) => {
+            if (route.app._options.fast_abort) {
+                // Abort the request instantly as user has specified usage of fast abort
+                wrapped_response.close();
+            } else if (flushed) {
+                // Send a 413 response if the incoming data has been flushed
+                wrapped_response.status(413).send();
             }
+        });
 
-            // Begin streaming the incoming body data
-            wrapped_request._start_streaming();
-        } else {
-            // Push an EOF chunk to signify the readable has already ended thus no more content is readable
-            wrapped_request.push(null);
+        // Stream any incoming request body data with configured limit
+        const max_body_length = route.options.max_body_length || route.app._options.max_body_length;
+        if (wrapped_request._stream_with_limit(max_body_length)) {
+            // Chain incoming request/response through all global/local/route-specific middlewares
+            route.app._chain_middlewares(route, wrapped_request, wrapped_response);
         }
-
-        // Chain incoming request/response through all global/local/route-specific middlewares
-        return route.app._chain_middlewares(route, wrapped_request, wrapped_response);
     }
 
     /**
