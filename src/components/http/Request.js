@@ -180,13 +180,12 @@ class Request extends stream.Readable {
 
     /**
      * Streams the incoming request body with a limit of the provided bytes.
-     * This method will be a no-op if there is no expected body based on the content-length header.
-     * This method will mark this request to emit the 'limit' event when the bytes limit is reached.
-     * Returns whether this request will be providing viable body data.
+     * NOTE: This method will be a no-op if there is no expected body based on the content-length header.
+     * NOTE: This method will mark this request to emit the 'limit' event when the bytes limit is reached.
      *
      * @private
      * @param {Number} bytes
-     * @returns {Boolean}
+     * @returns {Boolean} Returns whether this request will be providing viable body data.
      */
     _stream_with_limit(bytes) {
         // Set the body limit in bytes
