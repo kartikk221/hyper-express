@@ -384,12 +384,15 @@ class Server extends Router {
 
         // Bind a 'limit' event handler which will send the appropriate response if the request body size exceeds the limit
         wrapped_request.on('limit', (received_bytes, flushed) => {
-            if (route.app._options.fast_abort) {
+            // Determine if the response has not been initiated yet
+            if (!wrapped_response.initiated) {
                 // Abort the request instantly as user has specified usage of fast abort
-                wrapped_response.close();
-            } else if (flushed) {
-                // Send a 413 response if the incoming data has been flushed
-                wrapped_response.status(413).send();
+                if (route.app._options.fast_abort) {
+                    wrapped_response.close();
+                } else if (flushed) {
+                    // Send a 413 response if the incoming data has been flushed
+                    wrapped_response.status(413).send();
+                }
             }
         });
 

@@ -21,7 +21,7 @@ class Response extends Writable {
     #raw_response;
     #master_context;
     #upgrade_socket;
-    #status_code;
+    #status_code = 200;
     #headers;
     #cookies;
     #sse;
@@ -423,6 +423,10 @@ class Response extends Writable {
             // Stop downloading further body chunks as we are done with the response
             this.#wrapped_request._stop_streaming();
 
+            // Wait for any expected request body data to be fully received to prevent an ECONNRESET error
+            if (!this.#wrapped_request.received)
+                return this.#wrapped_request.once('received', () => this.send(body, close_connection));
+
             // Attempt to write the body to the client and end the response
             if (!this.#streaming && !body && !isNaN(this.#custom_content_length)) {
                 // Send the response with the uWS.HttpResponse.endWithoutBody(length, close_connection) method as we have no body data
@@ -535,7 +539,7 @@ class Response extends Writable {
 
     /**
      * Instantly aborts/closes current request without writing a status response code.
-     * Use this only in extreme situations to abort a request where a proper response is not neccessary.
+     * Use this to instantly abort a request where a proper response with an HTTP status code is not neccessary.
      */
     close() {
         if (!this.#completed) {
@@ -655,7 +659,7 @@ class Response extends Writable {
         let final_name = name || chunks[chunks.length - 1];
         let name_chunks = final_name.split('.');
         let extension = name_chunks[name_chunks.length - 1];
-        return this.header('Content-Disposition', `attachment; filename="${final_name}"`).type(extension);
+        return this.header('content-disposition', `attachment; filename="${final_name}"`).type(extension);
     }
 
     /**
@@ -774,10 +778,10 @@ class Response extends Writable {
     }
 
     /**
-     * ExpressJS: Alias of Response.completed
+     * ExpressJS: Alias of Response.initated
      */
     get headersSent() {
-        return this.#completed;
+        return this.#initiated;
     }
 
     /**
@@ -996,7 +1000,7 @@ class Response extends Writable {
      * @param {String} name
      */
     vary(name) {
-        return this.header('Vary', name);
+        return this.header('vary', name);
     }
 }
 

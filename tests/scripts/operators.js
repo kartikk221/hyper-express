@@ -1,11 +1,9 @@
+const crypto = require('crypto');
 const HTTP = require('http');
 
 function log(logger = 'SYSTEM', message) {
     let dt = new Date();
-    let timeStamp = dt
-        .toLocaleString([], { hour12: true, timeZone: 'America/New_York' })
-        .replace(', ', ' ')
-        .split(' ');
+    let timeStamp = dt.toLocaleString([], { hour12: true, timeZone: 'America/New_York' }).replace(', ', ' ').split(' ');
     timeStamp[1] += ':' + dt.getMilliseconds().toString().padStart(3, '0') + 'ms';
     timeStamp = timeStamp.join(' ');
     console.log(`[${timeStamp}][${logger}] ${message}`);
@@ -27,35 +25,21 @@ function assert_log(group, target, assertion) {
         if (result) {
             log(group, 'Verified ' + target);
         } else {
-            throw new Error(
-                'Failed To Verify ' + target + ' @ ' + group + ' -> ' + assertion.toString()
-            );
+            throw new Error('Failed To Verify ' + target + ' @ ' + group + ' -> ' + assertion.toString());
         }
     } catch (error) {
         console.log(error);
-        throw new Error(
-            'Failed To Verify ' + target + ' @ ' + group + ' -> ' + assertion.toString()
-        );
+        throw new Error('Failed To Verify ' + target + ' @ ' + group + ' -> ' + assertion.toString());
     }
 }
 
 function async_for_each(items, handler, cursor = 0, final) {
-    if (final == undefined)
-        return new Promise((resolve, reject) => async_for_each(items, handler, cursor, resolve));
-    if (cursor < items.length)
-        return handler(items[cursor], () => async_for_each(items, handler, cursor + 1, final));
+    if (final == undefined) return new Promise((resolve, reject) => async_for_each(items, handler, cursor, resolve));
+    if (cursor < items.length) return handler(items[cursor], () => async_for_each(items, handler, cursor + 1, final));
     return final(); // Resolve master promise
 }
 
-function http_post_headers({
-    host,
-    port,
-    path,
-    method = 'GET',
-    body,
-    headers = {},
-    silence_errors = false,
-}) {
+function http_post_headers({ host, port, path, method = 'GET', body, headers = {}, silence_errors = false }) {
     return new Promise((resolve, reject) => {
         const request = HTTP.request({
             host,
@@ -83,6 +67,10 @@ function async_wait(delay) {
     return new Promise((resolve, reject) => setTimeout((res) => res(), delay, resolve));
 }
 
+function md5_from_buffer(buffer) {
+    return crypto.createHash('md5').update(buffer).digest('hex');
+}
+
 module.exports = {
     log: log,
     random_string: random_string,
@@ -90,4 +78,5 @@ module.exports = {
     async_for_each: async_for_each,
     http_post_headers: http_post_headers,
     async_wait: async_wait,
+    md5_from_buffer: md5_from_buffer,
 };
