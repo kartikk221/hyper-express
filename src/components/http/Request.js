@@ -16,7 +16,6 @@ const is_ip = require('net').isIP;
 class Request extends stream.Readable {
     locals = {};
     #master_context;
-    #received = false;
     #stream_ended = false;
     #stream_flushing = false;
     #stream_raw_chunks = false;
@@ -29,17 +28,22 @@ class Request extends stream.Readable {
     #remote_ip;
     #remote_proxy_ip;
     #cookies;
-    #headers = {};
     #path_parameters = {};
     #query_parameters;
     #body_limit_bytes;
     #body_expected_bytes;
     #body_received_bytes;
-    #body_flushed = false;
+    #body_flushed = true; // Assume there is no body data to stream
     #body_buffer;
     #body_text;
     #body_json;
     #body_urlencoded;
+
+    /**
+     * Returns request headers from incoming request.
+     * @returns {Record<string, string>}
+     */
+    headers = {};
 
     constructor(stream_options, raw_request, raw_response, path_parameters_key, master_context) {
         // Initialize the request readable stream for body consumption
@@ -76,8 +80,9 @@ class Request extends stream.Readable {
         this.#remote_ip = this.#raw_response.getRemoteAddressAsText();
         this.#remote_proxy_ip = this.#raw_response.getProxiedRemoteAddressAsText();
 
-        // Parse headers into a key-value object
-        this.#raw_request.forEach((key, value) => (this.#headers[key] = value));
+        // Parse headers into a key-value object and then freeze it to prevent further modification
+        this.#raw_request.forEach((key, value) => (this.headers[key] = value));
+        Object.freeze(this.headers);
     }
 
     /**
@@ -169,13 +174,13 @@ class Request extends stream.Readable {
     }
 
     /**
-     * Returns whether the incoming body stream has reached the allowed limit in received bytes.
+     * Returns whether the incoming body stream has exceeded the allowed limit in received data bytes.
      *
      * @private
      * @returns {Boolean}
      */
-    _stream_limit_reached() {
-        return this.#body_limit_bytes && this.#body_received_bytes >= this.#body_limit_bytes;
+    _stream_limit_exhausted() {
+        return this.#body_limit_bytes && this.#body_received_bytes > this.#body_limit_bytes;
     }
 
     /**
@@ -195,12 +200,15 @@ class Request extends stream.Readable {
         if (!this._stream_forbidden()) {
             // Initialize the expected body size if it hasn't been yet
             if (this.#body_expected_bytes == undefined) {
-                const content_length = +this.#headers['content-length'];
+                const content_length = +this.headers['content-length'];
                 this.#body_expected_bytes = isNaN(content_length) || content_length < 1 ? 0 : content_length;
             }
 
             // Determine if we have some expected body bytes to stream
             if (this.#body_expected_bytes > 0) {
+                // Initialize the body flushed to false as we are expecting some data
+                this.#body_flushed = false;
+
                 // Determine if the expected body bytes is greater than the specified body limit in bytes
                 if (this.#body_expected_bytes > this.#body_limit_bytes) {
                     // Mark the incoming body data to be flushed
@@ -225,9 +233,12 @@ class Request extends stream.Readable {
                             reference.#body_flushed = true;
 
                             // Emit a final 'limit' event if we have crossed the body limit in bytes or the stream flushing
-                            if (reference._stream_limit_reached() || reference.#stream_flushing) {
+                            if (reference._stream_limit_exhausted() || reference.#stream_flushing) {
                                 // Emit the 'limit' event with the body flushed flag
                                 this.emit('limit', this.#body_received_bytes, reference.#body_flushed);
+                            } else {
+                                // Emit a 'received' event that indicates the request body has been fully received
+                                this.emit('received', this.#body_received_bytes);
                             }
                         }
 
@@ -260,7 +271,7 @@ class Request extends stream.Readable {
                                 reference.push(null);
                             } else {
                                 // Determine if we have crossed the body limit in bytes
-                                if (reference._stream_limit_reached()) {
+                                if (reference._stream_limit_exhausted()) {
                                     // Emit the 'limit' event with the body flushed flag
                                     this.emit('limit', this.#body_received_bytes, reference.#body_flushed);
                                 }
@@ -278,6 +289,21 @@ class Request extends stream.Readable {
     }
 
     /**
+     * Flushes any remaining incoming body chunks for this request.
+     * @private
+     */
+    _stream_flush() {
+        // Ensure the request stream is not already foridden
+        if (this._stream_forbidden()) return;
+
+        // Mark this request stream to be flushed
+        this.#stream_flushing = true;
+
+        // Resume the request and body stream stream if paused
+        this.resume();
+    }
+
+    /**
      * Halts the streaming of incoming body data for this request.
      * @private
      * @returns {Request}
@@ -292,7 +318,6 @@ class Request extends stream.Readable {
     }
 
     #buffer_promise;
-    #buffer_resolve;
 
     /**
      * Initiates body buffer download process by consuming the request readable stream.
@@ -317,9 +342,6 @@ class Request extends stream.Readable {
         // Initiate a buffer promise with chunk retrieval process
         const reference = this;
         this.#buffer_promise = new Promise((resolve) => {
-            // Store promise resolve method to allow closure from _abort_buffer() method
-            reference.#buffer_resolve = resolve;
-
             // Allocate an empty body buffer to store all incoming chunks depending on buffering scheme
             const use_fast_buffers = reference.#master_context.options.fast_buffers;
             const body = {
@@ -366,7 +388,7 @@ class Request extends stream.Readable {
             // Resolve the filled body buffer once the readable stream has finished
             reference.once('end', () => {
                 // Ensure a buffer has not been downloaded yet
-                if (!reference._stream_limit_reached() && !downloaded) {
+                if (!reference._stream_limit_exhausted() && !downloaded) {
                     // Mark the buffer as downloaded
                     downloaded = true;
 
@@ -393,7 +415,7 @@ class Request extends stream.Readable {
         if (this.#body_buffer) return Promise.resolve(this.#body_buffer);
 
         // Resolve empty if invalid content-length header detected
-        const content_length = +this.#headers['content-length'];
+        const content_length = +this.headers['content-length'];
         if (isNaN(content_length) || content_length < 1) {
             this.#body_buffer = Buffer.from('');
             return Promise.resolve(this.#body_buffer);
@@ -538,7 +560,7 @@ class Request extends stream.Readable {
         }
 
         // Inject the request headers into the busboy options
-        options.headers = this.#headers;
+        options.headers = this.headers;
 
         // Ensure the provided handler is a function type
         if (typeof handler !== 'function')
@@ -617,6 +639,14 @@ class Request extends stream.Readable {
     }
 
     /**
+     * Returns whether all expected incoming request body chunks have been received.
+     * @returns {Boolean}
+     */
+    get received() {
+        return this.#body_flushed;
+    }
+
+    /**
      * Returns HTTP request method for incoming request in all uppercase.
      * @returns {String}
      */
@@ -649,14 +679,6 @@ class Request extends stream.Readable {
     }
 
     /**
-     * Returns request headers from incoming request.
-     * @returns {Record<string, string>}
-     */
-    get headers() {
-        return this.#headers;
-    }
-
-    /**
      * Returns request cookies from incoming request.
      * @returns {Record<string, string>}
      */
@@ -665,7 +687,7 @@ class Request extends stream.Readable {
         if (this.#cookies) return this.#cookies;
 
         // Parse cookies from Cookie header and cache results
-        let header = this.#headers['cookie'];
+        let header = this.headers['cookie'];
         this.#cookies = header ? cookie.parse(header) : {};
         return this.#cookies;
     }
