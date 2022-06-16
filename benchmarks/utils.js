@@ -10,7 +10,7 @@ import cluster from 'cluster';
  */
 export function log(message, primary_only = true) {
     if (primary_only && cluster.isWorker) return;
-    console.log(message);
+    console.log(`[${process.pid}] ${message}`);
 }
 
 /**
