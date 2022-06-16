@@ -926,7 +926,7 @@ class Request extends stream.Readable {
     get ips() {
         let client_ip = this.ip;
         let proxy_ip = this.proxy_ip;
-        let trust_proxy = this.#master_context.trust_proxy;
+        let trust_proxy = this.#master_context.options.trust_proxy;
         let x_forwarded_for = this.get('X-Forwarded-For');
         if (trust_proxy && x_forwarded_for) return x_forwarded_for.split(',');
         return [client_ip, proxy_ip];
@@ -936,7 +936,7 @@ class Request extends stream.Readable {
      * ExpressJS: Parse the "Host" header field to a hostname.
      */
     get hostname() {
-        let trust_proxy = this.#master_context.trust_proxy;
+        let trust_proxy = this.#master_context.options.trust_proxy;
         let host = this.get('X-Forwarded-Host');
 
         if (!host || !trust_proxy) {
