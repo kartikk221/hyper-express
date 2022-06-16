@@ -343,7 +343,7 @@ class Request extends stream.Readable {
         const reference = this;
         this.#buffer_promise = new Promise((resolve) => {
             // Allocate an empty body buffer to store all incoming chunks depending on buffering scheme
-            const use_fast_buffers = reference.#master_context.options.fast_buffers;
+            const use_fast_buffers = reference.#master_context._options.fast_buffers;
             const body = {
                 cursor: 0,
                 buffer: Buffer[use_fast_buffers ? 'allocUnsafe' : 'alloc'](content_length),
@@ -902,7 +902,7 @@ class Request extends stream.Readable {
      */
     get protocol() {
         // Resolves x-forwarded-proto header if trust proxy is enabled
-        let trust_proxy = this.#master_context.options.trust_proxy;
+        let trust_proxy = this.#master_context._options.trust_proxy;
         let x_forwarded_proto = this.get('X-Forwarded-Proto');
         if (trust_proxy && x_forwarded_proto)
             return x_forwarded_proto.indexOf(',') > -1 ? x_forwarded_proto.split(',')[0] : x_forwarded_proto;
@@ -926,7 +926,7 @@ class Request extends stream.Readable {
     get ips() {
         let client_ip = this.ip;
         let proxy_ip = this.proxy_ip;
-        let trust_proxy = this.#master_context.options.trust_proxy;
+        let trust_proxy = this.#master_context._options.trust_proxy;
         let x_forwarded_for = this.get('X-Forwarded-For');
         if (trust_proxy && x_forwarded_for) return x_forwarded_for.split(',');
         return [client_ip, proxy_ip];
@@ -936,7 +936,7 @@ class Request extends stream.Readable {
      * ExpressJS: Parse the "Host" header field to a hostname.
      */
     get hostname() {
-        let trust_proxy = this.#master_context.options.trust_proxy;
+        let trust_proxy = this.#master_context._options.trust_proxy;
         let host = this.get('X-Forwarded-Host');
 
         if (!host || !trust_proxy) {
