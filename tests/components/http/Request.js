@@ -3,6 +3,7 @@ const { HyperExpress, fetch, server } = require('../../configuration.js');
 const { test_request_multipart } = require('./scenarios/request_multipart.js');
 const { test_request_stream_pipe } = require('./scenarios/request_stream.js');
 const { test_request_body_echo_test } = require('./scenarios/request_body_echo_test.js');
+const { test_request_uncaught_rejections } = require('./scenarios/request_uncaught_rejections.js');
 const crypto = require('crypto');
 const router = new HyperExpress.Router();
 const endpoint = '/tests/request/:param1/:param2';
@@ -214,6 +215,9 @@ async function test_request_object() {
         'Route Specific Middleware Binding & Property Test',
         () => last_endpoint_mproperty3 === middleware_property
     );
+
+    // Test request uncaught rejections
+    await test_request_uncaught_rejections();
 
     // Test double iteration violation for middlewares
     await test_middleware_double_iteration();

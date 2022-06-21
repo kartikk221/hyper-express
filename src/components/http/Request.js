@@ -187,6 +187,7 @@ class Request extends stream.Readable {
      * Streams the incoming request body with a limit of the provided bytes.
      * NOTE: This method will be a no-op if there is no expected body based on the content-length header.
      * NOTE: This method will mark this request to emit the 'limit' event when the bytes limit is reached.
+     * NOTE: This method can be called multiple times to update the bytes limit during the streaming process.
      *
      * @private
      * @param {Number} bytes
@@ -269,12 +270,11 @@ class Request extends stream.Readable {
                             if (is_last) {
                                 // Push a null chunk signaling an EOF to the stream to end
                                 reference.push(null);
-                            } else {
+
                                 // Determine if we have crossed the body limit in bytes
-                                if (reference._stream_limit_exhausted()) {
-                                    // Emit the 'limit' event with the body flushed flag
-                                    this.emit('limit', this.#body_received_bytes, reference.#body_flushed);
-                                }
+                            } else if (reference._stream_limit_exhausted()) {
+                                // Emit the 'limit' event with the body flushed flag
+                                this.emit('limit', this.#body_received_bytes, reference.#body_flushed);
                             }
                         }
                     });

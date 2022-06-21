@@ -1,6 +1,5 @@
 const fs = require('fs');
 const zlib = require('zlib');
-const PATH = require('path');
 const BodyParser = require('../../../../middlewares/hyper-express-body-parser/index.js');
 const { log, assert_log, md5_from_buffer } = require('../../../scripts/operators.js');
 const { fetch, server } = require('../../../configuration.js');

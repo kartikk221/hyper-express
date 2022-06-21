@@ -458,10 +458,20 @@ class Server extends Router {
         try {
             // If route handler returns a Promise, bind a catch handler to trigger the error handler
             const output = route.handler(request, response, response.upgrade_socket);
-            if (output instanceof Promise) output.catch(next);
+            if (output instanceof Promise)
+                output.catch((error) => {
+                    // If the error is not an instance of Error, wrap it in an Error object that
+                    if (!(error instanceof Error)) error = new Error(`ERR_CAUGHT_NON_ERROR_TYPE: ${error}`);
+
+                    // Trigger the error handler
+                    response.throw(error);
+                });
         } catch (error) {
-            // If route handler throws an error, trigger error handler
-            next(error);
+            // Wrap the error in an Error object if it is not already one
+            if (!(error instanceof Error)) error = new Error(`ERR_CAUGHT_NON_ERROR_TYPE: ${error}`);
+
+            // Trigger the error handler
+            response.throw(error);
         }
     }
 

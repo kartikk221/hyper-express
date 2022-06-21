@@ -16,7 +16,7 @@ TEST_SERVER.locals.some_reference = {
 // Bind error handler for catch-all logging
 TEST_SERVER.set_error_handler((request, response, error) => {
     // Handle expected errors with their appropriate callbacks
-    if (typeof request.expected_error == 'function') return request.expected_error();
+    if (typeof request.expected_error == 'function') return request.expected_error(error);
 
     // Treat as global error and log to console
     log('UNCAUGHT_ERROR_REQUEST', `${request.method} | ${request.url}\n ${JSON.stringify(request.headers, null, 2)}`);
