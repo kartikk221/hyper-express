@@ -31,7 +31,7 @@ const { TEST_SERVER } = require('./components/Server.js');
         await test_session_middleware();
 
         // Test BodyParser Middleware
-        await test_body_parser_middleware();
+        // await test_body_parser_middleware();
 
         log('TESTING', `Successfully Tested All Specified Tests For HyperExpress In ${Date.now() - start_time}ms!`);
         process.exit();

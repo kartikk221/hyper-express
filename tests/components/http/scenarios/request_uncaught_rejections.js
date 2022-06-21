@@ -29,7 +29,9 @@ router.post(scenario_endpoint, async (request, response) => {
             throw 'MANUAL_SHALLOW_NON_ERROR';
         case 4:
             // Manually thrown non-Error object
-            await new Promise((_, reject) => reject('MANUAL_DEEP_NON_ERROR'));
+            await (async () => {
+                throw 'MANUAL_DEEP_NON_ERROR';
+            })();
         default:
             return response.json({
                 code: 'SUCCESS',
@@ -66,7 +68,7 @@ async function test_request_uncaught_rejections() {
                 // Validate the hash uploaded on the server side with the expected hash from client side
                 assert_log(
                     group,
-                    `${candidate} - Uncaught Rejections Test Scenario ${scenario} => ${code}`,
+                    `${candidate} Uncaught Rejections Test Scenario ${scenario} => ${code}`,
                     () => code === expected_code
                 );
 
