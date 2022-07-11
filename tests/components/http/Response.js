@@ -5,6 +5,7 @@ const { test_response_send_no_body } = require('./scenarios/response_send_no_bod
 const { test_response_stream_method } = require('./scenarios/response_stream.js');
 const { test_response_chunked_write } = require('./scenarios/response_chunked_write.js');
 const { test_response_piped_write } = require('./scenarios/response_piped.js');
+const { test_response_backpressure_stream } = require('./scenarios/response_backpressure_stream.js');
 const { test_response_events } = require('./scenarios/response_hooks.js');
 const { test_response_sse } = require('./scenarios/response_sse.js');
 const router = new HyperExpress.Router();
@@ -146,6 +147,9 @@ async function test_response_object() {
 
     // Test Response.write() for piped writes
     await test_response_piped_write();
+
+    // Test all three streaming methods with backpressure
+    await test_response_backpressure_stream();
 
     // Test Response.LiveFile object
     await test_livefile_object();

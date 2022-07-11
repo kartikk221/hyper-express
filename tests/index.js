@@ -2,9 +2,9 @@ const { log } = require('./scripts/operators.js');
 const { test_request_object } = require('./components/http/Request.js');
 const { test_response_object } = require('./components/http/Response.js');
 const { test_websocket_route } = require('./components/ws/WebsocketRoute.js');
-const { test_websocket_component } = require('./components/ws/Websocket.js');
 const { test_session_middleware } = require('./middlewares/hyper-express-session/index.js');
-const { test_body_parser_middleware } = require('./middlewares/hyper-express-body-parser/index.js');
+const { test_websocket_component } = require('./components/ws/Websocket.js');
+// const { test_body_parser_middleware } = require('./middlewares/hyper-express-body-parser/index.js');
 
 const { server } = require('./configuration.js');
 const { TEST_SERVER } = require('./components/Server.js');

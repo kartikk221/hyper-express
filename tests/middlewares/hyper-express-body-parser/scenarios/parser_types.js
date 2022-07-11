@@ -8,7 +8,7 @@ const endpoint = `${path}/scenarios/parser-types`;
 const endpoint_url = server.base + endpoint;
 
 // Bind all parser types to the endpoint
-TEST_SERVER.use(endpoint, BodyParser.raw(), BodyParser.text());
+TEST_SERVER.use(endpoint, BodyParser.raw(), BodyParser.text(), BodyParser.json());
 
 // Create Backend HTTP Route
 TEST_SERVER.post(endpoint, (request, response) => {
@@ -34,9 +34,10 @@ async function test_parser_types() {
         [crypto.randomBytes(1000), 'application/octet-stream'],
         [crypto.randomBytes(1000).toString('hex'), 'text/plain'],
         [
-            {
-                payload: crypto.randomBytes(1000),
-            },
+            JSON.stringify({
+                name: 'json test',
+                payload: crypto.randomBytes(1000).toString('hex'),
+            }),
             'application/json',
         ],
     ].map(
@@ -58,6 +59,9 @@ async function test_parser_types() {
                         response_body = await response.buffer();
                         break;
                     case 'text/plain':
+                        response_body = await response.text();
+                        break;
+                    case 'application/json':
                         response_body = await response.text();
                         break;
                 }
