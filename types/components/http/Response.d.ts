@@ -182,7 +182,7 @@ export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
      *
      * @param {Error} error 
      */
-    throw(error: Error): void;
+    throw(error: Error): Response;
 
     /* HyperExpress Response Properties */
 

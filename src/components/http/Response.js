@@ -719,10 +719,14 @@ class Response extends Writable {
      * This method allows you to throw an error which will be caught by the global error handler (If one was setup with the Server instance).
      *
      * @param {Error} error
+     * @returns {Response}
      */
     throw(error) {
         // Ensure error is an instance of Error
-        if (error instanceof Error) return this.#master_context.handlers.on_error(this.#wrapped_request, this, error);
+        if (error instanceof Error) {
+            this.#master_context.handlers.on_error(this.#wrapped_request, this, error);
+            return this;
+        }
 
         // If error is not an instance of Error, throw a warning error
         throw new Error('HyperExpress: Response.throw() expects an instance of an Error.');
