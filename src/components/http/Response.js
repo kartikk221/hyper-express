@@ -149,9 +149,10 @@ class Response extends Writable {
      *
      * @param {String} name Header Name
      * @param {String|Array<String>} value Header Value
+     * @param {Boolean=} overwrite If true, overwrites existing header value with same name
      * @returns {Response} Response (Chainable)
      */
-    header(name, value) {
+    header(name, value, overwrite = true) {
         // Throw expection if a header write is attempted after response has been initiated
         if (this.initiated)
             this.throw(
@@ -160,12 +161,6 @@ class Response extends Writable {
                 )
             );
 
-        // Call self for all specified values in values array
-        if (Array.isArray(value)) {
-            value.forEach((item) => this.header(name, item));
-            return this;
-        }
-
         // Initialize headers container object if it does not exist
         if (this.#headers == undefined) this.#headers = {};
 
@@ -173,16 +168,32 @@ class Response extends Writable {
         if (this.#headers[name] == undefined) this.#headers[name] = [];
 
         // Ensure that the value is always a string type
-        if (typeof value !== 'string')
-            this.throw(
-                new Error('HyperExpress: header(name, value) -> value candidates must always be of type string')
+        if (typeof value !== 'string' && !Array.isArray(value))
+            return this.throw(
+                new Error('HyperExpress: header(name, value) -> value must be a string or array of strings.')
             );
 
         // Determine if the header being written is a "content-length" header and if so, set the length
-        if (name.toLowerCase() === 'content-length') this.#custom_content_length = parseInt(value);
+        if (name.toLowerCase() === 'content-length') {
+            const length = Array.isArray(value) ? value[value.length - 1] : value;
+            this.#custom_content_length = parseInt(length);
+        }
 
-        // Push current header value onto values array
-        this.#headers[name].push(value);
+        // Determine if this operation is an overwrite or append
+        if (overwrite) {
+            // Overwrite the header value in Array format
+            this.#headers[name] = Array.isArray(value) ? value : [value];
+        } else {
+            // Determine if we are appending multiple values
+            if (Array.isArray(value)) {
+                // Append the values to the existing array
+                this.#headers[name] = this.#headers[name].concat(value);
+            } else {
+                // Append the value to the header values
+                this.#headers[name].push(value);
+            }
+        }
+
         return this;
     }
 
@@ -234,12 +245,12 @@ class Response extends Writable {
             value = signature.sign(value, options.secret);
         }
 
-        // Initialize cookies holder and store cookie value
+        // Initialize the cookies holder object if it does not exist
         if (this.#cookies == undefined) this.#cookies = {};
-        this.#cookies[name] = value;
 
-        // Serialize the cookie options and write the 'Set-Cookie' header
-        return this.header('set-cookie', cookie.serialize(name, value, options));
+        // Store the seralized cookie value to be written during response
+        this.#cookies[name] = cookie.serialize(name, value, options);
+        return this;
     }
 
     /**
@@ -301,6 +312,12 @@ class Response extends Writable {
         if (this.#headers)
             Object.keys(this.#headers).forEach((name) =>
                 this.#headers[name].forEach((value) => this.#raw_response.writeHeader(name, value))
+            );
+
+        // Iterate through all cookies and write them to uWS
+        if (this.#cookies)
+            Object.keys(this.#cookies).forEach((name) =>
+                this.#raw_response.writeHeader('set-cookie', this.#cookies[name])
             );
     }
 

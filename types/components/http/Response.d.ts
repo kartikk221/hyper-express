@@ -55,10 +55,11 @@ export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
      * This method can be used to write a response header and supports chaining.
      *
      * @param {String} name Header Name
-     * @param {String|Array} value Header Value(s)
+     * @param {String|Array<String>} value Header Value
+     * @param {Boolean=} overwrite If true, overwrites existing header value with same name
      * @returns {Response} Response (Chainable)
      */
-    header(name: string, value: string | Array<string>): Response;
+    header(name: string, value: string | Array<string>, overwrite?: boolean): Response;
 
     /**
      * This method is used to write a cookie to incoming request.
