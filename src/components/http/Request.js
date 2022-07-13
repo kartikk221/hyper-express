@@ -728,9 +728,21 @@ class Request extends stream.Readable {
      * @returns {String}
      */
     get ip() {
-        // Convert Remote IP to string on first access
-        if (typeof this.#remote_ip !== 'string') this.#remote_ip = array_buffer_to_string(this.#remote_ip);
+        // Determine if the remote IP has been parsed yet
+        if (typeof this.#remote_ip !== 'string') {
+            // Determine if we can trust intermediary proxy servers and have a x-forwarded-for header
+            const trust_proxy = this.#master_context._options.trust_proxy;
+            const x_forwarded_for = this.get('X-Forwarded-For');
+            if (trust_proxy && x_forwarded_for) {
+                // The first IP in the x-forwarded-for header is the client IP if we trust proxies
+                this.#remote_ip = x_forwarded_for.split(',')[0];
+            } else {
+                // Use the uWS detected connection IP address as a fallback
+                this.#remote_ip = array_buffer_to_string(this.#remote_ip);
+            }
+        }
 
+        // Return Remote IP
         return this.#remote_ip;
     }
 
