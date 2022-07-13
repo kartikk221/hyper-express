@@ -14,7 +14,7 @@ const type_is = require('type-is');
 const is_ip = require('net').isIP;
 
 class Request extends stream.Readable {
-    locals = {};
+    #locals;
     #master_context;
     #stream_ended = false;
     #stream_flushing = false;
@@ -41,7 +41,7 @@ class Request extends stream.Readable {
 
     /**
      * Returns request headers from incoming request.
-     * @returns {Record<string, string>}
+     * @returns {Object.<string, string>}
      */
     headers = {};
 
@@ -623,6 +623,16 @@ class Request extends stream.Readable {
     }
 
     /**
+     * Returns the request locals for this request.
+     * @returns {Object.<string, string>}
+     */
+    get locals() {
+        // Initialize locals object if it does not exist
+        if (!this.#locals) this.#locals = {};
+        return this.#locals;
+    }
+
+    /**
      * Returns the HyperExpress.Server instance this Request object originated from.
      * @returns {Server}
      */
@@ -680,7 +690,7 @@ class Request extends stream.Readable {
 
     /**
      * Returns request cookies from incoming request.
-     * @returns {Record<string, string>}
+     * @returns {Object.<string, string>}
      */
     get cookies() {
         // Return from cache if already parsed once
@@ -694,7 +704,7 @@ class Request extends stream.Readable {
 
     /**
      * Returns path parameters from incoming request.
-     * @returns {Record<string, string>}
+     * @returns {Object.<string, string>}
      */
     get path_parameters() {
         return this.#path_parameters;
@@ -702,7 +712,7 @@ class Request extends stream.Readable {
 
     /**
      * Returns query parameters from incoming request.
-     * @returns {Record<string, string>}
+     * @returns {Object.<string, string>}
      */
     get query_parameters() {
         // Return from cache if already parsed once
@@ -902,13 +912,16 @@ class Request extends stream.Readable {
      */
     get protocol() {
         // Resolves x-forwarded-proto header if trust proxy is enabled
-        let trust_proxy = this.#master_context._options.trust_proxy;
-        let x_forwarded_proto = this.get('X-Forwarded-Proto');
-        if (trust_proxy && x_forwarded_proto)
-            return x_forwarded_proto.indexOf(',') > -1 ? x_forwarded_proto.split(',')[0] : x_forwarded_proto;
-
-        // Use HyperExpress/uWS initially defined protocol
-        return this.#master_context.is_ssl ? 'https' : 'http';
+        const trust_proxy = this.#master_context._options.trust_proxy;
+        const x_forwarded_proto = this.get('X-Forwarded-Proto');
+        if (trust_proxy && x_forwarded_proto) {
+            // Return the first protocol in the x-forwarded-proto header
+            // If the header contains a single value, the split will contain that value in the first index element anyways
+            return x_forwarded_proto.split(',')[0];
+        } else {
+            // Use HyperExpress/uWS initially defined protocol as fallback
+            return this.#master_context.is_ssl ? 'https' : 'http';
+        }
     }
 
     /**
@@ -924,29 +937,39 @@ class Request extends stream.Readable {
      * @returns {Array}
      */
     get ips() {
-        let client_ip = this.ip;
-        let proxy_ip = this.proxy_ip;
-        let trust_proxy = this.#master_context._options.trust_proxy;
-        let x_forwarded_for = this.get('X-Forwarded-For');
-        if (trust_proxy && x_forwarded_for) return x_forwarded_for.split(',');
-        return [client_ip, proxy_ip];
+        // Retrieve the client and proxy IP addresses
+        const client_ip = this.ip;
+        const proxy_ip = this.proxy_ip;
+
+        // Determine if we can trust intermediary proxy servers and have a x-forwarded-for header
+        const trust_proxy = this.#master_context._options.trust_proxy;
+        const x_forwarded_for = this.get('X-Forwarded-For');
+        if (trust_proxy && x_forwarded_for) {
+            // Will split and return all possible IP addresses in the x-forwarded-for header (e.g. "client, proxy1, proxy2")
+            return x_forwarded_for.split(',');
+        } else {
+            // Returns all valid IP addresses available from uWS
+            return [client_ip, proxy_ip].filter((ip) => ip);
+        }
     }
 
     /**
      * ExpressJS: Parse the "Host" header field to a hostname.
+     * @returns {String=}
      */
     get hostname() {
-        let trust_proxy = this.#master_context._options.trust_proxy;
-        let host = this.get('X-Forwarded-Host');
-
+        // Retrieve the host header and determine if we can trust intermediary proxy servers
+        const host = this.get('X-Forwarded-Host');
+        const trust_proxy = this.#master_context._options.trust_proxy;
         if (!host || !trust_proxy) {
+            // Use the 'Host' header as fallback
             host = this.get('Host');
-        } else if (host.indexOf(',') > -1) {
-            // Note: X-Forwarded-Host is normally only ever a
-            //       single value, but this is to be safe.
-            host = host.substring(0, host.indexOf(',')).trimRight();
+        } else {
+            // Note: X-Forwarded-Host is normally only ever a single value, but this is to be safe.
+            host = host.split(',')[0];
         }
 
+        // If we don't have a host, return undefined
         if (!host) return;
 
         // IPv6 literal support

@@ -2,7 +2,6 @@ import { BusboyConfig } from 'busboy';
 import { ParamsDictionary } from 'express-serve-static-core';
 import { ParsedQs } from 'qs';
 import { Options, Ranges, Result } from 'range-parser';
-import { Readable } from 'stream';
 import * as uWebsockets from 'uWebSockets.js';
 import { MultipartHandler } from '../plugins/MultipartField';
 import { Server } from '../Server';
@@ -124,27 +123,27 @@ export class Request<Locals = DefaultRequestLocals> {
 
     /**
      * Returns request headers from incoming request.
-     * @returns {Record<string, string>}
+     * @returns {Object.<string, string>}
      */
-    get headers(): Record<string, string>;
+    get headers(): { [key: string]: string };
 
     /**
      * Returns request cookies from incoming request.
-     * @returns {Record<string, string>}
+     * @returns {Object.<string, string>}
      */
-    get cookies(): Record<string, string>;
+    get cookies(): { [key: string]: string };
 
     /**
      * Returns path parameters from incoming request.
-     * @returns {Record<string, string>}
+     * @returns {Object.<string, string>}
      */
-    get path_parameters(): Record<string, string>;
+    get path_parameters(): { [key: string]: string };
 
     /**
      * Returns query parameters from incoming request.
-     * @returns {Record<string, string>}
+     * @returns {Object.<string, string>}
      */
-    get query_parameters(): Record<string, string>;
+    get query_parameters(): { [key: string]: string };
 
     /**
      * Returns remote IP address in string format from incoming request.
