@@ -104,8 +104,9 @@ class Request extends stream.Readable {
      * @returns {Request}
      */
     pause() {
-        // Ensure request is not already paused before pausing
-        if (!super.isPaused()) {
+        // Ensure there is content being streamed before pausing
+        // Ensure that the stream is currently not paused before pausing
+        if (!this._stream_forbidden() && !super.isPaused()) {
             this.#raw_response.pause();
             return super.pause();
         }
@@ -117,8 +118,9 @@ class Request extends stream.Readable {
      * @returns {Request}
      */
     resume() {
-        // Ensure request is paused before resuming
-        if (super.isPaused()) {
+        // Ensure there is content being streamed before resuming
+        // Ensure that the stream is currently paused before resuming
+        if (!this._stream_forbidden() && super.isPaused()) {
             this.#raw_response.resume();
             return super.resume();
         }
