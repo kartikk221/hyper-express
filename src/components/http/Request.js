@@ -971,7 +971,7 @@ class Request extends stream.Readable {
      */
     get hostname() {
         // Retrieve the host header and determine if we can trust intermediary proxy servers
-        const host = this.get('X-Forwarded-Host');
+        let host = this.get('X-Forwarded-Host');
         const trust_proxy = this.#master_context._options.trust_proxy;
         if (!host || !trust_proxy) {
             // Use the 'Host' header as fallback
