@@ -503,32 +503,39 @@ class Request extends stream.Readable {
      * @param {Object} info
      */
     async _on_multipart_field(handler, name, value, info) {
+        // Do not handle fields if streaming is forbidden
+        if (this._stream_forbidden()) return;
+
         // Create a MultipartField instance with the incoming information
         const field = new MultipartField(name, value, info);
 
-        // Wait for the previous multipart field handler promise to resolve
+        // Check if a field is being handled by the user across a different exeuction
         if (this.#multipart_promise instanceof Promise) {
-            // We will keep the request paused so we do not receive more chunks
+            // Pause the request to prevent more fields from being received
             this.pause();
+
+            // Wait for this field to be handled
             await this.#multipart_promise;
+
+            // Resume the request to accept more fields
             this.resume();
         }
 
-        // Trigger the user specified handler with the multipart field
+        // Determine if the handler is a synchronous function and returns a promise
         const output = handler(field);
-
-        // If the handler returns a Promise, store it locally
-        // this promise can be used to pause the request when the next field is received but user is not ready yet
         if (output instanceof Promise) {
-            // Store this promise locally so the next field can use it to wait
+            // Store the promise, so concurrent multipart fields can wait for it
             this.#multipart_promise = output;
 
-            // Hold the current execution until the user handler promise resolves
+            // Hold tje current exectution context until the promise resolves
             await this.#multipart_promise;
+
+            // Clear the promise reference
             this.#multipart_promise = null;
         }
 
-        // Flush this field's file stream if it has not been consumed by the user as stated in busboy docs
+        // Flush this field's file stream if it has not been consumed by the user in the handler execution
+        // This is neccessary as defined in the Busboy documentation to prevent holding up the processing
         if (field.file && !field.file.stream.readableEnded) field.file.stream.resume();
     }
 
@@ -559,8 +566,8 @@ class Request extends stream.Readable {
             options = {};
         }
 
-        // Inject the request headers into the busboy options
-        options.headers = this.headers;
+        // Inject the request headers into the busboy options if not provided
+        if (!options.headers) options.headers = this.headers;
 
         // Ensure the provided handler is a function type
         if (typeof handler !== 'function')
@@ -598,13 +605,12 @@ class Request extends stream.Readable {
             );
 
             // Bind a 'finish' event handler to resolve the upload promise
-            uploader.on('close', () => {
-                // Wait for any pending multipart handler promise to resolve before moving forward
-                if (reference.#multipart_promise) {
-                    reference.#multipart_promise.then(resolve);
-                } else {
-                    resolve();
-                }
+            uploader.on('close', async () => {
+                // Wait for any pending multipart handler exeuction to complete
+                if (reference.#multipart_promise) await reference.#multipart_promise;
+
+                // Resolve the multipart promise
+                resolve();
             });
 
             // Pipe the readable request stream into the busboy uploader
