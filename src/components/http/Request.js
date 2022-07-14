@@ -595,8 +595,16 @@ class Request extends stream.Readable {
                 if (finished) return;
                 finished = true;
 
+                // Determine if the caught error should be silenced
+                let silent_error = false;
+                if (error instanceof Error) {
+                    // Silence the BusBoy "Unexpected end of form" error
+                    // This usually happens when the client abruptly closes the connection
+                    if (error.message == 'Unexpected end of form') silent_error = true;
+                }
+
                 // Resolve/Reject the promise depending on whether an error occurred
-                if (error) {
+                if (error && !silent_error) {
                     // Reject the promise if an error occurred
                     reject(error);
                 } else {
@@ -607,14 +615,11 @@ class Request extends stream.Readable {
                 // Stop streaming the request body
                 reference._stop_streaming();
 
-                // Stop listening for incoming multipart data
-                uploader.removeAllListeners();
-
                 // Destroy the uploader instance
                 uploader.destroy();
             };
 
-            // Bind a 'error' event handler to emit errors
+            // Bind an 'error' event handler to emit errors
             uploader.on('error', finish);
 
             // Bind limit event handlers to reject as error code constants
@@ -622,15 +627,21 @@ class Request extends stream.Readable {
             uploader.on('filesLimit', () => finish('FILES_LIMIT_REACHED'));
             uploader.on('fieldsLimit', () => finish('FIELDS_LIMIT_REACHED'));
 
+            // Define a function to handle incoming multipart data
+            const on_field = (name, value, info) => {
+                // Catch and pipe any errors from the value readable stream to the finish function
+                if (value instanceof stream.Readable) value.on('error', finish);
+
+                // Call the user defined handler with the incoming multipart field
+                // Catch and pipe any errors to the finish function
+                reference._on_multipart_field(handler, name, value, info).catch(finish);
+            };
+
             // Bind a 'field' event handler to process each incoming field
-            uploader.on('field', (field_name, value, info) =>
-                this._on_multipart_field(handler, field_name, value, info).catch(finish)
-            );
+            uploader.on('field', on_field);
 
             // Bind a 'file' event handler to process each incoming file
-            uploader.on('file', (field_name, stream, info) =>
-                this._on_multipart_field(handler, field_name, stream, info).catch(finish)
-            );
+            uploader.on('file', on_field);
 
             // Bind a 'finish' event handler to resolve the upload promise
             uploader.on('close', () => {
