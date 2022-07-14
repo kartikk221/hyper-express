@@ -181,9 +181,20 @@ class Server extends Router {
      * @param {String|Buffer|ArrayBuffer} message
      * @param {Boolean=} is_binary
      * @param {Boolean=} compress
+     * @returns {Boolean}
      */
     publish(topic, message, is_binary, compress) {
         return this.#uws_instance.publish(topic, message, is_binary, compress);
+    }
+
+    /**
+     * Returns the number of subscribers to a topic across all WebSocket connections on this Server instance.
+     *
+     * @param {String} topic
+     * @returns {Number}
+     */
+    num_of_subscribers(topic) {
+        return this.#uws_instance.numSubscribers(topic);
     }
 
     /* Server Routes & Middlewares Logic */

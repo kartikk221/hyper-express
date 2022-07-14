@@ -70,8 +70,17 @@ export class Server extends Router {
      * @param {String|Buffer|ArrayBuffer} message
      * @param {Boolean=} is_binary
      * @param {Boolean=} compress
+     * @returns {Boolean}
      */
     publish(topic: string, message: SendableData, is_binary?: boolean, compress?: boolean): boolean;
+
+    /**
+     * Returns the number of subscribers to a topic across all WebSocket connections on this Server instance.
+     *
+     * @param {String} topic
+     * @returns {Number}
+     */
+    num_of_subscribers(topic: string): number;
 
     /* Server Properties */
 
