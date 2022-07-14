@@ -586,22 +586,48 @@ class Request extends stream.Readable {
             // Create a Busboy instance which will perform
             const uploader = busboy(options);
 
+            // Create a function to finish the uploading process
+            let finished = false;
+            const finish = (error) => {
+                // Ensure we are not already finished
+                if (finished) return;
+                finished = true;
+
+                // Resolve/Reject the promise depending on whether an error occurred
+                if (error) {
+                    // Reject the promise if an error occurred
+                    reject(error);
+                } else {
+                    // Resolve the promise if no error occurred
+                    resolve();
+                }
+
+                // Stop streaming the request body
+                reference._stop_streaming();
+
+                // Stop listening for incoming multipart data
+                uploader.removeAllListeners();
+
+                // Destroy the uploader instance
+                uploader.destroy();
+            };
+
             // Bind a 'error' event handler to emit errors
-            uploader.on('error', reject);
+            uploader.on('error', finish);
 
             // Bind limit event handlers to reject as error code constants
-            uploader.on('partsLimit', () => reject('PARTS_LIMIT_REACHED'));
-            uploader.on('filesLimit', () => reject('FILES_LIMIT_REACHED'));
-            uploader.on('fieldsLimit', () => reject('FIELDS_LIMIT_REACHED'));
+            uploader.on('partsLimit', () => finish('PARTS_LIMIT_REACHED'));
+            uploader.on('filesLimit', () => finish('FILES_LIMIT_REACHED'));
+            uploader.on('fieldsLimit', () => finish('FIELDS_LIMIT_REACHED'));
 
             // Bind a 'field' event handler to process each incoming field
             uploader.on('field', (field_name, value, info) =>
-                this._on_multipart_field(handler, field_name, value, info).catch(reject)
+                this._on_multipart_field(handler, field_name, value, info).catch(finish)
             );
 
             // Bind a 'file' event handler to process each incoming file
             uploader.on('file', (field_name, stream, info) =>
-                this._on_multipart_field(handler, field_name, stream, info).catch(reject)
+                this._on_multipart_field(handler, field_name, stream, info).catch(finish)
             );
 
             // Bind a 'finish' event handler to resolve the upload promise
@@ -609,9 +635,10 @@ class Request extends stream.Readable {
                 // Wait for any pending multipart handler exeuction to complete
                 if (reference.#multipart_promise) {
                     // Wait for the pending promise to resolve
-                    reference.#multipart_promise.then(resolve).catch(reject);
+                    // Use an anonymous callback for the .then() to prevent finish() from receving a resolved value which would lead to an error finish
+                    reference.#multipart_promise.then(() => finish()).catch(finish);
                 } else {
-                    resolve();
+                    finish();
                 }
             });
 

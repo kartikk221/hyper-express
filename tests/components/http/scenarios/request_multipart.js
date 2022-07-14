@@ -27,6 +27,10 @@ router.post(scenario_endpoint, async (request, response) => {
     const ignore_fields = request.headers['ignore-fields'].split(',');
     const use_async_handler = request.headers['x-use-async-handler'] === 'true';
     const async_handler = async (field) => {
+        // Throw a simulated error if the field name is in the ignore list
+        const simulated_error = request.headers['x-simulate-error'] === 'true';
+        if (simulated_error) throw new Error('SIMULATED_ERROR');
+
         // Do not process fields which should be ignored
         if (ignore_fields.includes(field)) return;
 
@@ -78,7 +82,12 @@ router.post(scenario_endpoint, async (request, response) => {
     };
 
     // Handle the incoming fields as multipart with the appropriate handler type
-    await request.multipart(use_async_handler ? async_handler : sync_handler);
+    try {
+        await request.multipart(use_async_handler ? async_handler : sync_handler);
+    } catch (error) {
+        // Pipe errors back to the client
+        return response.json({ error: error.message });
+    }
 
     // Only respond here if we are using the async handler or we have no inflight operations
     if (use_async_handler || in_flight < 0) return response.json(fields);
@@ -169,6 +178,34 @@ async function test_request_multipart(use_async_handler = false) {
                     return true;
                 }
             );
+    }
+
+    // Perform simulated error test for only async handler
+    if (use_async_handler) {
+        // Create a new form with a random value
+        const test_form = new FormData();
+        test_form.append('field1', 'field1');
+
+        // Perform multipart uploading with a simulated error
+        const response = await fetch(endpoint_url, {
+            method: 'POST',
+            body: test_form,
+            headers: {
+                'ignore-fields': ignore_fields.join(','),
+                'x-use-async-handler': use_async_handler.toString(),
+                'x-simulate-error': 'true',
+            },
+        });
+
+        // Assert that the error was thrown
+        const { error } = await response.json();
+        assert_log(
+            group,
+            `${candidate} - Multipart Form Field/File Upload Test (${
+                use_async_handler ? 'Asynchronous' : 'Synchronous'
+            } Handler) - Handler Simulated Error Test`,
+            () => error === 'SIMULATED_ERROR'
+        );
     }
 }
 
