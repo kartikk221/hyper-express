@@ -596,21 +596,23 @@ class Request extends stream.Readable {
 
             // Bind a 'field' event handler to process each incoming field
             uploader.on('field', (field_name, value, info) =>
-                this._on_multipart_field(handler, field_name, value, info)
+                this._on_multipart_field(handler, field_name, value, info).catch(reject)
             );
 
             // Bind a 'file' event handler to process each incoming file
             uploader.on('file', (field_name, stream, info) =>
-                this._on_multipart_field(handler, field_name, stream, info)
+                this._on_multipart_field(handler, field_name, stream, info).catch(reject)
             );
 
             // Bind a 'finish' event handler to resolve the upload promise
-            uploader.on('close', async () => {
+            uploader.on('close', () => {
                 // Wait for any pending multipart handler exeuction to complete
-                if (reference.#multipart_promise) await reference.#multipart_promise;
-
-                // Resolve the multipart promise
-                resolve();
+                if (reference.#multipart_promise) {
+                    // Wait for the pending promise to resolve
+                    reference.#multipart_promise.then(resolve).catch(reject);
+                } else {
+                    resolve();
+                }
             });
 
             // Pipe the readable request stream into the busboy uploader
