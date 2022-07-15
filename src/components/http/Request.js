@@ -77,12 +77,9 @@ class Request extends stream.Readable {
         this.#path = this.#raw_request.getUrl();
         this.#query = this.#raw_request.getQuery();
         this.#url = this.#path + (this.#query ? '?' + this.#query : '');
-        this.#remote_ip = this.#raw_response.getRemoteAddressAsText();
-        this.#remote_proxy_ip = this.#raw_response.getProxiedRemoteAddressAsText();
 
         // Parse headers into a key-value object and then freeze it to prevent further modification
         this.#raw_request.forEach((key, value) => (this.headers[key] = value));
-        Object.freeze(this.headers);
     }
 
     /**
@@ -776,18 +773,18 @@ class Request extends stream.Readable {
      * @returns {String}
      */
     get ip() {
-        // Determine if the remote IP has been parsed yet
-        if (typeof this.#remote_ip !== 'string') {
-            // Determine if we can trust intermediary proxy servers and have a x-forwarded-for header
-            const trust_proxy = this.#master_context._options.trust_proxy;
-            const x_forwarded_for = this.get('X-Forwarded-For');
-            if (trust_proxy && x_forwarded_for) {
-                // The first IP in the x-forwarded-for header is the client IP if we trust proxies
-                this.#remote_ip = x_forwarded_for.split(',')[0];
-            } else {
-                // Use the uWS detected connection IP address as a fallback
-                this.#remote_ip = array_buffer_to_string(this.#remote_ip);
-            }
+        // Resolve IP from cache if already resolved
+        if (this.#remote_ip) return this.#remote_ip;
+
+        // Determine if we can trust intermediary proxy servers and have a x-forwarded-for header
+        const trust_proxy = this.#master_context._options.trust_proxy;
+        const x_forwarded_for = this.get('X-Forwarded-For');
+        if (trust_proxy && x_forwarded_for) {
+            // The first IP in the x-forwarded-for header is the client IP if we trust proxies
+            this.#remote_ip = x_forwarded_for.split(',')[0];
+        } else {
+            // Use the uWS detected connection IP address as a fallback
+            this.#remote_ip = array_buffer_to_string(this.#raw_response.getRemoteAddressAsText());
         }
 
         // Return Remote IP
@@ -799,9 +796,13 @@ class Request extends stream.Readable {
      * @returns {String}
      */
     get proxy_ip() {
-        // Convert Remote Proxy IP to string on first access
-        if (typeof this.#remote_proxy_ip !== 'string')
-            this.#remote_proxy_ip = array_buffer_to_string(this.#remote_proxy_ip);
+        // Resolve IP from cache if already resolved
+        if (this.#remote_proxy_ip) return this.#remote_proxy_ip;
+
+        // Parse and cache remote proxy IP from uWS
+        this.#remote_proxy_ip = array_buffer_to_string(this.#raw_response.getProxiedRemoteAddressAsText());
+
+        // Return Remote Proxy IP
         return this.#remote_proxy_ip;
     }
 

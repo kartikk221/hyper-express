@@ -21,8 +21,6 @@ Below is a breakdown of the `Server` component which is an extended `Router` ins
 * `fast_buffers` [`Boolean`]: Specifies HyperExpress to use `Buffer.allocUnsafe` for storing incoming request body data for faster performance.
   * **Default:** `false` 
   * **Note!** Any data in the unsafely allocated buffer will always be written over thus this option is provided for those working with strict regulatory requirements.
-* `atomic_response` [`Boolean`]: Specifies HyperExpress to internally use the `atomic()` method for sending response data to the client once it has been **corked** for high performance.
-  * **Default:** `true`
 * `fast_abort` [`Boolean`]: Specifies HyperExpress to forcefully/abruptly close incoming request connections with bad conditions such as payload too large. This can significantly improve performance but at the cost of no HTTP status code being received by the sender.
   * **Default:** `false`
 * `trust_proxy` [`Boolean`]: Specifies whether incoming request data from intermediate proxy(s) should be trusted.

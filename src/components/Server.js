@@ -17,7 +17,6 @@ class Server extends Router {
         fast_abort: false,
         trust_proxy: false,
         fast_buffers: false,
-        atomic_response: true,
         max_body_length: 250 * 1000,
         streaming: {},
     };
@@ -32,7 +31,6 @@ class Server extends Router {
      * @param {Boolean=} options.fast_buffers Buffer.allocUnsafe is used when set to true for faster performance.
      * @param {Boolean=} options.fast_abort Determines whether HyperExpress will abrubptly close bad requests. This can be much faster but the client does not receive an HTTP status code as it is a premature connection closure.
      * @param {Boolean=} options.trust_proxy Specifies whether to trust incoming request data from intermediate proxy(s)
-     * @param {Boolean=} options.atomic_response Specifies whether to atomically send response data to the client once it has been properly corked for high performance.
      * @param {Number=} options.max_body_length Maximum body content length allowed in bytes. For Reference: 1kb = 1000 bytes and 1mb = 1000kb.
      * @param {Boolean=} options.auto_close Whether to automatically close the server instance when the process exits. Default: true
      * @param {Object} options.streaming Global content streaming options.

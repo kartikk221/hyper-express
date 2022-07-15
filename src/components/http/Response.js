@@ -11,7 +11,6 @@ const FilePool = {};
 
 class Response extends Writable {
     locals = {};
-    #atomic_state = 0;
     #streaming = false;
     #initiated = false;
     #completed = false;
@@ -440,31 +439,6 @@ class Response extends Writable {
     send(body, close_connection) {
         // Ensure response connection is still active
         if (!this.#completed) {
-            // Check if atomic responses are enabled in Server options
-            const atomic_response = this.#master_context._options.atomic_response;
-            if (atomic_response)
-                switch (this.#atomic_state) {
-                    case 0:
-                        // Set the atomic state to PENDING aka. 1
-                        this.#atomic_state = 1;
-
-                        // Schedule an atomic cork to attempt the SEND call once uWS is ready to send data
-                        const reference = this;
-                        return this.atomic(() => {
-                            // Set the atomic state to READY aka. 2
-                            reference.#atomic_state = 2;
-
-                            // Perform the SEND call with the provided body and close connection
-                            reference.send(body, close_connection);
-                        });
-                    case 1:
-                        // The atomic state is currently PENDING thus treat this call as a no-op
-                        return this;
-                    case 2:
-                        // The atomic state is currently READY thus allow this call to continue as normal
-                        break;
-                }
-
             // Initiate response to write status code and headers
             this._initiate_response();
 
