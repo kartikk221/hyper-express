@@ -2,9 +2,10 @@ const { assert_log } = require('../../scripts/operators.js');
 const { fetch, server } = require('../../configuration.js');
 const { TEST_SERVER } = require('../Server.js');
 const fs = require('fs');
+const path = require('path');
 const endpoint = '/tests/response/send-file';
 const endpoint_url = server.base + endpoint;
-const test_file_path = './content/test.html';
+const test_file_path = path.resolve(__dirname, '../../../tests/content/test.html');
 
 // Create Backend HTTP Route
 TEST_SERVER.get(endpoint, async (request, response) => {
