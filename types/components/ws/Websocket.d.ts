@@ -55,7 +55,7 @@ export class Websocket extends EventEmitter {
     destroy(): void;
 
     /**
-     * Returns whether this websocket is subscribed to specified topic.
+     * Returns whether this `Websocket` is subscribed to the specified topic.
      *
      * @param {String} topic
      * @returns {Boolean}

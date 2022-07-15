@@ -50,7 +50,7 @@ class WebsocketRoute {
             default:
                 // Throw error on invalid type
                 throw new Error(
-                    "Invalid WebsocketRoute message_type parameter provided. Must be one of ['String', 'Buffer', 'ArrayBuffer']"
+                    "Server.ws(options) -> options.message_type must be one of ['String', 'Buffer', 'ArrayBuffer']"
                 );
         }
     }
@@ -111,11 +111,11 @@ class WebsocketRoute {
 
         // Bind middleman routes to pipe uws events into poly handlers
         uws_options.open = (ws) => this._on_open(ws);
+        uws_options.drain = (ws) => this._on_drain(ws);
         uws_options.ping = (ws, message) => this._on_ping(ws, message);
         uws_options.pong = (ws, message) => this._on_pong(ws, message);
-        uws_options.drain = (ws) => this._on_drain(ws);
-        uws_options.message = (ws, message, isBinary) => this._on_message(ws, message, isBinary);
         uws_options.close = (ws, code, message) => this._on_close(ws, code, message);
+        uws_options.message = (ws, message, isBinary) => this._on_message(ws, message, isBinary);
 
         // Create uWebsockets instance route
         this.#app.uws_instance.ws(this.#pattern, uws_options);
@@ -191,7 +191,7 @@ class WebsocketRoute {
         // Emit 'close' event with parsed message
         ws.poly.emit('close', code, this.#message_parser(message));
 
-        // De-reference the attached polyfill Websocket component so it can garbage cleaned
+        // De-reference the attached polyfill Websocket component so it can ne garbage collected
         delete ws.poly;
     }
 

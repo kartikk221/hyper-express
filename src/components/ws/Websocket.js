@@ -68,8 +68,8 @@ class Websocket extends EventEmitter {
      * @private
      */
     _destroy() {
-        this.#closed = true;
         this.#ws = null;
+        this.#closed = true;
     }
 
     /**
@@ -93,7 +93,7 @@ class Websocket extends EventEmitter {
     }
 
     /**
-     * Returns whether this websocket is subscribed to specified topic.
+     * Returns whether this `Websocket` is subscribed to the specified topic.
      *
      * @param {String} topic
      * @returns {Boolean}
@@ -209,7 +209,6 @@ class Websocket extends EventEmitter {
 
         // Attempt to write this chunk
         const sent = this._write(type, chunk, is_binary);
-
         if (!sent) {
             // Pause the readable stream as we failed to write this chunk
             stream.pause();
@@ -340,7 +339,7 @@ class Websocket extends EventEmitter {
         const scope = this;
         if (this.#stream)
             throw new Error(
-                'Websocket.writable -> You may not retrieve a Writable while another streaming operation is active on this websocket. Make sure you are not already streaming or piping a stream to this websocket.'
+                'Websocket.writable -> You may only access and utilize one writable stream at any given time. Make sure you are not already streaming or piping a stream to this websocket.'
             );
 
         // Create a new writable stream object which will write with the _write method
@@ -376,6 +375,7 @@ class Websocket extends EventEmitter {
         // Bind listeners to end the framented write procedure
         this.#stream.on('finish', end_stream);
 
+        // Return the writable stream
         return this.#stream;
     }
 }
