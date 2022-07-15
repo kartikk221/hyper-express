@@ -51,9 +51,9 @@ npm i hyper-express
 To run HyperExpress functionality tests locally on your machine, you must follow the steps below.
 1. Clone the HyperExpress repository to your machine.
 2. Initialize and pull any submodule(s) which are used throughout the tests.
-3. Run `npm install` in the root of the HyperExpress repository.
+3. Run `npm install` in the root directory.
 4. Run `npm install` in the `/tests` directory.
-5. Execute the `/tests/index.js` file to perform tests.
+5. Run `npm test` to run all tests with your local changes.
 
 ## License
 [MIT](./LICENSE)
