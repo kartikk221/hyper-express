@@ -47,15 +47,6 @@ npm i hyper-express
 - See [`> [SessionEngine]`](https://github.com/kartikk221/hyper-express-session) for working with cookie based web **Sessions** in HyperExpress.
 - See [`> [LiveDirectory]`](./docs/LiveDirectory.md) for implementing **static file/asset** serving functionality into HyperExpress.
 
-## What's Different?
-While there may be other uWebsockets.js based packages available, HyperExpress differentiates itself in the following ways:
-- Instantaneous Request Handling
-    - HyperExpress implements a request handling model similar to fetch where a request is passed almost instantly to the route handler and the request body can be asynchronously dowloaded/accessed. This behavior allows for aborting of a request and potentially saving on memory usage for endpoints that deal with relatively larger body sizes as the body simply won't be downloaded into memory without access.
-- High Maintainability
-    - Whether you decide to develop on your own fork or expand upon HyperExpress through middlewares, You will be greeted with a concise codebase with descriptive logic comments, JSDoc and Typescript types allowing for high maintainability.
-- Lightweight Package Size
-    - HyperExpress is extremely lightweight while implementing almost all of the core functionalities of a webserver providing users with flexibility.
-
 ## Testing Changes
 To run HyperExpress functionality tests locally on your machine, you must follow the steps below.
 1. Clone the HyperExpress repository to your machine.
