@@ -49,49 +49,28 @@ class Request extends stream.Readable {
         // Initialize the request readable stream for body consumption
         super(stream_options);
 
-        // Pre-parse core data attached to volatile uWebsockets request/response objects
+        // Store references to uWS objects and the master context
         this.#raw_request = raw_request;
         this.#raw_response = raw_response;
         this.#master_context = master_context;
 
-        // Parse basic request information that will be made unavailable after this synchronous call from uWS.HttpRequest
-        this._parse_request_information();
-
-        // Parse path parameters from request path if we have a path parameters parsing key
-        if (path_parameters_key.length) this._parse_path_parameters(path_parameters_key);
-
-        // Bind a 'limit' event handler to this request to stop streaming
-        this.once('limit', () => this._stop_streaming());
-    }
-
-    /**
-     * @private
-     * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
-     * This method parses initial data from uWS.Request and uWS.Response to prevent forbidden
-     * stack memory access errors for asynchronous usage
-     */
-    _parse_request_information() {
         // Perform request pre-parsing for common access data
         // This is required as uWS.Request is forbidden for access after initial execution
-        this.#method = this.#raw_request.getMethod().toUpperCase();
         this.#path = this.#raw_request.getUrl();
         this.#query = this.#raw_request.getQuery();
+        this.#method = this.#raw_request.getMethod().toUpperCase();
         this.#url = this.#path + (this.#query ? '?' + this.#query : '');
 
         // Parse headers into a key-value object and then freeze it to prevent further modification
         this.#raw_request.forEach((key, value) => (this.headers[key] = value));
-    }
 
-    /**
-     * This method parses path parameters from incoming request using a parameter key
-     * @private
-     * @param {Array} parameters_key [[key, index], ...]
-     */
-    _parse_path_parameters(parameters_key) {
-        // Iterate over each expected path parameter key value pair and parse the value from uWS.HttpRequest.getParameter()
-        parameters_key.forEach(
-            (key_set) => (this.#path_parameters[key_set[0]] = this.#raw_request.getParameter(key_set[1]))
-        );
+        // Parse path parameters from request path if we have a path parameters parsing key
+        if (path_parameters_key.length) {
+            // Iterate over each expected path parameter key value pair and parse the value from uWS.HttpRequest.getParameter()
+            path_parameters_key.forEach(
+                (key_set) => (this.#path_parameters[key_set[0]] = this.#raw_request.getParameter(key_set[1]))
+            );
+        }
     }
 
     /* Request Methods/Operators */
@@ -214,6 +193,7 @@ class Request extends stream.Readable {
                     // Mark the incoming body data to be flushed
                     this.#stream_flushing = true;
                     this.emit('limit', this.#body_received_bytes, this.#body_flushed);
+                    this._stop_streaming();
                 }
 
                 // Begin streaming incoming body chunks if we have not initialized a body received bytes counter yet
@@ -236,6 +216,7 @@ class Request extends stream.Readable {
                             if (reference._stream_limit_exhausted() || reference.#stream_flushing) {
                                 // Emit the 'limit' event with the body flushed flag
                                 this.emit('limit', this.#body_received_bytes, reference.#body_flushed);
+                                this._stop_streaming();
                             } else {
                                 // Emit a 'received' event that indicates the request body has been fully received
                                 this.emit('received', this.#body_received_bytes);
@@ -274,6 +255,7 @@ class Request extends stream.Readable {
                             } else if (reference._stream_limit_exhausted()) {
                                 // Emit the 'limit' event with the body flushed flag
                                 this.emit('limit', this.#body_received_bytes, reference.#body_flushed);
+                                this._stop_streaming();
                             }
                         }
                     });

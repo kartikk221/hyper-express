@@ -358,19 +358,6 @@ class Server extends Router {
     /* uWS -> Server Request/Response Handling Logic */
 
     /**
-     * This method attempts to parse a valid content-length number value from header if present.
-     *
-     * @private
-     * @param {Request} wrapped_request
-     * @returns {Number=}
-     */
-    _parse_content_length(wrapped_request) {
-        // Ensure we have some content-length value which specifies incoming bytes
-        const content_length = +wrapped_request.headers['content-length'];
-        return !isNaN(content_length) ? content_length : undefined;
-    }
-
-    /**
      * This method is used to handle incoming uWebsockets response/request objects
      * by wrapping/translating them into HyperExpress compatible request/response objects.
      *
@@ -408,6 +395,7 @@ class Server extends Router {
         });
 
         // Stream any incoming request body data with configured limit
+        // Use the route-specific max body length if it is set else use the global max body length
         const max_body_length = route.options.max_body_length || route.app._options.max_body_length;
         if (wrapped_request._stream_with_limit(max_body_length)) {
             // Chain incoming request/response through all global/local/route-specific middlewares

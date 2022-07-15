@@ -26,29 +26,17 @@ class Response extends Writable {
     #cookies;
     #sse;
 
-    constructor(stream_options = {}, wrapped_request, raw_response, socket, master_context) {
+    constructor(stream_options = {}, wrapped_request, raw_response, socket = null, master_context) {
         // Initialize the writable stream for this response
         super(stream_options);
 
         // Store the provided parameter properties for later use
+        this.#master_context = master_context;
         this.#wrapped_request = wrapped_request;
         this.#raw_response = raw_response;
-        this.#upgrade_socket = socket || null;
-        this.#master_context = master_context;
+        this.#upgrade_socket = socket;
 
-        // Bind the abort handler as required by uWebsockets.js
-        this._bind_abort_handler();
-
-        // Bind a finish/close handler which will end the response once writable has closed
-        super.once('finish', () => (this.#streaming ? this.send() : undefined));
-    }
-
-    /**
-     * @private
-     * INTERNAL METHOD! This method is an internal method and should NOT be called manually.
-     * This method binds an abort handler which will update completed field to lock appropriate operations in Response
-     */
-    _bind_abort_handler() {
+        // Bind the abort handler as required by uWebsockets.js for each uWS.HttpResponse to allow for async processing
         const reference = this;
         this.#raw_response.onAborted(() => {
             reference.#completed = true;
@@ -56,6 +44,9 @@ class Response extends Writable {
             reference.emit('abort', this.#wrapped_request, this);
             reference.emit('close', this.#wrapped_request, this);
         });
+
+        // Bind an 'finish' event handler to send response once a piped stream has completed
+        super.once('finish', () => (this.#streaming ? this.send() : undefined));
     }
 
     /**
