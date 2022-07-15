@@ -13,6 +13,7 @@ export interface ServerConstructorOptions {
     fast_buffers?: boolean,
     fast_abort?: boolean,
     trust_proxy?: boolean,
+    atomic_response?: boolean,
     max_body_length?: number,
     auto_close?: boolean
 }

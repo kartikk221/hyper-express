@@ -16,26 +16,28 @@ class Server extends Router {
         auto_close: true,
         fast_abort: false,
         trust_proxy: false,
-        unsafe_buffers: false,
+        fast_buffers: false,
+        atomic_response: true,
         max_body_length: 250 * 1000,
         streaming: {},
     };
 
     /**
      * @param {Object} options Server Options
-     * @param {String} options.cert_file_name Path to SSL certificate file.
-     * @param {String} options.key_file_name Path to SSL private key file to be used for SSL/TLS.
-     * @param {String} options.passphrase Strong passphrase for SSL cryptographic purposes.
-     * @param {String} options.dh_params_file_name Path to SSL Diffie-Hellman parameters file.
-     * @param {Boolean} options.ssl_prefer_low_memory_usage Specifies uWebsockets to prefer lower memory usage while serving SSL
-     * @param {Boolean} options.fast_buffers Buffer.allocUnsafe is used when set to true for faster performance.
-     * @param {Boolean} options.fast_abort Determines whether HyperExpress will abrubptly close bad requests. This can be much faster but the client does not receive an HTTP status code as it is a premature connection closure.
-     * @param {Boolean} options.trust_proxy Specifies whether to trust incoming request data from intermediate proxy(s)
-     * @param {Number} options.max_body_length Maximum body content length allowed in bytes. For Reference: 1kb = 1000 bytes and 1mb = 1000kb.
-     * @param {Boolean} options.auto_close Whether to automatically close the server instance when the process exits. Default: true
+     * @param {String=} options.cert_file_name Path to SSL certificate file.
+     * @param {String=} options.key_file_name Path to SSL private key file to be used for SSL/TLS.
+     * @param {String=} options.passphrase Strong passphrase for SSL cryptographic purposes.
+     * @param {String=} options.dh_params_file_name Path to SSL Diffie-Hellman parameters file.
+     * @param {Boolean=} options.ssl_prefer_low_memory_usage Specifies uWebsockets to prefer lower memory usage while serving SSL
+     * @param {Boolean=} options.fast_buffers Buffer.allocUnsafe is used when set to true for faster performance.
+     * @param {Boolean=} options.fast_abort Determines whether HyperExpress will abrubptly close bad requests. This can be much faster but the client does not receive an HTTP status code as it is a premature connection closure.
+     * @param {Boolean=} options.trust_proxy Specifies whether to trust incoming request data from intermediate proxy(s)
+     * @param {Boolean=} options.atomic_response Specifies whether to atomically send response data to the client once it has been properly corked for high performance.
+     * @param {Number=} options.max_body_length Maximum body content length allowed in bytes. For Reference: 1kb = 1000 bytes and 1mb = 1000kb.
+     * @param {Boolean=} options.auto_close Whether to automatically close the server instance when the process exits. Default: true
      * @param {Object} options.streaming Global content streaming options.
-     * @param {Stream.ReadableOptions} options.streaming.readable Global content streaming options for Readable streams.
-     * @param {Stream.WritableOptions} options.streaming.writable Global content streaming options for Writable streams.
+     * @param {Stream.ReadableOptions=} options.streaming.readable Global content streaming options for Readable streams.
+     * @param {Stream.WritableOptions=} options.streaming.writable Global content streaming options for Writable streams.
      */
     constructor(options = {}) {
         // Only accept object as a parameter type for options

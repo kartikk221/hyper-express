@@ -32,7 +32,7 @@ export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
      *
      * @param {Function} handler
      */
-    atomic(handler: () => void): void;
+    atomic(handler: () => void): Response;
 
     /**
      * This method is used to set a custom response code.
