@@ -15,7 +15,7 @@ const middleware_property = random_string(10);
 const base = server.base;
 
 // Bind a middlewares for simulating artificial delay on request endpoint
-router.use((request, response, next) => {
+const global_middleware_1 = (request, response, next) => {
     // We only want this middleware to run for this request endpoint
     if (request.headers['x-middleware-test'] === 'true') {
         request.mproperty = middleware_property;
@@ -23,10 +23,11 @@ router.use((request, response, next) => {
     }
 
     return next();
-});
+};
+router.use(global_middleware_1);
 
 // Test Promise returning middlewares support
-router.use((request, response) => {
+const global_middleware_2 = (request, response) => {
     return new Promise((resolve, reject) => {
         // We only want this middleware to run for this request endpoint
         if (request.headers['x-middleware-test-2'] === 'true') {
@@ -35,7 +36,8 @@ router.use((request, response) => {
 
         resolve();
     });
-});
+};
+router.use(global_middleware_2);
 
 let last_endpoint_body;
 let last_endpoint_mproperty;

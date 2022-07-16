@@ -249,19 +249,18 @@ class Server extends Router {
 
         // Process and combine middlewares for routes that support middlewares
         if (!['ws'].includes(method)) {
-            // Initialize route-specific middlewares if they do not exist
-            if (!Array.isArray(options.middlewares)) options.middlewares = [];
+            // Initialize a middlewares container array which will cache all middlewares for this route
+            const middlewares = [];
 
             // Parse middlewares that apply to this route based on execution pattern
-            const middlewares = [];
             Object.keys(this.#middlewares).forEach((match) => {
-                // Do not match with global middlewares as they are always executed separately
-                if (match == '/') return;
-
                 // Store middleware if its execution pattern matches our route pattern
                 if (pattern.startsWith(match))
                     reference.#middlewares[match].forEach((object) => middlewares.push(object));
             });
+
+            // Initialize route-specific middlewares if they do not exist
+            if (!Array.isArray(options.middlewares)) options.middlewares = [];
 
             // Map all user specified route specific middlewares with a priority of 2
             options.middlewares = options.middlewares.map((middleware) => ({
@@ -338,7 +337,7 @@ class Server extends Router {
 
         // Create a middleware object with an appropriate priority
         const object = {
-            priority: pattern == '/' ? 0 : 1, // 0 priority are global middlewares
+            priority: pattern === '/' ? 0 : 1, // 0 priority are global middlewares
             middleware,
         };
 
@@ -347,18 +346,17 @@ class Server extends Router {
 
         // Inject middleware into all routes that match its execution pattern if it is non global
         const match = pattern.endsWith('/') ? pattern.substr(0, pattern.length - 1) : pattern;
-        if (object.priority !== 0)
-            Object.keys(this.#routes).forEach((method) => {
-                // Ignore ws routes as they are WebsocketRoute components
-                if (method === 'ws') return;
+        Object.keys(this.#routes).forEach((method) => {
+            // Ignore ws routes as they are WebsocketRoute components
+            if (method === 'ws') return;
 
-                // Match middleware pattern against all routes with this method
-                const routes = reference.#routes[method];
-                Object.keys(routes).forEach((pattern) => {
-                    // If route's pattern starts with middleware pattern, then use middleware
-                    if (pattern.startsWith(match)) routes[pattern].use(object);
-                });
+            // Match middleware pattern against all routes with this method
+            const routes = reference.#routes[method];
+            Object.keys(routes).forEach((pattern) => {
+                // If route's pattern starts with middleware pattern, then use middleware
+                if (pattern.startsWith(match)) routes[pattern].use(object);
             });
+        });
     }
 
     /* uWS -> Server Request/Response Handling Logic */
@@ -396,79 +394,8 @@ class Server extends Router {
         // Stream any incoming request body data with configured limit
         // Use the route-specific max body length if it is set else use the global max body length
         if (request._stream_with_limit(route.max_body_length)) {
-            // Chain incoming request/response through all global/local/route-specific middlewares
-            route.app._chain_middlewares(route, request, response);
-        }
-    }
-
-    /**
-     * This method chains a request/response through all middlewares and then calls route handler in end.
-     *
-     * @private
-     * @param {Route} route - Route Object
-     * @param {Request} request - Request Object
-     * @param {Response} response - Response Object
-     * @param {Error} error - Error or Extended Error Object
-     */
-    _chain_middlewares(route, request, response, cursor = 0, error) {
-        // Break chain if response has been aborted
-        if (response.aborted) return;
-
-        // Trigger error handler if an error was provided by a middleware
-        if (error instanceof Error) return response.throw(error);
-
-        // Determine next callback based on if either global or route middlewares exist
-        const has_global_middlewares = this.#middlewares['/'].length > 0;
-        const has_route_middlewares = route.options.middlewares.length > 0;
-        const next =
-            has_global_middlewares || has_route_middlewares
-                ? (err) => route.app._chain_middlewares(route, request, response, cursor + 1, err)
-                : undefined;
-
-        // Execute global middlewares first as they take precedence over route specific middlewares
-        if (has_global_middlewares) {
-            // Determine current global middleware and execute
-            const object = this.#middlewares['/'][cursor];
-            if (object) {
-                // If middleware invocation returns a Promise, bind a then handler to trigger next iterator
-                response._track_middleware_cursor(cursor);
-                const output = object.middleware(request, response, next);
-                if (output instanceof Promise) output.then(next).catch(next);
-                return;
-            }
-        }
-
-        // Execute route specific middlewares if they exist
-        if (has_route_middlewares) {
-            // Determine current route specific/method middleware and execute while accounting for global middlewares cursor offset
-            const object = route.options.middlewares[cursor - this.#middlewares['/'].length];
-            if (object) {
-                // If middleware invocation returns a Promise, bind a then handler to trigger next iterator
-                response._track_middleware_cursor(cursor);
-                const output = object.middleware(request, response, next);
-                if (output instanceof Promise) output.then(next).catch(next);
-                return;
-            }
-        }
-
-        // Safely execute the user provided route handler
-        try {
-            // If route handler returns a Promise, bind a catch handler to trigger the error handler
-            const output = route.handler(request, response, response.upgrade_socket);
-            if (output instanceof Promise)
-                output.catch((error) => {
-                    // If the error is not an instance of Error, wrap it in an Error object that
-                    if (!(error instanceof Error)) error = new Error(`ERR_CAUGHT_NON_ERROR_TYPE: ${error}`);
-
-                    // Trigger the error handler
-                    response.throw(error);
-                });
-        } catch (error) {
-            // Wrap the error in an Error object if it is not already one
-            if (!(error instanceof Error)) error = new Error(`ERR_CAUGHT_NON_ERROR_TYPE: ${error}`);
-
-            // Trigger the error handler
-            response.throw(error);
+            // Handle the request with its associated route
+            route.handle(request, response);
         }
     }
 

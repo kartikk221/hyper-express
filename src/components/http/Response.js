@@ -16,7 +16,6 @@ class Response extends stream.Writable {
     #locals;
     #streaming = false;
     #initiated = false;
-    #completed = false;
     #type_written = false;
     #custom_content_length;
     #wrapped_request;
@@ -28,6 +27,12 @@ class Response extends stream.Writable {
     #headers;
     #cookies;
     #sse;
+
+    /**
+     * Alias of aborted property as they both represent the same request state in terms of inaccessibility.
+     * @returns {Boolean}
+     */
+    completed = false;
 
     /**
      * Creates a new HyperExpress response instance that wraps a uWS.HttpResponse instance.
@@ -50,7 +55,7 @@ class Response extends stream.Writable {
         // Bind the abort handler as required by uWebsockets.js for each uWS.HttpResponse to allow for async processing
         const reference = this;
         this.#raw_response.onAborted(() => {
-            reference.#completed = true;
+            reference.completed = true;
             reference.#wrapped_request._stop_streaming();
             reference.emit('abort', this.#wrapped_request, this);
             reference.emit('close', this.#wrapped_request, this);
@@ -138,7 +143,7 @@ class Response extends stream.Writable {
 
         // Determine proper mime type and send response
         let mime_header = mime_types.lookup(mime_type) || 'text/plain';
-        if (!this.#completed) {
+        if (!this.completed) {
             this.#type_written = true;
             this.header('content-type', mime_header);
         }
@@ -259,7 +264,7 @@ class Response extends stream.Writable {
      * @param {Object=} context Store information about the websocket connection
      */
     upgrade(context) {
-        if (!this.#completed) {
+        if (!this.completed) {
             // Ensure a upgrade_socket exists before upgrading ensuring only upgrade handler requests are handled
             if (this.#upgrade_socket == null)
                 this.throw(
@@ -284,7 +289,7 @@ class Response extends stream.Writable {
             );
 
             // Mark request as complete so no more operations can be performed
-            this.#completed = true;
+            this.completed = true;
         }
     }
 
@@ -294,7 +299,7 @@ class Response extends stream.Writable {
      */
     _initiate_response() {
         // Halt execution if response has already been initiated or completed
-        if (this.#initiated || this.#completed) return;
+        if (this.#initiated || this.completed) return;
 
         // Emit the 'prepare' event to allow for any last minute response modifications
         this.emit('prepare', this.#wrapped_request, this);
@@ -363,7 +368,7 @@ class Response extends stream.Writable {
      */
     _write(chunk, encoding, callback) {
         // Ensure the client is still connected and request is pending
-        if (!this.#completed) {
+        if (!this.completed) {
             // Mark this response as streaming
             this.#streaming = true;
 
@@ -383,7 +388,7 @@ class Response extends stream.Writable {
                 let drained = false;
                 return this.drain(() => {
                     // If this response has been completed, we can stop waiting for drainage
-                    if (this.#completed) return true;
+                    if (this.completed) return true;
 
                     // Trigger the callback and inverse the drained flag to signify that we are no longer waiting for drainage in this scope
                     if (!drained) {
@@ -437,7 +442,7 @@ class Response extends stream.Writable {
      */
     send(body, close_connection) {
         // Ensure response connection is still active
-        if (!this.#completed) {
+        if (!this.completed) {
             // Initiate response to write status code and headers
             this._initiate_response();
 
@@ -462,9 +467,9 @@ class Response extends stream.Writable {
             if (!this.#streaming) this.emit('finish', this.#wrapped_request, this);
 
             // Call any bound hooks for type 'complete' if no backpressure was built up
-            if (!this.#completed) {
+            if (!this.completed) {
                 // Mark request as completed if we were able to send response properly
-                this.#completed = true;
+                this.completed = true;
 
                 // Emit the 'close' event to signify that the response has been completed
                 this.emit('close', this.#wrapped_request, this);
@@ -516,7 +521,7 @@ class Response extends stream.Writable {
      */
     _stream_chunk(stream, chunk, total_size) {
         // Ensure the client is still connected and request is pending
-        if (!this.#completed) {
+        if (!this.completed) {
             // Remember the initial write offset for future backpressure sliced chunks
             // Write the chunk to the client using the appropriate uWS chunk writing method
             const write_offset = this.write_offset;
@@ -532,7 +537,7 @@ class Response extends stream.Writable {
                 // Note! This callback may be called as many times as neccessary to send a full chunk when using the tryEnd method
                 this.drain((offset) => {
                     // Check if the response has been completed / connection has been closed
-                    if (this.#completed) {
+                    if (this.completed) {
                         // Destroy the readable stream as no more writing will occur
                         if (!stream.destroyed) stream.destroy();
 
@@ -582,7 +587,7 @@ class Response extends stream.Writable {
             );
 
         // Do not allow streaming if response has already been aborted or completed
-        if (!this.#completed) {
+        if (!this.completed) {
             // Initiate response as we will begin writing body chunks
             this._initiate_response();
 
@@ -602,8 +607,8 @@ class Response extends stream.Writable {
      * Use this to instantly abort a request where a proper response with an HTTP status code is not neccessary.
      */
     close() {
-        if (!this.#completed) {
-            this.#completed = true;
+        if (!this.completed) {
+            this.completed = true;
             this._resume_if_paused();
             this.#wrapped_request._stop_streaming();
             this.#raw_response.close();
@@ -617,7 +622,7 @@ class Response extends stream.Writable {
      * @returns {Boolean} Boolean
      */
     redirect(url) {
-        if (!this.#completed) return this.status(302).header('location', url).send();
+        if (!this.completed) return this.status(302).header('location', url).send();
         return false;
     }
 
@@ -734,20 +739,20 @@ class Response extends stream.Writable {
     }
 
     /**
-     * This method allows you to throw an error which will be caught by the global error handler (If one was setup with the Server instance).
+     * This method allows you to throw an error which will be caught by the global error handler.
      *
      * @param {Error} error
      * @returns {Response}
      */
     throw(error) {
-        // Ensure error is an instance of Error
-        if (error instanceof Error) {
-            this.#master_context.handlers.on_error(this.#wrapped_request, this, error);
-            return this;
-        }
+        // If the error is not an instance of Error, wrap it in an Error object that
+        if (!(error instanceof Error)) error = new Error(`ERR_CAUGHT_NON_ERROR_TYPE: ${error}`);
 
-        // If error is not an instance of Error, throw a warning error
-        throw new Error('HyperExpress: Response.throw() expects an instance of an Error.');
+        // Trigger the global error handler
+        this.#master_context.handlers.on_error(this.#wrapped_request, this, error);
+
+        // Return this response instance
+        return this;
     }
 
     /* Response Getters */
@@ -794,15 +799,7 @@ class Response extends stream.Writable {
      * @returns {Boolean}
      */
     get aborted() {
-        return this.#completed;
-    }
-
-    /**
-     * Alias of aborted property as they both represent the same request state in terms of inaccessibility.
-     * @returns {Boolean}
-     */
-    get completed() {
-        return this.#completed;
+        return this.completed;
     }
 
     /**
@@ -835,7 +832,7 @@ class Response extends stream.Writable {
      * @returns {Number}
      */
     get write_offset() {
-        return this.#completed ? -1 : this.#raw_response.getWriteOffset();
+        return this.completed ? -1 : this.#raw_response.getWriteOffset();
     }
 
     /* ExpressJS compatibility properties & methods */
@@ -864,7 +861,7 @@ class Response extends stream.Writable {
      * ExpressJS: Alias of Response.status_code to expose response status code
      */
     get statusCode() {
-        return this.#completed ? this.#status_code : undefined;
+        return this.completed ? this.#status_code : undefined;
     }
 
     /**
