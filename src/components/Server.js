@@ -1,14 +1,17 @@
+const Stream = require('stream'); // lgtm [js/unused-local-variable]
+const uWebSockets = require('uWebSockets.js');
+
 const Route = require('./router/Route.js');
 const Router = require('./router/Router.js');
-const Stream = require('stream'); // lgtm [js/unused-local-variable]
 const Request = require('./http/Request.js');
 const Response = require('./http/Response.js');
-const uWebSockets = require('uWebSockets.js');
+const HostManager = require('./plugins/HostManager.js');
 const WebsocketRoute = require('./ws/WebsocketRoute.js');
 
 const { wrap_object } = require('../shared/operators.js');
 
 class Server extends Router {
+    #hosts;
     #uws_instance;
     #listen_socket;
     #options = {
@@ -23,7 +26,7 @@ class Server extends Router {
 
     /**
      * @param {Object} options Server Options
-     * @param {String=} options.cert_file_name Path to SSL certificate file.
+     * @param {String=} options.cert_file_name Path to SSL certificate file to be used for SSL/TLS.
      * @param {String=} options.key_file_name Path to SSL private key file to be used for SSL/TLS.
      * @param {String=} options.passphrase Strong passphrase for SSL cryptographic purposes.
      * @param {String=} options.dh_params_file_name Path to SSL Diffie-Hellman parameters file.
@@ -58,6 +61,9 @@ class Server extends Router {
         } else {
             this.#uws_instance = uWebSockets.App(options);
         }
+
+        // Initialize the HostManager for this Server instance
+        this.#hosts = new HostManager(this);
     }
 
     /**
@@ -474,6 +480,15 @@ class Server extends Router {
      */
     get uws_instance() {
         return this.#uws_instance;
+    }
+
+    /**
+     * Returns the Server Hostnames manager for this instance.
+     * Use this to support multiple hostnames on the same server with different SSL configurations.
+     * @returns {HostManager}
+     */
+    get hosts() {
+        return this.#hosts;
     }
 
     /**

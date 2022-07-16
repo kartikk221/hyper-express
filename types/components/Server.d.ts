@@ -2,7 +2,8 @@ import * as uWebsockets from 'uWebSockets.js';
 import { SendableData } from './http/Response';
 import { Request } from './http/Request';
 import { Response } from './http/Response';
-import { Router } from './router/Router'
+import { Router } from './router/Router';
+import { HostManager } from './plugins/HostManager';
 
 export interface ServerConstructorOptions {
     key_file_name?: string,
@@ -95,4 +96,11 @@ export class Server extends Router {
      * @returns {Object}
      */
     get handlers(): Object;
+
+    /**
+     * Returns the Server Hostnames manager for this instance.
+     * Use this to support multiple hostnames on the same server with different SSL configurations.
+     * @returns {HostManager}
+     */
+    get hosts(): HostManager;
 }

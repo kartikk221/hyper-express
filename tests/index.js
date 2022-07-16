@@ -1,4 +1,5 @@
 const { log } = require('./scripts/operators.js');
+const { test_hostmanager_object } = require('./components/features/HostManager.js');
 const { test_request_object } = require('./components/http/Request.js');
 const { test_response_object } = require('./components/http/Response.js');
 const { test_websocket_route } = require('./components/ws/WebsocketRoute.js');
@@ -14,6 +15,9 @@ const { TEST_SERVER } = require('./components/Server.js');
         const start_time = Date.now();
         await TEST_SERVER.listen(server.port, server.host);
         log('TESTING', `Successfully Started HyperExpress HTTP Server @ ${server.host}:${server.port}`);
+
+        // Test Server.HostManager Object
+        test_hostmanager_object();
 
         // Test Request Object
         await test_request_object();

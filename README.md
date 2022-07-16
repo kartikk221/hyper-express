@@ -24,6 +24,7 @@ Some of the prominent features implemented are:
 - Performant Multipart File Uploading
 - Global Error/Event Handlers
 - Cryptographically Secure Cookie Signing/Authentication
+- Multiple Host/Domain Support Over SSL
 - ExpressJS API Compatibility Through Shared Methods/Properties
 - TypeScript Types Support
 
@@ -37,8 +38,8 @@ npm i hyper-express
 
 - See [`> [Examples & Snippets]`](./docs/Examples.md) for small and **easy-to-use snippets** with HyperExpress.
 - See [`> [Server]`](./docs/Server.md) for creating a webserver and working with the **Server** component.
-- See [`> [Middlewares]`](./docs/Middlewares.md) for working with global and route-specific **Middlewares** in HyperExpress.
 - See [`> [Router]`](./docs/Router.md) for working with the modular **Router** component.
+- See [`> [Middlewares]`](./docs/Middlewares.md) for working with global and route-specific **Middlewares** in HyperExpress.
 - See [`> [Request]`](./docs/Request.md) for working with the **Request** component made available through handlers.
 - See [`> [Response]`](./docs/Response.md) for working with the **Response** component made available through handlers.
 - See [`> [MultipartField]`](./docs/MultipartField.md) for working with multipart requests and **File Uploading** in HyperExpress.
@@ -46,6 +47,7 @@ npm i hyper-express
 - See [`> [Websocket]`](./docs/Websocket.md) for working with **Websockets** in HyperExpress.
 - See [`> [SessionEngine]`](https://github.com/kartikk221/hyper-express-session) for working with cookie based web **Sessions** in HyperExpress.
 - See [`> [LiveDirectory]`](./docs/LiveDirectory.md) for implementing **static file/asset** serving functionality into HyperExpress.
+- See [`> [HostManager]`](./docs/HostManager.md) for supporting requests over **muliple hostnames** in HyperExpress.
 
 ## Testing Changes
 To run HyperExpress functionality tests locally on your machine, you must follow the steps below.
