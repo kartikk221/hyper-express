@@ -12,11 +12,12 @@ class Route {
      */
     constructor({ app, method, pattern, options, handler }) {
         this.app = app;
-        this.method = method.toUpperCase();
         this.pattern = pattern;
         this.handler = handler;
         this.options = options;
+        this.method = method.toUpperCase();
         this.streaming = options.streaming || app._options.streaming || {};
+        this.max_body_length = options.max_body_length || app._options.max_body_length;
         this.path_parameters_key = parse_path_parameters(pattern);
     }
 

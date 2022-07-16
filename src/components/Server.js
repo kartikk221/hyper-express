@@ -390,8 +390,7 @@ class Server extends Router {
 
         // Stream any incoming request body data with configured limit
         // Use the route-specific max body length if it is set else use the global max body length
-        const max_body_length = route.options.max_body_length || route.app._options.max_body_length;
-        if (wrapped_request._stream_with_limit(max_body_length)) {
+        if (wrapped_request._stream_with_limit(route.max_body_length)) {
             // Chain incoming request/response through all global/local/route-specific middlewares
             route.app._chain_middlewares(route, wrapped_request, wrapped_response);
         }
