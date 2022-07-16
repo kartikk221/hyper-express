@@ -1,16 +1,16 @@
-const Server = require('../Server.js'); // lgtm [js/unused-local-variable]
 const cookie = require('cookie');
 const signature = require('cookie-signature');
 const status_codes = require('../../constants/status_codes.json');
 const mime_types = require('mime-types');
-const { Readable, Writable } = require('stream');
+const stream = require('stream');
 
 const SSEventStream = require('../plugins/SSEventStream.js');
+const Server = require('../Server.js'); // lgtm [js/unused-local-variable]
 const LiveFile = require('../plugins/LiveFile.js');
 const FilePool = {};
 
-class Response extends Writable {
-    locals = {};
+class Response extends stream.Writable {
+    #locals;
     #streaming = false;
     #initiated = false;
     #completed = false;
@@ -502,7 +502,7 @@ class Response extends Writable {
      * Delivers with backpressure handling and content-length header when a total_size is specified.
      *
      * @private
-     * @param {Readable} stream
+     * @param {stream.Readable} stream
      * @param {Buffer} chunk
      * @param {Number=} total_size
      */
@@ -563,12 +563,12 @@ class Response extends Writable {
      * By default, this method will use chunked encoding transfer to stream data.
      * If your use-case requires a content-length header, you must specify the total payload size.
      *
-     * @param {Readable} readable A Readable stream which will be consumed as response body
+     * @param {stream.Readable} readable A Readable stream which will be consumed as response body
      * @param {Number=} total_size Total size of the Readable stream source in bytes (Optional)
      */
     stream(readable, total_size) {
         // Ensure readable is an instance of a stream.Readable
-        if (!(readable instanceof Readable))
+        if (!(readable instanceof stream.Readable))
             this.throw(
                 new Error('HyperExpress: Response.stream(readable, total_size) -> readable must be a Readable stream.')
             );
@@ -743,6 +743,16 @@ class Response extends Writable {
     }
 
     /* Response Getters */
+
+    /**
+     * Returns the request locals for this request.
+     * @returns {Object.<string, any>}
+     */
+    get locals() {
+        // Initialize locals object if it does not exist
+        if (!this.#locals) this.#locals = {};
+        return this.#locals;
+    }
 
     /**
      * Returns the underlying raw uWS.Response object.

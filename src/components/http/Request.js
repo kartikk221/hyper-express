@@ -653,7 +653,7 @@ class Request extends stream.Readable {
 
     /**
      * Returns the request locals for this request.
-     * @returns {Object.<string, string>}
+     * @returns {Object.<string, any>}
      */
     get locals() {
         // Initialize locals object if it does not exist
