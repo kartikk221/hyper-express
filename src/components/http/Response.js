@@ -26,12 +26,12 @@ class Response extends Writable {
     #cookies;
     #sse;
 
-    constructor(stream_options = {}, wrapped_request, raw_response, socket = null, master_context) {
+    constructor(route, wrapped_request, raw_response, socket = null) {
         // Initialize the writable stream for this response
-        super(stream_options);
+        super(route.streaming.writable);
 
         // Store the provided parameter properties for later use
-        this.#master_context = master_context;
+        this.#master_context = route.app;
         this.#wrapped_request = wrapped_request;
         this.#raw_response = raw_response;
         this.#upgrade_socket = socket;

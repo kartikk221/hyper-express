@@ -1,75 +1,34 @@
+const Server = require('../Server.js'); // lgtm [js/unused-local-variable]
 const { parse_path_parameters } = require('../../shared/operators.js');
 
 class Route {
-    #app;
-    #method;
-    #pattern;
-    #handler;
-    #options;
-    #streaming;
-    #path_parameters_key;
-
     /**
-     * Route information holder object.
-     *
-     * @param {String} method
-     * @param {String} pattern
-     * @param {Function} handler
+     * Constructs a new Route object.
+     * @param {Object} options
+     * @param {Server} options.app - The server instance.
+     * @param {String} options.method - The HTTP method.
+     * @param {String} options.pattern - The route pattern.
+     * @param {Function} options.handler - The route handler.
      */
     constructor({ app, method, pattern, options, handler }) {
-        this.#app = app;
-        this.#method = method.toUpperCase();
-        this.#pattern = pattern;
-        this.#handler = handler;
-        this.#options = options;
-        this.#streaming = options.streaming || app._options.streaming || {};
-        this.#path_parameters_key = parse_path_parameters(pattern);
+        this.app = app;
+        this.method = method.toUpperCase();
+        this.pattern = pattern;
+        this.handler = handler;
+        this.options = options;
+        this.streaming = options.streaming || app._options.streaming || {};
+        this.path_parameters_key = parse_path_parameters(pattern);
     }
 
     /**
      * Binds middleware to this route and sorts middlewares to ensure execution order.
      *
-     * @private
      * @param {Function} handler
      */
     use(middleware) {
         // Store and sort middlewares to ensure proper execution order
-        this.#options.middlewares.push(middleware);
-        this.#options.middlewares.sort((a, b) => a.priority - b.priority);
-    }
-
-    /* Route Getters */
-
-    get app() {
-        return this.#app;
-    }
-
-    get method() {
-        return this.#method;
-    }
-
-    get pattern() {
-        return this.#pattern;
-    }
-
-    get handler() {
-        return this.#handler;
-    }
-
-    get options() {
-        return this.#options;
-    }
-
-    get middlewares() {
-        return this.#options.middlewares;
-    }
-
-    get streaming() {
-        return this.#streaming;
-    }
-
-    get path_parameters_key() {
-        return this.#path_parameters_key;
+        this.options.middlewares.push(middleware);
+        this.options.middlewares.sort((a, b) => a.priority - b.priority);
     }
 }
 

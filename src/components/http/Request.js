@@ -45,14 +45,14 @@ class Request extends stream.Readable {
      */
     headers = {};
 
-    constructor(stream_options, raw_request, raw_response, path_parameters_key, master_context) {
+    constructor(route, raw_request, raw_response) {
         // Initialize the request readable stream for body consumption
-        super(stream_options);
+        super(route.streaming.readable);
 
         // Store references to uWS objects and the master context
         this.#raw_request = raw_request;
         this.#raw_response = raw_response;
-        this.#master_context = master_context;
+        this.#master_context = route.app;
 
         // Perform request pre-parsing for common access data
         // This is required as uWS.Request is forbidden for access after initial execution
@@ -65,6 +65,7 @@ class Request extends stream.Readable {
         this.#raw_request.forEach((key, value) => (this.headers[key] = value));
 
         // Parse path parameters from request path if we have a path parameters parsing key
+        const path_parameters_key = route.path_parameters_key;
         if (path_parameters_key.length) {
             // Iterate over each expected path parameter key value pair and parse the value from uWS.HttpRequest.getParameter()
             path_parameters_key.forEach(
@@ -266,11 +267,12 @@ class Request extends stream.Readable {
             }
         }
 
+        // Return whether an active stream is processing incoming body data
         return !this.#stream_flushing;
     }
 
     /**
-     * Flushes any remaining incoming body chunks for this request.
+     * Marks the request to flush any remaining body data from the client.
      * @private
      */
     _stream_flush() {
@@ -285,7 +287,7 @@ class Request extends stream.Readable {
     }
 
     /**
-     * Halts the streaming of incoming body data for this request.
+     * Marks the request to end the body stream.
      * @private
      * @returns {Request}
      */

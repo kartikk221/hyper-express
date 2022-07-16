@@ -369,16 +369,10 @@ class Server extends Router {
      */
     _handle_uws_request(route, request, response, socket) {
         // Wrap uWS.Request -> HyperExpress.Request
-        const wrapped_request = new Request(
-            route.streaming.readable,
-            request,
-            response,
-            route.path_parameters_key,
-            route.app
-        );
+        const wrapped_request = new Request(route, request, response);
 
         // Wrap uWS.Response -> HyperExpress.Response
-        const wrapped_response = new Response(route.streaming.writable, wrapped_request, response, socket, route.app);
+        const wrapped_response = new Response(route, wrapped_request, response, socket);
 
         // Bind a 'limit' event handler which will send the appropriate response if the request body size exceeds the limit
         wrapped_request.on('limit', (received_bytes, flushed) => {
@@ -421,7 +415,7 @@ class Server extends Router {
 
         // Determine next callback based on if either global or route middlewares exist
         const has_global_middlewares = this.#middlewares['/'].length > 0;
-        const has_route_middlewares = route.middlewares.length > 0;
+        const has_route_middlewares = route.options.middlewares.length > 0;
         const next =
             has_global_middlewares || has_route_middlewares
                 ? (err) => route.app._chain_middlewares(route, request, response, cursor + 1, err)
@@ -443,7 +437,7 @@ class Server extends Router {
         // Execute route specific middlewares if they exist
         if (has_route_middlewares) {
             // Determine current route specific/method middleware and execute while accounting for global middlewares cursor offset
-            const object = route.middlewares[cursor - this.#middlewares['/'].length];
+            const object = route.options.middlewares[cursor - this.#middlewares['/'].length];
             if (object) {
                 // If middleware invocation returns a Promise, bind a then handler to trigger next iterator
                 response._track_middleware_cursor(cursor);
