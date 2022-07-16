@@ -756,6 +756,7 @@ class Response extends stream.Writable {
 
     /**
      * Returns the underlying raw uWS.Response object.
+     * Note! Utilizing any of uWS.Response's methods after response has been sent will result in an invalid discarded access error.
      * @returns {uWebsockets.Response}
      */
     get raw() {

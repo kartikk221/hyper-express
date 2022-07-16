@@ -82,6 +82,7 @@ export class Request<Locals = DefaultRequestLocals> {
     /**
      * Returns underlying uWS.Request reference.
      * Note! Utilizing any of uWS.Request's methods after initial synchronous call will throw a forbidden access error.
+     * @returns {uWebsockets.HttpRequest}
      */
     get raw(): uWebsockets.HttpRequest;
 

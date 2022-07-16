@@ -1,3 +1,4 @@
+const uWebsockets = require('uWebsockets.js'); // lgtm [js/unused-local-variable]
 const Server = require('../Server.js'); // lgtm [js/unused-local-variable]
 const cookie = require('cookie');
 const signature = require('cookie-signature');
@@ -646,6 +647,7 @@ class Request extends stream.Readable {
     /**
      * Returns underlying uWS.Request reference.
      * Note! Utilizing any of uWS.Request's methods after initial synchronous call will throw a forbidden access error.
+     * @returns {uWebsockets.HttpRequest}
      */
     get raw() {
         return this.#raw_request;
