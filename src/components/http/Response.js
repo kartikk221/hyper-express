@@ -1,4 +1,4 @@
-const uWebsockets = require('uWebsockets.js'); // lgtm [js/unused-local-variable]
+const uWebsockets = require('uWebSockets.js'); // lgtm [js/unused-local-variable]
 const cookie = require('cookie');
 const signature = require('cookie-signature');
 const status_codes = require('../../constants/status_codes.json');
