@@ -358,41 +358,40 @@ class Server extends Router {
     /* uWS -> Server Request/Response Handling Logic */
 
     /**
-     * This method is used to handle incoming uWebsockets response/request objects
-     * by wrapping/translating them into HyperExpress compatible request/response objects.
+     * This method is used to handle incoming requests from uWS and pass them to the appropriate route through the HyperExpress request lifecycle.
      *
      * @private
      * @param {Route} route
-     * @param {Request} request
-     * @param {Response} response
+     * @param {uWebSockets.HttpRequest} uws_request
+     * @param {uWebSockets.HttpResponse} uws_response
      * @param {uWebSockets.us_socket_context_t=} socket
      */
-    _handle_uws_request(route, request, response, socket) {
+    _handle_uws_request(route, uws_request, uws_response, socket) {
         // Wrap uWS.Request -> HyperExpress.Request
-        const wrapped_request = new Request(route, request, response);
+        const request = new Request(route, uws_request, uws_response);
 
         // Wrap uWS.Response -> HyperExpress.Response
-        const wrapped_response = new Response(route, wrapped_request, response, socket);
+        const response = new Response(route, request, uws_response, socket);
 
         // Bind a 'limit' event handler which will send the appropriate response if the request body size exceeds the limit
-        wrapped_request.on('limit', (received_bytes, flushed) => {
+        request.on('limit', (received_bytes, flushed) => {
             // Determine if the response has not been initiated yet
-            if (!wrapped_response.initiated) {
+            if (!response.initiated) {
                 // Abort the request instantly as user has specified usage of fast abort
                 if (route.app._options.fast_abort) {
-                    wrapped_response.close();
+                    response.close();
                 } else if (flushed) {
                     // Send a 413 response if the incoming data has been flushed
-                    wrapped_response.status(413).send();
+                    response.status(413).send();
                 }
             }
         });
 
         // Stream any incoming request body data with configured limit
         // Use the route-specific max body length if it is set else use the global max body length
-        if (wrapped_request._stream_with_limit(route.max_body_length)) {
+        if (request._stream_with_limit(route.max_body_length)) {
             // Chain incoming request/response through all global/local/route-specific middlewares
-            route.app._chain_middlewares(route, wrapped_request, wrapped_response);
+            route.app._chain_middlewares(route, request, response);
         }
     }
 
