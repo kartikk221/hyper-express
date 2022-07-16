@@ -2,6 +2,15 @@ const Server = require('../Server.js'); // lgtm [js/unused-local-variable]
 const { parse_path_parameters } = require('../../shared/operators.js');
 
 class Route {
+    app = null;
+    method = null;
+    pattern = null;
+    handler = null;
+    options = null;
+    streaming = null;
+    max_body_length = null;
+    path_parameters_key = null;
+
     /**
      * Constructs a new Route object.
      * @param {Object} options

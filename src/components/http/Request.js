@@ -5,6 +5,7 @@ const signature = require('cookie-signature');
 const querystring = require('qs');
 const stream = require('stream');
 const busboy = require('busboy');
+const Route = require('../router/Route.js'); // lgtm [js/unused-local-variable]
 const MultipartField = require('../plugins/MultipartField.js');
 const { array_buffer_to_string } = require('../../shared/operators.js');
 
@@ -46,6 +47,13 @@ class Request extends stream.Readable {
      */
     headers = {};
 
+    /**
+     * Creates a new HyperExpress request instance that wraps a uWS.HttpRequest instance.
+     *
+     * @param {Route} route
+     * @param {uWebsockets.HttpRequest} raw_request
+     * @param {uWebsockets.HttpResponse} raw_response
+     */
     constructor(route, raw_request, raw_response) {
         // Initialize the request readable stream for body consumption
         super(route.streaming.readable);
@@ -62,7 +70,7 @@ class Request extends stream.Readable {
         this.#method = this.#raw_request.getMethod().toUpperCase();
         this.#url = this.#path + (this.#query ? '?' + this.#query : '');
 
-        // Parse headers into a key-value object and then freeze it to prevent further modification
+        // Parse headers into a key-value object
         this.#raw_request.forEach((key, value) => (this.headers[key] = value));
 
         // Parse path parameters from request path if we have a path parameters parsing key
@@ -70,7 +78,7 @@ class Request extends stream.Readable {
         if (path_parameters_key.length) {
             // Iterate over each expected path parameter key value pair and parse the value from uWS.HttpRequest.getParameter()
             path_parameters_key.forEach(
-                (key_set) => (this.#path_parameters[key_set[0]] = this.#raw_request.getParameter(key_set[1]))
+                ([key, index]) => (this.#path_parameters[key] = this.#raw_request.getParameter(index))
             );
         }
     }

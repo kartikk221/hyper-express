@@ -1,13 +1,16 @@
+const uWebsockets = require('uWebsockets.js'); // lgtm [js/unused-local-variable]
 const cookie = require('cookie');
 const signature = require('cookie-signature');
 const status_codes = require('../../constants/status_codes.json');
 const mime_types = require('mime-types');
 const stream = require('stream');
 
-const SSEventStream = require('../plugins/SSEventStream.js');
-const Server = require('../Server.js'); // lgtm [js/unused-local-variable]
-const LiveFile = require('../plugins/LiveFile.js');
 const FilePool = {};
+const Request = require('./Request.js'); // lgtm [js/unused-local-variable]
+const Server = require('../Server.js'); // lgtm [js/unused-local-variable]
+const Route = require('../router/Route'); // lgtm [js/unused-local-variable]
+const LiveFile = require('../plugins/LiveFile.js');
+const SSEventStream = require('../plugins/SSEventStream.js');
 
 class Response extends stream.Writable {
     #locals;
@@ -26,6 +29,14 @@ class Response extends stream.Writable {
     #cookies;
     #sse;
 
+    /**
+     * Creates a new HyperExpress response instance that wraps a uWS.HttpResponse instance.
+     *
+     * @param {Route} route
+     * @param {Request} wrapped_request
+     * @param {uWebsockets.HttpResponse} raw_response
+     * @param {uWebsockets.us_socket_context_t=} socket
+     */
     constructor(route, wrapped_request, raw_response, socket = null) {
         // Initialize the writable stream for this response
         super(route.streaming.writable);
@@ -56,11 +67,8 @@ class Response extends stream.Writable {
      * @param {Number} position - Cursor position
      */
     _track_middleware_cursor(position) {
-        // Initialize cursor on first invocation
-        if (this.#middleware_cursor == undefined) return (this.#middleware_cursor = position);
-
-        // Check if position is greater than last cursor and update
-        if (position > this.#middleware_cursor) return (this.#middleware_cursor = position);
+        // Track and ensure each middleware cursor value is greater than previously tracked value for sequential progression
+        if (!this.#middleware_cursor || position > this.#middleware_cursor) return (this.#middleware_cursor = position);
 
         // If position is not greater than last cursor then we likely have a double middleware execution
         this.throw(
