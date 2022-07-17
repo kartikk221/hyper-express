@@ -308,7 +308,7 @@ class Server extends Router {
 
                 // Assign route to companion WebsocketRoute
                 const companion = this.#routes['ws'][pattern];
-                if (companion) companion._set_companion_route(route);
+                if (companion) companion._set_upgrade_route(route);
                 break;
             default:
                 // Store route in routes object for structural tracking

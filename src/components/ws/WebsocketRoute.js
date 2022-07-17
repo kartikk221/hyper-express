@@ -1,14 +1,13 @@
 const uWebsockets = require('uWebSockets.js');
+
+const Route = require('../router/Route.js');
 const Websocket = require('./Websocket.js');
 const { wrap_object, array_buffer_to_string } = require('../../shared/operators.js');
 
-class WebsocketRoute {
-    #app;
-    #route;
-    #pattern;
-    #handler;
+class WebsocketRoute extends Route {
+    #upgrade_with;
     #message_parser;
-    #options = {
+    options = {
         idle_timeout: 32,
         message_type: 'String',
         compression: uWebsockets.DISABLED,
@@ -17,13 +16,12 @@ class WebsocketRoute {
     };
 
     constructor({ app, pattern, handler, options }) {
-        this.#app = app;
-        this.#pattern = pattern;
-        this.#handler = handler;
+        // Initialize the super Router class
+        super({ app, method: 'ws', pattern, options, handler });
 
         // Wrap local default options with user specified options
-        wrap_object(this.#options, options);
-        this.#message_parser = this._get_message_parser(this.#options.message_type);
+        wrap_object(this.options, options);
+        this.#message_parser = this._get_message_parser(this.options.message_type);
 
         // Load companion upgrade route and initialize uWS.ws() route
         this._load_companion_route();
@@ -60,44 +58,44 @@ class WebsocketRoute {
      * @private
      */
     _load_companion_route() {
-        const companion = this.#app.routes['upgrade'][this.#pattern];
+        const companion = this.app.routes['upgrade'][this.pattern];
         if (companion) {
             // Use existing companion route as it is a user assigned route
-            this.#route = companion;
+            this.#upgrade_with = companion;
         } else {
             // Create and use a temporary default route to allow for healthy upgrade request cycle
             // Default route will upgrade all incoming requests automatically
-            this.#app._create_route({
+            this.app._create_route({
                 method: 'upgrade',
-                pattern: this.#pattern,
-                handler: (request, response) => response.upgrade(),
+                pattern: this.pattern,
+                handler: (request, response) => response.upgrade(), // By default, upgrade all incoming requests
                 options: {
-                    _temporary: true,
+                    _temporary: true, // Flag this route as temporary so it will get overwritten by user specified upgrade route
                 },
             });
 
-            // Store created route locally as Server will not call _set_companion_route
+            // Store created route locally as Server will not call _set_upgrade_route
             // This is because this WebsocketRoute has not been created synchronously yet
-            this.#route = this.#app.routes['upgrade'][this.#pattern];
+            this.#upgrade_with = this.app.routes['upgrade'][this.pattern];
         }
     }
 
     /**
-     * Sets companion upgrade route for incoming upgrade request to traverse through HyperExpress request cycle.
+     * Sets the upgrade route for incoming upgrade request to traverse through HyperExpress request lifecycle.
      * @private
      * @param {Route} route
      */
-    _set_companion_route(route) {
-        this.#route = route;
+    _set_upgrade_route(route) {
+        this.#upgrade_with = route;
     }
 
     /**
-     * Creates a uWs.ws() route will will power this WebsocketRoute instance.
+     * Creates a uWS.ws() route that will power this WebsocketRoute instance.
      * @private
      */
     _create_uws_route() {
         // Destructure and convert HyperExpress options to uWS.ws() route options
-        const { compression, idle_timeout, max_backpressure, max_payload_length } = this.#options;
+        const { compression, idle_timeout, max_backpressure, max_payload_length } = this.options;
         const uws_options = {
             compression,
             idleTimeout: idle_timeout,
@@ -107,7 +105,7 @@ class WebsocketRoute {
 
         // Create middleman upgrade route that pipes upgrade requests to HyperExpress request handler
         uws_options.upgrade = (uws_response, uws_request, socket_context) =>
-            this.#app._handle_uws_request(this.#route, uws_request, uws_response, socket_context);
+            this.app._handle_uws_request(this.#upgrade_with, uws_request, uws_response, socket_context);
 
         // Bind middleman routes to pipe uws events into poly handlers
         uws_options.open = (ws) => this._on_open(ws);
@@ -118,7 +116,7 @@ class WebsocketRoute {
         uws_options.message = (ws, message, isBinary) => this._on_message(ws, message, isBinary);
 
         // Create uWebsockets instance route
-        this.#app.uws_instance.ws(this.#pattern, uws_options);
+        this.app.uws_instance.ws(this.pattern, uws_options);
     }
 
     /**
@@ -131,7 +129,7 @@ class WebsocketRoute {
         ws.poly = new Websocket(ws);
 
         // Trigger WebsocketRoute handler on new connection open so user can listen for events
-        this.#handler(ws.poly);
+        this.handler(ws.poly);
     }
 
     /**
@@ -193,22 +191,6 @@ class WebsocketRoute {
 
         // De-reference the attached polyfill Websocket component so it can ne garbage collected
         delete ws.poly;
-    }
-
-    /* WebsocketRoute Getters */
-
-    /**
-     * WebsocketRoute constructor options
-     */
-    get options() {
-        return this.#options;
-    }
-
-    /**
-     * Companion upgrade route for this instance
-     */
-    get upgrade_route() {
-        return this.#route;
     }
 }
 

@@ -61,27 +61,23 @@ class Route {
         // Do not handle the request if the cursor is greater than the middleware count aka. past the route handler
         if (response.completed || cursor > this.options.middlewares.length) return;
 
-        // Retrieve the next middleware or the route handler for this call based on cursor
+        // Retrieve the middleware for the current cursor, track the cursor if there is a valid middleware
         const middleware = this.options.middlewares[cursor];
+        if (middleware) response._track_middleware_cursor(cursor);
 
-        // Safely execute the middleware or route handler
-        let iterator;
+        // Initialize an iterator callback if there is a valid middleware
+        const iterator = !middleware
+            ? undefined
+            : (error) => {
+                  // If an error occured, pipe it to the error handler
+                  if (error instanceof Error) return response.throw(error);
+
+                  // Handle this request again with an incremented cursor to execute the next middleware or route handler
+                  this.handle(request, response, cursor + 1);
+              };
+
+        // Wrap the middleware/route handler trigger execution in a try/catch to catch and pipe synchronous errors
         try {
-            // Determine if we have a middleware for the current cursor
-            if (middleware) {
-                // Track the middleware cursor to prevent double execution
-                response._track_middleware_cursor(cursor);
-
-                // Initialize the middleware iterator function
-                iterator = (error) => {
-                    // If an error occured, pipe it to the error handler
-                    if (error instanceof Error) return response.throw(error);
-
-                    // Handle this request again with an incremented cursor to execute the next middleware or route handler
-                    this.handle(request, response, cursor + 1);
-                };
-            }
-
             // Retrieve a trigger function for the middleware or route handler
             const trigger = middleware ? middleware.middleware : this.handler;
 
