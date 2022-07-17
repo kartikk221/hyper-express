@@ -37,6 +37,7 @@ Below is a breakdown of the `Server` component which is an extended `Router` ins
 ### Server Instance Properties
 | Property  | Type     | Description                |
 | :-------- | :------- | :------------------------- |
+| `hosts` | `HostManager` | Host Manager local to this instance. |
 | `locals` | `Object` | Can be used to stores references local to this instance. |
 | `uws_instance` | `uWS` | Underlying uWebsockets TemplatedApp instance. |
 | `routes` | `Object` | All routes created on current instance. |
