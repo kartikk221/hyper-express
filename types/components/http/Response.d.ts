@@ -24,6 +24,12 @@ type DefaultResponseLocals = {
 }
 
 export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
+    /**
+     * Alias of aborted property as they both represent the same request state in terms of inaccessibility.
+     * @returns {Boolean}
+     */
+    completed: boolean;
+
     /* HyperExpress Response Methods */
 
     /**
@@ -212,12 +218,6 @@ export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
      * @returns {Boolean}
      */
     get aborted(): boolean;
-
-    /**
-     * Alias of aborted property as they both represent the same request state in terms of inaccessibility.
-     * @returns {Boolean}
-     */
-    get completed(): boolean;
 
     /**
      * Returns the current response body content write offset in bytes.

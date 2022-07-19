@@ -92,7 +92,7 @@ class Response extends stream.Writable {
      */
     _resume_if_paused() {
         // Unpause the request if it is paused
-        if (this.#wrapped_request.paused) this.#wrapped_request.resume();
+        if (this.#wrapped_request.isPaused()) this.#wrapped_request.resume();
     }
 
     /* Response Methods/Operators */
@@ -108,7 +108,7 @@ class Response extends stream.Writable {
         if (typeof handler !== 'function')
             this.throw(new Error('HyperExpress: atomic(handler) -> handler must be a Javascript function'));
 
-        this._resume_if_paused();
+        // Cork the provided handler
         this.#raw_response.cork(handler);
         return this;
     }
@@ -276,7 +276,7 @@ class Response extends stream.Writable {
                     )
                 );
 
-            // Ensure our request is not paused for whatever reason
+            // Ensure our request is not paused to ensure socket is in a flowing state
             this._resume_if_paused();
 
             // Call uWS.Response.upgrade() method with user data, protocol headers and uWS upgrade socket
@@ -617,10 +617,18 @@ class Response extends stream.Writable {
      * Use this to instantly abort a request where a proper response with an HTTP status code is not neccessary.
      */
     close() {
+        // Ensure request has already not been completed
         if (!this.completed) {
+            // Mark request as completed
             this.completed = true;
+
+            // Ensure request is not paused and socket is in a flowing state
             this._resume_if_paused();
+
+            // Stop streaming any remaining body data
             this.#wrapped_request._stop_streaming();
+
+            // Close the underlying uWS request
             this.#raw_response.close();
         }
     }

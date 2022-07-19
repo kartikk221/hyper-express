@@ -13,6 +13,12 @@ type DefaultRequestLocals = {
 }
 
 export class Request<Locals = DefaultRequestLocals> {
+    /**
+     * Returns whether all expected incoming request body chunks have been received.
+     * @returns {Boolean}
+     */
+    received: boolean;
+
     /* HyperExpress Request Methods */
 
     /**

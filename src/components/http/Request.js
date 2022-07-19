@@ -35,11 +35,16 @@ class Request extends stream.Readable {
     #body_limit_bytes;
     #body_expected_bytes;
     #body_received_bytes;
-    #body_flushed = true; // Assume there is no body data to stream
     #body_buffer;
     #body_text;
     #body_json;
     #body_urlencoded;
+
+    /**
+     * Returns whether all expected incoming request body chunks have been received.
+     * @returns {Boolean}
+     */
+    received = true; // Assume there is no body data to stream
 
     /**
      * Returns request headers from incoming request.
@@ -196,13 +201,13 @@ class Request extends stream.Readable {
             // Determine if we have some expected body bytes to stream
             if (this.#body_expected_bytes > 0) {
                 // Initialize the body flushed to false as we are expecting some data
-                this.#body_flushed = false;
+                this.received = false;
 
                 // Determine if the expected body bytes is greater than the specified body limit in bytes
                 if (this.#body_expected_bytes > this.#body_limit_bytes) {
                     // Mark the incoming body data to be flushed
                     this.#stream_flushing = true;
-                    this.emit('limit', this.#body_received_bytes, this.#body_flushed);
+                    this.emit('limit', this.#body_received_bytes, this.received);
                     this._stop_streaming();
                 }
 
@@ -220,12 +225,12 @@ class Request extends stream.Readable {
                         // Determine if this is the last chunk from uWS
                         if (is_last) {
                             // Mark the request body as flushed
-                            reference.#body_flushed = true;
+                            reference.received = true;
 
                             // Emit a final 'limit' event if we have crossed the body limit in bytes or the stream flushing
                             if (reference._stream_limit_exhausted() || reference.#stream_flushing) {
                                 // Emit the 'limit' event with the body flushed flag
-                                this.emit('limit', this.#body_received_bytes, reference.#body_flushed);
+                                this.emit('limit', this.#body_received_bytes, reference.received);
                                 this._stop_streaming();
                             } else {
                                 // Emit a 'received' event that indicates the request body has been fully received
@@ -264,7 +269,7 @@ class Request extends stream.Readable {
                                 // Determine if we have crossed the body limit in bytes
                             } else if (reference._stream_limit_exhausted()) {
                                 // Emit the 'limit' event with the body flushed flag
-                                this.emit('limit', this.#body_received_bytes, reference.#body_flushed);
+                                this.emit('limit', this.#body_received_bytes, reference.received);
                                 this._stop_streaming();
                             }
                         }
@@ -685,14 +690,6 @@ class Request extends stream.Readable {
      */
     get paused() {
         return this.isPaused();
-    }
-
-    /**
-     * Returns whether all expected incoming request body chunks have been received.
-     * @returns {Boolean}
-     */
-    get received() {
-        return this.#body_flushed;
     }
 
     /**
