@@ -30,7 +30,7 @@ class Request extends stream.Readable {
     #remote_ip;
     #remote_proxy_ip;
     #cookies;
-    #path_parameters = {};
+    #path_parameters;
     #query_parameters;
     #body_limit_bytes;
     #body_expected_bytes;
@@ -68,7 +68,6 @@ class Request extends stream.Readable {
         this.#path = this.#raw_request.getUrl();
         this.#query = this.#raw_request.getQuery();
         this.#method = this.#raw_request.getMethod().toUpperCase();
-        this.#url = this.#path + (this.#query ? '?' + this.#query : '');
 
         // Parse headers into a key-value object
         this.#raw_request.forEach((key, value) => (this.headers[key] = value));
@@ -77,6 +76,7 @@ class Request extends stream.Readable {
         const path_parameters_key = route.path_parameters_key;
         if (path_parameters_key.length) {
             // Iterate over each expected path parameter key value pair and parse the value from uWS.HttpRequest.getParameter()
+            this.#path_parameters = {};
             path_parameters_key.forEach(
                 ([key, index]) => (this.#path_parameters[key] = this.#raw_request.getParameter(index))
             );
@@ -708,6 +708,13 @@ class Request extends stream.Readable {
      * @returns {String}
      */
     get url() {
+        // Return from cache if available
+        if (this.#url) return this.#url;
+
+        // Parse the incoming request url
+        this.#url = this.#path + (this.#query ? '?' + this.#query : '');
+
+        // Return the url
         return this.#url;
     }
 

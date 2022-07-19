@@ -18,8 +18,8 @@ class Response extends stream.Writable {
     #initiated = false;
     #type_written = false;
     #custom_content_length;
-    #wrapped_request;
     #middleware_cursor;
+    #wrapped_request;
     #raw_response;
     #master_context;
     #upgrade_socket;
@@ -46,23 +46,26 @@ class Response extends stream.Writable {
         // Initialize the writable stream for this response
         super(route.streaming.writable);
 
-        // Store the provided parameter properties for later use
+        // Store the provided references for later use
+        this.#upgrade_socket = socket;
         this.#master_context = route.app;
         this.#wrapped_request = wrapped_request;
         this.#raw_response = raw_response;
-        this.#upgrade_socket = socket;
 
         // Bind the abort handler as required by uWebsockets.js for each uWS.HttpResponse to allow for async processing
-        const reference = this;
         this.#raw_response.onAborted(() => {
-            reference.completed = true;
-            reference.#wrapped_request._stop_streaming();
-            reference.emit('abort', this.#wrapped_request, this);
-            reference.emit('close', this.#wrapped_request, this);
-        });
+            // Mark this response as completed since the client has disconnected
+            this.completed = true;
 
-        // Bind an 'finish' event handler to send response once a piped stream has completed
-        super.once('finish', () => (this.#streaming ? this.send() : undefined));
+            // Stop streaming any further data from the client that may still be flowing to provide discarded access errors on the Request
+            this.#wrapped_request._stop_streaming();
+
+            // Emit an 'abort' event to signify that the client aborted the request
+            this.emit('abort', this.#wrapped_request, this);
+
+            // Emit an 'close' event to signify that the client has disconnected
+            this.emit('close', this.#wrapped_request, this);
+        });
     }
 
     /**
@@ -181,8 +184,8 @@ class Response extends stream.Writable {
 
         // Determine if the header being written is a "content-length" header and if so, set the length
         if (name.toLowerCase() === 'content-length') {
-            const length = Array.isArray(value) ? value[value.length - 1] : value;
-            this.#custom_content_length = parseInt(length);
+            const length = parseInt(Array.isArray(value) ? value[value.length - 1] : value);
+            this.#custom_content_length = isNaN(length) || length < 0 ? undefined : length;
         }
 
         // Determine if this operation is an overwrite or append
@@ -294,12 +297,13 @@ class Response extends stream.Writable {
     }
 
     /**
-     * @private
      * Initiates response process by writing HTTP status code and then writing the appropriate headers.
+     * @private
+     * @returns {Boolean}
      */
     _initiate_response() {
         // Halt execution if response has already been initiated or completed
-        if (this.#initiated || this.completed) return;
+        if (this.#initiated || this.completed) return false;
 
         // Emit the 'prepare' event to allow for any last minute response modifications
         this.emit('prepare', this.#wrapped_request, this);
@@ -325,6 +329,9 @@ class Response extends stream.Writable {
             Object.keys(this.#cookies).forEach((name) =>
                 this.#raw_response.writeHeader('set-cookie', this.#cookies[name])
             );
+
+        // Signify that the response was successfully initiated
+        return true;
     }
 
     /**
@@ -369,8 +376,14 @@ class Response extends stream.Writable {
     _write(chunk, encoding, callback) {
         // Ensure the client is still connected and request is pending
         if (!this.completed) {
-            // Mark this response as streaming
-            this.#streaming = true;
+            // Determine if streaming flag is not enabled yet
+            if (!this.#streaming) {
+                // Mark this request as streaming
+                this.#streaming = true;
+
+                // Bind an 'finish' event handler to send response once a piped stream has completed
+                super.once('finish', () => this.send());
+            }
 
             // Ensure response has been initiated before writing any chunks
             this._initiate_response();
@@ -443,19 +456,19 @@ class Response extends stream.Writable {
     send(body, close_connection) {
         // Ensure response connection is still active
         if (!this.completed) {
-            // Initiate response to write status code and headers
-            this._initiate_response();
-
-            // Stop downloading further body chunks as we are done with the response
-            this.#wrapped_request._stop_streaming();
+            // Attempt to initiate the response to ensure status code & headers get written first
+            if (this._initiate_response()) {
+                // Stop downloading further body chunks as we are done with the response
+                this.#wrapped_request._stop_streaming();
+            }
 
             // Wait for any expected request body data to be fully received to prevent an ECONNRESET error
             if (!this.#wrapped_request.received)
                 return this.#wrapped_request.once('received', () => this.send(body, close_connection));
 
-            // Attempt to write the body to the client and end the response
-            if (!this.#streaming && !body && !isNaN(this.#custom_content_length)) {
-                // Send the response with the uWS.HttpResponse.endWithoutBody(length, close_connection) method as we have no body data
+            // Determine if we have a custom content length header, no body data and were not streaming the request body
+            if (this.#custom_content_length !== undefined && body === undefined && !this.#streaming) {
+                // Send the response with the uWS.HttpResponse.endWithoutBody() method as we have no body data
                 // NOTE: This method is completely undocumented by uWS but exists in the source code to solve the problem of no body being sent with a custom content-length
                 this.#raw_response.endWithoutBody();
             } else {
@@ -466,14 +479,11 @@ class Response extends stream.Writable {
             // Emit the 'finish' event to signify that the response has been sent without streaming
             if (!this.#streaming) this.emit('finish', this.#wrapped_request, this);
 
-            // Call any bound hooks for type 'complete' if no backpressure was built up
-            if (!this.completed) {
-                // Mark request as completed if we were able to send response properly
-                this.completed = true;
+            // Mark request as completed if we were able to send response properly
+            this.completed = true;
 
-                // Emit the 'close' event to signify that the response has been completed
-                this.emit('close', this.#wrapped_request, this);
-            }
+            // Emit the 'close' event to signify that the response has been completed
+            this.emit('close', this.#wrapped_request, this);
         }
 
         return this;

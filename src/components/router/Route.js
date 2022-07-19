@@ -66,15 +66,15 @@ class Route {
         if (middleware) response._track_middleware_cursor(cursor);
 
         // Initialize an iterator callback if there is a valid middleware
-        const iterator = !middleware
-            ? undefined
-            : (error) => {
+        const iterator = middleware
+            ? (error) => {
                   // If an error occured, pipe it to the error handler
                   if (error instanceof Error) return response.throw(error);
 
                   // Handle this request again with an incremented cursor to execute the next middleware or route handler
                   this.handle(request, response, cursor + 1);
-              };
+              }
+            : null;
 
         // Wrap the middleware/route handler trigger execution in a try/catch to catch and pipe synchronous errors
         try {
