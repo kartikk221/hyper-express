@@ -25,6 +25,12 @@ class Server extends Router {
     };
 
     /**
+     * Server instance options.
+     * @returns {Object}
+     */
+    _options = null;
+
+    /**
      * @param {Object} options Server Options
      * @param {String=} options.cert_file_name Path to SSL certificate file to be used for SSL/TLS.
      * @param {String=} options.key_file_name Path to SSL private key file to be used for SSL/TLS.
@@ -61,6 +67,9 @@ class Server extends Router {
         } else {
             this.#uws_instance = uWebSockets.App(options);
         }
+
+        // Expose the options object for future use
+        this._options = options;
 
         // Initialize the HostManager for this Server instance
         this.#hosts = new HostManager(this);
@@ -416,14 +425,6 @@ class Server extends Router {
      */
     get hosts() {
         return this.#hosts;
-    }
-
-    /**
-     * Server instance options.
-     * @returns {Object}
-     */
-    get _options() {
-        return this.#options;
     }
 
     /**
