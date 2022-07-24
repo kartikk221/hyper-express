@@ -86,8 +86,20 @@ export class Server extends Router {
     /* Server Properties */
 
     /**
+     * Returns the local server listening port of the server instance.
+     * @returns {Number}
+     */
+    get port(): number;
+
+    /**
+     * Returns the server's internal uWS listening socket.
+     * @returns {uWebSockets.us_listen_socket=}
+     */
+    get socket(): uWebsockets.us_listen_socket | null;
+
+    /**
      * Underlying uWS instance.
-     * @returns {uWebSockets.us_listen_socket}
+     * @returns {uWebSockets.TemplatedApp}
      */
     get uws_instance(): uWebsockets.TemplatedApp;
 

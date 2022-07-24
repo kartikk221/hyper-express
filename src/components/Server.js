@@ -10,6 +10,7 @@ const WebsocketRoute = require('./ws/WebsocketRoute.js');
 const { wrap_object } = require('../shared/operators.js');
 
 class Server extends Router {
+    #port;
     #hosts;
     #uws_instance;
     #listen_socket;
@@ -116,16 +117,19 @@ class Server extends Router {
     /**
      * Stops/Closes HyperExpress webserver instance.
      *
-     * @param {uWebSockets.us_listen_socket=} [listen_socket] Optional
+     * @param {uWebSockets.us_listen_socket=} listen_socket Optional
      * @returns {Boolean}
      */
     close(listen_socket) {
         // Fall back to self listen socket if none provided by user
         const socket = listen_socket || this.#listen_socket;
         if (socket) {
-            // Close the listen socket from uWebsockets and nullify the reference
+            // Close the determined socket
             uWebSockets.us_listen_socket_close(socket);
-            this.#listen_socket = null;
+
+            // Nullify the local socket reference if it was used
+            if (!listen_socket) this.#listen_socket = null;
+
             return true;
         }
         return false;
@@ -410,8 +414,38 @@ class Server extends Router {
     /* Safe Server Getters */
 
     /**
+     * Returns the local server listening port of the server instance.
+     * @returns {Number}
+     */
+    get port() {
+        // Initialize port if it does not exist yet
+        // Ensure there is a listening socket before returning port
+        if (this.#port === undefined) {
+            // Throw error if listening socket does not exist
+            if (!this.#socket)
+                throw new Error(
+                    'HyperExpress: Server.port is not available as the server is not listening. Please ensure you called already Server.listen() OR have not yet called Server.close() when accessing this property.'
+                );
+
+            // Cache the resolved port
+            this.#port = uWebSockets.us_socket_local_port(this.#socket);
+        }
+
+        // Return port
+        return this.#port;
+    }
+
+    /**
+     * Returns the server's internal uWS listening socket.
+     * @returns {uWebSockets.us_listen_socket=}
+     */
+    get socket() {
+        return this.#listen_socket;
+    }
+
+    /**
      * Underlying uWS instance.
-     * @returns {uWebSockets.us_listen_socket}
+     * @returns {uWebSockets.TemplatedApp}
      */
     get uws_instance() {
         return this.#uws_instance;
