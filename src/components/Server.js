@@ -1,4 +1,3 @@
-const Stream = require('stream'); // lgtm [js/unused-local-variable]
 const uWebSockets = require('uWebSockets.js');
 
 const Route = require('./router/Route.js');
@@ -37,8 +36,8 @@ class Server extends Router {
      * @param {Number=} options.max_body_length Maximum body content length allowed in bytes. For Reference: 1kb = 1000 bytes and 1mb = 1000kb.
      * @param {Boolean=} options.auto_close Whether to automatically close the server instance when the process exits. Default: true
      * @param {Object} options.streaming Global content streaming options.
-     * @param {Stream.ReadableOptions=} options.streaming.readable Global content streaming options for Readable streams.
-     * @param {Stream.WritableOptions=} options.streaming.writable Global content streaming options for Writable streams.
+     * @param {import('stream').ReadableOptions=} options.streaming.readable Global content streaming options for Readable streams.
+     * @param {import('stream').WritableOptions=} options.streaming.writable Global content streaming options for Writable streams.
      */
     constructor(options = {}) {
         // Only accept object as a parameter type for options
