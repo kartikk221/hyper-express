@@ -1,4 +1,3 @@
-const uWebsockets = require('uWebSockets.js'); // lgtm [js/unused-local-variable]
 const cookie = require('cookie');
 const signature = require('cookie-signature');
 const status_codes = require('../../constants/status_codes.json');
@@ -39,8 +38,8 @@ class Response extends stream.Writable {
      *
      * @param {Route} route
      * @param {Request} wrapped_request
-     * @param {uWebsockets.HttpResponse} raw_response
-     * @param {uWebsockets.us_socket_context_t=} socket
+     * @param {import('uWebSockets.js').HttpResponse} raw_response
+     * @param {import('uWebSockets.js').us_socket_context_t=} socket
      */
     constructor(route, wrapped_request, raw_response, socket = null) {
         // Initialize the writable stream for this response
@@ -788,7 +787,7 @@ class Response extends stream.Writable {
     /**
      * Returns the underlying raw uWS.Response object.
      * Note! Utilizing any of uWS.Response's methods after response has been sent will result in an invalid discarded access error.
-     * @returns {uWebsockets.Response}
+     * @returns {import('uWebSockets.js').Response}
      */
     get raw() {
         return this.#raw_response;
@@ -822,7 +821,7 @@ class Response extends stream.Writable {
 
     /**
      * Upgrade socket context for upgrade requests.
-     * @returns {uWebsockets.ux_socket_context}
+     * @returns {import('uWebSockets.js').ux_socket_context}
      */
     get upgrade_socket() {
         return this.#upgrade_socket;

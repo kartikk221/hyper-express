@@ -1,11 +1,8 @@
-const uWebsockets = require('uWebSockets.js'); // lgtm [js/unused-local-variable]
-const Server = require('../Server.js'); // lgtm [js/unused-local-variable]
 const cookie = require('cookie');
 const signature = require('cookie-signature');
 const querystring = require('qs');
 const stream = require('stream');
 const busboy = require('busboy');
-const Route = require('../router/Route.js'); // lgtm [js/unused-local-variable]
 const MultipartField = require('../plugins/MultipartField.js');
 const { array_buffer_to_string } = require('../../shared/operators.js');
 
@@ -55,9 +52,9 @@ class Request extends stream.Readable {
     /**
      * Creates a new HyperExpress request instance that wraps a uWS.HttpRequest instance.
      *
-     * @param {Route} route
-     * @param {uWebsockets.HttpRequest} raw_request
-     * @param {uWebsockets.HttpResponse} raw_response
+     * @param {import('../router/Route.js')} route
+     * @param {import('uWebSockets.js').HttpRequest} raw_request
+     * @param {import('uWebSockets.js').HttpResponse} raw_response
      */
     constructor(route, raw_request, raw_response) {
         // Initialize the request readable stream for body consumption
@@ -660,7 +657,7 @@ class Request extends stream.Readable {
     /**
      * Returns underlying uWS.Request reference.
      * Note! Utilizing any of uWS.Request's methods after initial synchronous call will throw a forbidden access error.
-     * @returns {uWebsockets.HttpRequest}
+     * @returns {import('uWebSockets.js').HttpRequest}
      */
     get raw() {
         return this.#raw_request;
@@ -678,7 +675,7 @@ class Request extends stream.Readable {
 
     /**
      * Returns the HyperExpress.Server instance this Request object originated from.
-     * @returns {Server}
+     * @returns {import('../Server.js')}
      */
     get app() {
         return this.#master_context;

@@ -1,7 +1,3 @@
-const Request = require('../http/Request.js'); // lgtm [js/unused-local-variable]
-const Response = require('../http/Response.js'); // lgtm [js/unused-local-variable]
-const Websocket = require('../ws/Websocket.js'); // lgtm [js/unused-local-variable]
-const Stream = require('stream'); // lgtm [js/unused-local-variable]
 const { merge_relative_paths } = require('../../shared/operators.js');
 
 class Router {
@@ -182,7 +178,7 @@ class Router {
 
     /**
      * @typedef MiddlewareHandler
-     * @type {function(Request, Response, Function):void}
+     * @type {function(import('../http/Request.js'), import('../http/Response.js'), Function):void}
      */
 
     /**
@@ -225,13 +221,8 @@ class Router {
      * @property {Number} max_body_length Overrides the global maximum body length specified in Server constructor options.
      * @property {Array.<MiddlewareHandler>|Array.<PromiseMiddlewareHandler>} middlewares Route specific middlewares
      * @property {Object} streaming Global content streaming options.
-     * @property {Stream.ReadableOptions} streaming.readable Global content streaming options for Readable streams.
-     * @property {Stream.WritableOptions} streaming.writable Global content streaming options for Writable streams.
-     */
-
-    /**
-     * @typedef RouteHandler
-     * @type {function(Request, Response):void}
+     * @property {import('stream').ReadableOptions} streaming.readable Global content streaming options for Readable streams.
+     * @property {import('stream').WritableOptions} streaming.writable Global content streaming options for Writable streams.
      */
 
     /**
@@ -370,7 +361,7 @@ class Router {
 
     /**
      * @typedef WSRouteHandler
-     * @type {function(Websocket):void}
+     * @type {function(import('../ws/Websocket.js')):void}
      */
 
     /**

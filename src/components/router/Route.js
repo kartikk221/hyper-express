@@ -1,6 +1,3 @@
-const Request = require('../http/Request.js'); // lgtm [js/unused-local-variable]
-const Response = require('../http/Response.js'); // lgtm [js/unused-local-variable]
-const Server = require('../Server.js'); // lgtm [js/unused-local-variable]
 const { parse_path_parameters } = require('../../shared/operators.js');
 
 class Route {
@@ -16,7 +13,7 @@ class Route {
     /**
      * Constructs a new Route object.
      * @param {Object} options
-     * @param {Server} options.app - The server instance.
+     * @param {import('../Server.js')} options.app - The server instance.
      * @param {String} options.method - The HTTP method.
      * @param {String} options.pattern - The route pattern.
      * @param {Function} options.handler - The route handler.
@@ -52,8 +49,8 @@ class Route {
     /**
      * Handles an incoming request through this route.
      *
-     * @param {Request} request The HyperExpress request object.
-     * @param {Response} response The HyperExpress response object.
+     * @param {import('../http/Request.js')} request The HyperExpress request object.
+     * @param {import('../http/Response.js')} response The HyperExpress response object.
      * @param {Number=} cursor The middleware cursor.
      */
     handle(request, response, cursor = 0) {
