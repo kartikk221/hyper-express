@@ -37,6 +37,8 @@ Below is a breakdown of the `Server` component which is an extended `Router` ins
 ### Server Instance Properties
 | Property  | Type     | Description                |
 | :-------- | :------- | :------------------------- |
+| `port` | `Number` | Local listening port of this instance. |
+| `socket` | `uWS.us_listen_socket` | Listening uWS socket of this instance. |
 | `hosts` | `HostManager` | Host Manager local to this instance. |
 | `locals` | `Object` | Can be used to stores references local to this instance. |
 | `uws_instance` | `uWS.TemplatedApp` | Underlying uWebsockets TemplatedApp instance. |

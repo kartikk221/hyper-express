@@ -422,13 +422,13 @@ class Server extends Router {
         // Ensure there is a listening socket before returning port
         if (this.#port === undefined) {
             // Throw error if listening socket does not exist
-            if (!this.#socket)
+            if (!this.#listen_socket)
                 throw new Error(
                     'HyperExpress: Server.port is not available as the server is not listening. Please ensure you called already Server.listen() OR have not yet called Server.close() when accessing this property.'
                 );
 
             // Cache the resolved port
-            this.#port = uWebSockets.us_socket_local_port(this.#socket);
+            this.#port = uWebSockets.us_socket_local_port(this.#listen_socket);
         }
 
         // Return port
