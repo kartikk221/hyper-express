@@ -1,4 +1,4 @@
-const { log } = require('./scripts/operators.js');
+const { log, assert_log } = require('./scripts/operators.js');
 const { test_hostmanager_object } = require('./components/features/HostManager.js');
 const { test_request_object } = require('./components/http/Request.js');
 const { test_response_object } = require('./components/http/Response.js');
@@ -15,6 +15,13 @@ const { TEST_SERVER } = require('./components/Server.js');
         const start_time = Date.now();
         await TEST_SERVER.listen(server.port, server.host);
         log('TESTING', `Successfully Started HyperExpress HTTP Server @ ${server.host}:${server.port}`);
+
+        // Assert that the server port matches the configuration port
+        assert_log(
+            'Server',
+            'Server.port - Server Listening Port Accuracy Test',
+            () => +server.port === TEST_SERVER.port
+        );
 
         // Test Server.HostManager Object
         test_hostmanager_object();
