@@ -13,8 +13,8 @@ const type_is = require('type-is');
 const is_ip = require('net').isIP;
 
 class Request extends stream.Readable {
+    #route;
     #locals;
-    #master_context;
     #stream_ended = false;
     #stream_flushing = false;
     #stream_raw_chunks = false;
@@ -61,9 +61,9 @@ class Request extends stream.Readable {
         super(route.streaming.readable);
 
         // Store references to uWS objects and the master context
+        this.#route = route;
         this.#raw_request = raw_request;
         this.#raw_response = raw_response;
-        this.#master_context = route.app;
 
         // Perform request pre-parsing for common access data
         // This is required as uWS.Request is forbidden for access after initial execution
@@ -154,6 +154,26 @@ class Request extends stream.Readable {
     }
 
     /**
+     * Handles ending of the Response if limit is reached.
+     *
+     * @private
+     * @param {import('./Response.js')} response
+     * @param {Boolean} flushed
+     */
+    _on_limit_response(response, flushed) {
+        // Determine if the response has not been initiated yet
+        if (!response.initiated) {
+            // Abort the request instantly as user has specified usage of fast abort
+            if (this.#route.app._options.fast_abort) {
+                response.close();
+            } else if (flushed) {
+                // Send a 413 response if the incoming data has been flushed
+                response.status(413).send();
+            }
+        }
+    }
+
+    /**
      * Returns whether body streaming is forbidden for this request.
      *
      * @private
@@ -180,10 +200,11 @@ class Request extends stream.Readable {
      * NOTE: This method can be called multiple times to update the bytes limit during the streaming process.
      *
      * @private
+     * @param {import('./Response.js')} response
      * @param {Number} bytes
      * @returns {Boolean} Returns whether this request will be providing viable body data.
      */
-    _stream_with_limit(bytes) {
+    _stream_with_limit(response, bytes) {
         // Set the body limit in bytes
         this.#body_limit_bytes = bytes;
 
@@ -205,6 +226,7 @@ class Request extends stream.Readable {
                     // Mark the incoming body data to be flushed
                     this.#stream_flushing = true;
                     this.emit('limit', this.#body_received_bytes, this.received);
+                    this._on_limit_response(response, this.received);
                     this._stop_streaming();
                 }
 
@@ -228,6 +250,7 @@ class Request extends stream.Readable {
                             if (reference._stream_limit_exhausted() || reference.#stream_flushing) {
                                 // Emit the 'limit' event with the body flushed flag
                                 this.emit('limit', this.#body_received_bytes, reference.received);
+                                this._on_limit_response(response, this.received);
                                 this._stop_streaming();
                             } else {
                                 // Emit a 'received' event that indicates the request body has been fully received
@@ -267,14 +290,12 @@ class Request extends stream.Readable {
                             } else if (reference._stream_limit_exhausted()) {
                                 // Emit the 'limit' event with the body flushed flag
                                 this.emit('limit', this.#body_received_bytes, reference.received);
+                                this._on_limit_response(response, this.received);
                                 this._stop_streaming();
                             }
                         }
                     });
                 }
-            } else {
-                // Push an EOF chunk to signify the readable has already ended thus no more content is readable
-                this.push(null);
             }
         }
 
@@ -337,7 +358,7 @@ class Request extends stream.Readable {
         const reference = this;
         this.#buffer_promise = new Promise((resolve) => {
             // Allocate an empty body buffer to store all incoming chunks depending on buffering scheme
-            const use_fast_buffers = reference.#master_context._options.fast_buffers;
+            const use_fast_buffers = reference.#route.app._options.fast_buffers;
             const body = {
                 cursor: 0,
                 buffer: Buffer[use_fast_buffers ? 'allocUnsafe' : 'alloc'](content_length),
@@ -678,7 +699,7 @@ class Request extends stream.Readable {
      * @returns {import('../Server.js')}
      */
     get app() {
-        return this.#master_context;
+        return this.#route.app;
     }
 
     /**
@@ -772,7 +793,7 @@ class Request extends stream.Readable {
         if (this.#remote_ip) return this.#remote_ip;
 
         // Determine if we can trust intermediary proxy servers and have a x-forwarded-for header
-        const trust_proxy = this.#master_context._options.trust_proxy;
+        const trust_proxy = this.#route.app._options.trust_proxy;
         const x_forwarded_for = this.get('X-Forwarded-For');
         if (trust_proxy && x_forwarded_for) {
             // The first IP in the x-forwarded-for header is the client IP if we trust proxies
@@ -968,7 +989,7 @@ class Request extends stream.Readable {
      */
     get protocol() {
         // Resolves x-forwarded-proto header if trust proxy is enabled
-        const trust_proxy = this.#master_context._options.trust_proxy;
+        const trust_proxy = this.#route.app._options.trust_proxy;
         const x_forwarded_proto = this.get('X-Forwarded-Proto');
         if (trust_proxy && x_forwarded_proto) {
             // Return the first protocol in the x-forwarded-proto header
@@ -976,7 +997,7 @@ class Request extends stream.Readable {
             return x_forwarded_proto.split(',')[0];
         } else {
             // Use HyperExpress/uWS initially defined protocol as fallback
-            return this.#master_context.is_ssl ? 'https' : 'http';
+            return this.#route.app.is_ssl ? 'https' : 'http';
         }
     }
 
@@ -998,7 +1019,7 @@ class Request extends stream.Readable {
         const proxy_ip = this.proxy_ip;
 
         // Determine if we can trust intermediary proxy servers and have a x-forwarded-for header
-        const trust_proxy = this.#master_context._options.trust_proxy;
+        const trust_proxy = this.#route.app._options.trust_proxy;
         const x_forwarded_for = this.get('X-Forwarded-For');
         if (trust_proxy && x_forwarded_for) {
             // Will split and return all possible IP addresses in the x-forwarded-for header (e.g. "client, proxy1, proxy2")
@@ -1016,7 +1037,7 @@ class Request extends stream.Readable {
     get hostname() {
         // Retrieve the host header and determine if we can trust intermediary proxy servers
         let host = this.get('X-Forwarded-Host');
-        const trust_proxy = this.#master_context._options.trust_proxy;
+        const trust_proxy = this.#route.app._options.trust_proxy;
         if (!host || !trust_proxy) {
             // Use the 'Host' header as fallback
             host = this.get('Host');

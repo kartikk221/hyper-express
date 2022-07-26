@@ -389,23 +389,9 @@ class Server extends Router {
         // Wrap uWS.Response -> HyperExpress.Response
         const response = new Response(route, request, uws_response, socket);
 
-        // Bind a 'limit' event handler which will send the appropriate response if the request body size exceeds the limit
-        request.on('limit', (received_bytes, flushed) => {
-            // Determine if the response has not been initiated yet
-            if (!response.initiated) {
-                // Abort the request instantly as user has specified usage of fast abort
-                if (route.app._options.fast_abort) {
-                    response.close();
-                } else if (flushed) {
-                    // Send a 413 response if the incoming data has been flushed
-                    response.status(413).send();
-                }
-            }
-        });
-
         // Stream any incoming request body data with configured limit
         // Use the route-specific max body length if it is set else use the global max body length
-        if (request._stream_with_limit(route.max_body_length)) {
+        if (request._stream_with_limit(response, route.max_body_length)) {
             // Handle the request with its associated route
             route.handle(request, response);
         }

@@ -119,15 +119,6 @@ class Response extends stream.Writable {
      * @returns {Response} Response (Chainable)
      */
     status(code) {
-        // Throw expection if a status change is attempted after response has been initiated
-        if (this.initiated) {
-            this.throw(
-                new Error(
-                    'HyperExpress: Response.status(code) -> HTTP Status Code cannot be changed once a response has been initiated.'
-                )
-            );
-        }
-
         // Set the numeric status code. Status text is appended before writing status to uws
         this.#status_code = code;
         return this;
@@ -161,14 +152,6 @@ class Response extends stream.Writable {
      * @returns {Response} Response (Chainable)
      */
     header(name, value, overwrite = true) {
-        // Throw expection if a header write is attempted after response has been initiated
-        if (this.initiated)
-            this.throw(
-                new Error(
-                    'HyperExpress: Response.header(name, value) -> Headers cannot be written after a response has already been initiated.'
-                )
-            );
-
         // Initialize headers container object if it does not exist
         if (this.#headers == undefined) this.#headers = {};
 
