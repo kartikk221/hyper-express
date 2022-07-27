@@ -75,11 +75,10 @@ class Request extends stream.Readable {
         this.#raw_request.forEach((key, value) => (this.headers[key] = value));
 
         // Parse path parameters from request path if we have a path parameters parsing key
-        const path_parameters_key = route.path_parameters_key;
-        if (path_parameters_key.length) {
+        if (route.path_parameters_key.length) {
             // Iterate over each expected path parameter key value pair and parse the value from uWS.HttpRequest.getParameter()
             this.#path_parameters = {};
-            path_parameters_key.forEach(
+            route.path_parameters_key.forEach(
                 ([key, index]) => (this.#path_parameters[key] = this.#raw_request.getParameter(index))
             );
         }

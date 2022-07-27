@@ -1,6 +1,6 @@
 const cookie = require('cookie');
 const signature = require('cookie-signature');
-const status_codes = require('../../constants/status_codes.json');
+const status_codes = require('http').STATUS_CODES;
 const mime_types = require('mime-types');
 const stream = require('stream');
 
@@ -22,7 +22,7 @@ class Response extends stream.Writable {
     #raw_response;
     #master_context;
     #upgrade_socket;
-    #status_code = 200;
+    #status_code;
     #headers;
     #cookies;
     #sse;
@@ -285,7 +285,7 @@ class Response extends stream.Writable {
      */
     _initiate_response() {
         // Halt execution if response has already been initiated or completed
-        if (this.#initiated || this.completed) return false;
+        if (this.#initiated) return false;
 
         // Emit the 'prepare' event to allow for any last minute response modifications
         this.emit('prepare', this.#wrapped_request, this);
@@ -467,7 +467,6 @@ class Response extends stream.Writable {
             // Emit the 'close' event to signify that the response has been completed
             this.emit('close', this.#wrapped_request, this);
         }
-
         return this;
     }
 
