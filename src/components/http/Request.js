@@ -1,8 +1,9 @@
 const cookie = require('cookie');
-const signature = require('cookie-signature');
-const querystring = require('qs');
 const stream = require('stream');
 const busboy = require('busboy');
+const querystring = require('qs');
+const signature = require('cookie-signature');
+
 const MultipartField = require('../plugins/MultipartField.js');
 const { array_buffer_to_string } = require('../../shared/operators.js');
 
@@ -204,11 +205,11 @@ class Request extends stream.Readable {
      * @returns {Boolean} Returns whether this request will be providing viable body data.
      */
     _stream_with_limit(response, bytes) {
-        // Set the body limit in bytes
-        this.#body_limit_bytes = bytes;
-
         // Ensure body streaming is not forbidden for this request
         if (!this._stream_forbidden()) {
+            // Set the body limit in bytes
+            this.#body_limit_bytes = bytes;
+
             // Initialize the expected body size if it hasn't been yet
             if (this.#body_expected_bytes == undefined) {
                 const content_length = +this.headers['content-length'];

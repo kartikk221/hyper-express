@@ -5,9 +5,6 @@ const mime_types = require('mime-types');
 const stream = require('stream');
 
 const FilePool = {};
-const Request = require('./Request.js'); // lgtm [js/unused-local-variable]
-const Server = require('../Server.js'); // lgtm [js/unused-local-variable]
-const Route = require('../router/Route'); // lgtm [js/unused-local-variable]
 const LiveFile = require('../plugins/LiveFile.js');
 const SSEventStream = require('../plugins/SSEventStream.js');
 
@@ -36,8 +33,8 @@ class Response extends stream.Writable {
     /**
      * Creates a new HyperExpress response instance that wraps a uWS.HttpResponse instance.
      *
-     * @param {Route} route
-     * @param {Request} wrapped_request
+     * @param {import('../router/Route.js')} route
+     * @param {import('./Request.js')} wrapped_request
      * @param {import('uWebSockets.js').HttpResponse} raw_response
      * @param {import('uWebSockets.js').us_socket_context_t=} socket
      */
@@ -778,7 +775,7 @@ class Response extends stream.Writable {
     /**
      * Returns the HyperExpress.Server instance this Response object originated from.
      *
-     * @returns {Server}
+     * @returns {import('../Server.js')}
      */
     get app() {
         return this.#master_context;
