@@ -71,7 +71,7 @@ class Route {
                   // Handle this request again with an incremented cursor to execute the next middleware or route handler
                   this.handle(request, response, cursor + 1);
               }
-            : null;
+            : undefined;
 
         // Wrap the middleware/route handler trigger execution in a try/catch to catch and pipe synchronous errors
         try {
@@ -79,7 +79,7 @@ class Route {
             const trigger = middleware ? middleware.middleware : this.handler;
 
             // Retrieve an output from the trigger function with a next callback to chain handlers
-            const output = trigger(request, response, middleware ? iterator : undefined);
+            const output = trigger(request, response, iterator);
 
             // Determine if the trigger function was async / returned a Promise
             if (output instanceof Promise) {
