@@ -1,3 +1,4 @@
+'use strict';
 const stream = require('stream');
 const FileSystem = require('fs');
 

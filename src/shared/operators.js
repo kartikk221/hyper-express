@@ -1,3 +1,4 @@
+'use strict';
 /**
  * Writes values from focus object onto base object.
  *

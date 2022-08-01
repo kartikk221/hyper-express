@@ -1,3 +1,4 @@
+'use strict';
 const uWebSockets = require('uWebSockets.js');
 
 const Route = require('./router/Route.js');
@@ -393,7 +394,7 @@ class Server extends Router {
         // Use the route-specific max body length if it is set else use the global max body length
         if (request._stream_with_limit(response, route.max_body_length)) {
             // Handle the request with its associated route
-            route.handle(request, response);
+            route.handle(request, response, 0);
         }
     }
 

@@ -1,3 +1,4 @@
+'use strict';
 const cookie = require('cookie');
 const stream = require('stream');
 const busboy = require('busboy');
@@ -70,7 +71,7 @@ class Request extends stream.Readable {
         // This is required as uWS.Request is forbidden for access after initial execution
         this.#path = this.#raw_request.getUrl();
         this.#query = this.#raw_request.getQuery();
-        this.#method = this.#raw_request.getMethod().toUpperCase();
+        this.#method = this.#raw_request.getMethod();
 
         // Parse headers into a key-value object
         this.#raw_request.forEach((key, value) => (this.headers[key] = value));
@@ -206,12 +207,12 @@ class Request extends stream.Readable {
      */
     _stream_with_limit(response, bytes) {
         // Ensure body streaming is not forbidden for this request
-        if (!this._stream_forbidden()) {
+        if (this._stream_forbidden() === false) {
             // Set the body limit in bytes
             this.#body_limit_bytes = bytes;
 
             // Initialize the expected body size if it hasn't been yet
-            if (this.#body_expected_bytes == undefined) {
+            if (this.#body_expected_bytes === undefined) {
                 const content_length = +this.headers['content-length'];
                 this.#body_expected_bytes = isNaN(content_length) || content_length < 1 ? 0 : content_length;
             }
@@ -715,7 +716,7 @@ class Request extends stream.Readable {
      * @returns {String}
      */
     get method() {
-        return this.#method;
+        return this.#method.toUpperCase();
     }
 
     /**

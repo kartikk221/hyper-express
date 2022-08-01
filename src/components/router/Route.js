@@ -1,3 +1,4 @@
+'use strict';
 const { parse_path_parameters } = require('../../shared/operators.js');
 
 class Route {
@@ -53,36 +54,46 @@ class Route {
      * @param {import('../http/Response.js')} response The HyperExpress response object.
      * @param {Number=} cursor The middleware cursor.
      */
-    handle(request, response, cursor = 0) {
+    handle(request, response, cursor) {
         // Do not handle the request if the response has been aborted
         // Do not handle the request if the cursor is greater than the middleware count aka. past the route handler
-        if (response.completed || cursor > this.options.middlewares.length) return;
+        if (response.completed === true || cursor > this.options.middlewares.length) return;
 
         // Retrieve the middleware for the current cursor, track the cursor if there is a valid middleware
         const middleware = this.options.middlewares[cursor];
-        if (middleware) response._track_middleware_cursor(cursor);
 
-        // Initialize an iterator callback if there is a valid middleware
-        const iterator = middleware
-            ? (error) => {
-                  // If an error occured, pipe it to the error handler
-                  if (error instanceof Error) return response.throw(error);
+        // If there is no middleware, then iterator is undefined by default as we cannot iterate from a route
 
-                  // Handle this request again with an incremented cursor to execute the next middleware or route handler
-                  this.handle(request, response, cursor + 1);
-              }
-            : undefined;
+        // Ensure a middleware exists for this cursor index
+        let iterator;
+        if (middleware !== undefined) {
+            // Track the middleware cursor to prevent double execution
+            response._track_middleware_cursor(cursor);
+
+            // Initialize the iterator for this middleware
+            iterator = (error) => {
+                // If an error occured, pipe it to the error handler
+                if (error instanceof Error) return response.throw(error);
+
+                // Handle this request again with an incremented cursor to execute the next middleware or route handler
+                this.handle(request, response, cursor + 1);
+            };
+        }
 
         // Wrap the middleware/route handler trigger execution in a try/catch to catch and pipe synchronous errors
         try {
-            // Retrieve a trigger function for the middleware or route handler
-            const trigger = middleware ? middleware.middleware : this.handler;
+            // Retrieve an output value from the route handler or the middleware function
+            let output;
+            if (middleware !== undefined) {
+                // Execute the middleware function with the iterator
+                output = middleware.middleware(request, response, iterator);
+            } else {
+                // Excute the route handler without the iterator
+                output = this.handler(request, response);
+            }
 
-            // Retrieve an output from the trigger function with a next callback to chain handlers
-            const output = trigger(request, response, iterator);
-
-            // Determine if the trigger function was async / returned a Promise
-            if (output instanceof Promise) {
+            // Determine if the a Promise was returned which must be safely handled and iterated from
+            if (typeof output?.then === 'function') {
                 // Bind a then callback if this was a middleware trigger
                 if (middleware) output.then(iterator);
 

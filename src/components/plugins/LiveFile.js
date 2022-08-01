@@ -1,3 +1,4 @@
+'use strict';
 const FileSystem = require('fs');
 const EventEmitter = require('events');
 const { wrap_object, async_wait } = require('../../shared/operators.js');

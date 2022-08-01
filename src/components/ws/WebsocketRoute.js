@@ -1,3 +1,4 @@
+'use strict';
 const uWebsockets = require('uWebSockets.js');
 
 const Route = require('../router/Route.js');

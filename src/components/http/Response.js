@@ -1,3 +1,4 @@
+'use strict';
 const cookie = require('cookie');
 const signature = require('cookie-signature');
 const status_codes = require('http').STATUS_CODES;

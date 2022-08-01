@@ -1,3 +1,4 @@
+'use strict';
 const { merge_relative_paths } = require('../../shared/operators.js');
 
 class Router {

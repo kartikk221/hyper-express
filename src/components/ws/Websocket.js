@@ -1,3 +1,4 @@
+'use strict';
 const EventEmitter = require('events');
 const { Readable, Writable } = require('stream');
 const { array_buffer_to_string } = require('../../shared/operators.js');
