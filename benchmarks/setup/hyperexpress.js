@@ -11,10 +11,11 @@ app.get('/', (request, response) => {
 
     // Write the status and headers
     response.status(status);
+
     Object.keys(headers).forEach((header) => response.header(header, headers[header]));
 
     // Write the body and end the response
-    return response.send(body);
+    response.send(body);
 });
 
 export default app;

@@ -4,26 +4,33 @@ const signature = require('cookie-signature');
 const status_codes = require('http').STATUS_CODES;
 const mime_types = require('mime-types');
 const stream = require('stream');
+const emitter = require('events');
+
+const { inherit_prototype } = require('../../shared/operators.js');
 
 const FilePool = {};
 const LiveFile = require('../plugins/LiveFile.js');
 const SSEventStream = require('../plugins/SSEventStream.js');
 
-class Response extends stream.Writable {
+class Response {
     #locals;
+    #headers = {};
     #streaming = false;
     #initiated = false;
-    #type_written = false;
-    #custom_content_length;
     #middleware_cursor;
     #wrapped_request;
     #raw_response;
-    #master_context;
     #upgrade_socket;
     #status_code;
-    #headers;
     #cookies;
     #sse;
+    route = null;
+
+    /**
+     * Underlying lazy initialized writable body stream.
+     * @private
+     */
+    _writable = null;
 
     /**
      * Alias of aborted property as they both represent the same request state in terms of inaccessibility.
@@ -40,30 +47,32 @@ class Response extends stream.Writable {
      * @param {import('uWebSockets.js').us_socket_context_t=} socket
      */
     constructor(route, wrapped_request, raw_response, socket = null) {
-        // Initialize the writable stream for this response
-        super(route.streaming.writable);
-
         // Store the provided references for later use
+        this.route = route;
         this.#upgrade_socket = socket;
-        this.#master_context = route.app;
         this.#wrapped_request = wrapped_request;
         this.#raw_response = raw_response;
 
         // Bind the abort handler as required by uWebsockets.js for each uWS.HttpResponse to allow for async processing
-        this.#raw_response.onAborted(() => {
+        raw_response.onAborted(() => {
             // Mark this response as completed since the client has disconnected
             this.completed = true;
 
             // Stop streaming any further data from the client that may still be flowing to provide discarded access errors on the Request
             this.#wrapped_request._stop_streaming();
 
-            // Emit an 'abort' event to signify that the client aborted the request
-            this.emit('abort', this.#wrapped_request, this);
+            // Ensure we have a writable/emitter instance to emit over
+            if (this._writable) {
+                // Emit an 'abort' event to signify that the client aborted the request
+                this.emit('abort', this.#wrapped_request, this);
 
-            // Emit an 'close' event to signify that the client has disconnected
-            this.emit('close', this.#wrapped_request, this);
+                // Emit an 'close' event to signify that the client has disconnected
+                this.emit('close', this.#wrapped_request, this);
+            }
         });
     }
+
+    /* HyperExpress Methods */
 
     /**
      * Tracks middleware cursor position over a request's lifetime.
@@ -89,7 +98,8 @@ class Response extends stream.Writable {
      */
     _resume_if_paused() {
         // Unpause the request if it is paused
-        if (this.#wrapped_request.isPaused()) this.#wrapped_request.resume();
+        // Only do this if we have a readable stream which can be paused
+        if (this.#wrapped_request._readable && this.#wrapped_request.isPaused()) this.#wrapped_request.resume();
     }
 
     /* Response Methods/Operators */
@@ -133,11 +143,7 @@ class Response extends stream.Writable {
         if (mime_type.startsWith('.')) mime_type = mime_type.substring(1);
 
         // Determine proper mime type and send response
-        let mime_header = mime_types.lookup(mime_type) || 'text/plain';
-        if (!this.completed) {
-            this.#type_written = true;
-            this.header('content-type', mime_header);
-        }
+        this.header('content-type', mime_types.lookup(mime_type) || 'text/plain');
         return this;
     }
 
@@ -150,33 +156,21 @@ class Response extends stream.Writable {
      * @returns {Response} Response (Chainable)
      */
     header(name, value, overwrite = true) {
-        // Initialize headers container object if it does not exist
-        if (this.#headers == undefined) this.#headers = {};
-
-        // Initialize header values as an array to allow for multiple values
-        if (this.#headers[name] == undefined) this.#headers[name] = [];
-
-        // Ensure that the value is always a string type
-        if (typeof value !== 'string' && !Array.isArray(value))
-            return this.throw(
-                new Error('HyperExpress: header(name, value) -> value must be a string or array of strings.')
-            );
-
-        // Determine if the header being written is a "content-length" header and if so, set the length
-        if (name.toLowerCase() === 'content-length') {
-            const length = parseInt(Array.isArray(value) ? value[value.length - 1] : value);
-            this.#custom_content_length = isNaN(length) || length < 0 ? undefined : length;
-        }
+        // Enforce header names to be lowercase
+        name = name.toLowerCase();
 
         // Determine if this operation is an overwrite or append
         if (overwrite) {
             // Overwrite the header value in Array format
             this.#headers[name] = Array.isArray(value) ? value : [value];
+        } else if (Array.isArray(value)) {
+            // Append the values to the existing array
+            this.#headers[name] = (this.#headers[name] || []).concat(value);
         } else {
-            // Determine if we are appending multiple values
-            if (Array.isArray(value)) {
-                // Append the values to the existing array
-                this.#headers[name] = this.#headers[name].concat(value);
+            // Initialize header values as an array to allow for multiple values if it does not exist
+            if (this.#headers[name] == undefined) {
+                // Initialize header value as an array
+                this.#headers[name] = [value];
             } else {
                 // Append the value to the header values
                 this.#headers[name].push(value);
@@ -247,33 +241,34 @@ class Response extends stream.Writable {
      * @param {Object=} context Store information about the websocket connection
      */
     upgrade(context) {
-        if (!this.completed) {
-            // Ensure a upgrade_socket exists before upgrading ensuring only upgrade handler requests are handled
-            if (this.#upgrade_socket == null)
-                this.throw(
-                    new Error(
-                        'HyperExpress: You cannot upgrade a request that does not come from an upgrade handler. No upgrade socket was found.'
-                    )
-                );
+        // Do not allow upgrades if request is already completed
+        if (this.completed) return;
 
-            // Ensure our request is not paused to ensure socket is in a flowing state
-            this._resume_if_paused();
-
-            // Call uWS.Response.upgrade() method with user data, protocol headers and uWS upgrade socket
-            const headers = this.#wrapped_request.headers;
-            this.#raw_response.upgrade(
-                {
-                    context,
-                },
-                headers['sec-websocket-key'],
-                headers['sec-websocket-protocol'],
-                headers['sec-websocket-extensions'],
-                this.#upgrade_socket
+        // Ensure a upgrade_socket exists before upgrading ensuring only upgrade handler requests are handled
+        if (this.#upgrade_socket == null)
+            this.throw(
+                new Error(
+                    'HyperExpress: You cannot upgrade a request that does not come from an upgrade handler. No upgrade socket was found.'
+                )
             );
 
-            // Mark request as complete so no more operations can be performed
-            this.completed = true;
-        }
+        // Ensure our request is not paused to ensure socket is in a flowing state
+        this._resume_if_paused();
+
+        // Call uWS.Response.upgrade() method with user data, protocol headers and uWS upgrade socket
+        const headers = this.#wrapped_request.headers;
+        this.#raw_response.upgrade(
+            {
+                context,
+            },
+            headers['sec-websocket-key'],
+            headers['sec-websocket-protocol'],
+            headers['sec-websocket-extensions'],
+            this.#upgrade_socket
+        );
+
+        // Mark request as complete so no more operations can be performed
+        this.completed = true;
     }
 
     /**
@@ -286,7 +281,7 @@ class Response extends stream.Writable {
         if (this.#initiated) return false;
 
         // Emit the 'prepare' event to allow for any last minute response modifications
-        this.emit('prepare', this.#wrapped_request, this);
+        if (this._writable) this.emit('prepare', this.#wrapped_request, this);
 
         // Mark the instance as initiated signifying that no more status/header based operations can be performed
         this.#initiated = true;
@@ -299,10 +294,9 @@ class Response extends stream.Writable {
             this.#raw_response.writeStatus(this.#status_code + ' ' + status_codes[this.#status_code]);
 
         // Iterate through all headers and write them to uWS
-        if (this.#headers)
-            Object.keys(this.#headers).forEach((name) =>
-                this.#headers[name].forEach((value) => this.#raw_response.writeHeader(name, value))
-            );
+        Object.keys(this.#headers).forEach((name) =>
+            this.#headers[name].forEach((value) => this.#raw_response.writeHeader(name, value))
+        );
 
         // Iterate through all cookies and write them to uWS
         if (this.#cookies)
@@ -322,10 +316,6 @@ class Response extends stream.Writable {
      * @param {function(number):boolean} handler Synchronous callback only
      */
     drain(handler) {
-        // Ensure handler is a function type
-        if (typeof handler !== 'function')
-            this.throw(new Error('HyperExpress: Response.drain(handler) -> handler must be a Function.'));
-
         // Bind a writable handler with a fallback return value to true as uWS expects a Boolean
         this.#raw_response.onWritable((offset) => {
             // Retrieve the write result from the handler
@@ -362,7 +352,7 @@ class Response extends stream.Writable {
                 this.#streaming = true;
 
                 // Bind an 'finish' event handler to send response once a piped stream has completed
-                super.once('finish', () => this.send());
+                this.once('finish', () => this.send());
             }
 
             // Ensure response has been initiated before writing any chunks
@@ -427,6 +417,18 @@ class Response extends stream.Writable {
     }
 
     /**
+     * Returns the custom content length header value if one was set.
+     *
+     * @private
+     * @returns {Number=}
+     */
+    _custom_content_length() {
+        const header = this.#headers['content-length'];
+        const length = parseInt(Array.isArray(header) ? header[header.length - 1] : header);
+        if (!isNaN(length) && length > 0) return length;
+    }
+
+    /**
      * This method is used to end the current request and send response with specified body and headers.
      *
      * @param {String|Buffer|ArrayBuffer=} body Optional
@@ -447,7 +449,7 @@ class Response extends stream.Writable {
                 return this.#wrapped_request.once('received', () => this.send(body, close_connection));
 
             // Determine if we have a custom content length header, no body data and were not streaming the request body
-            if (this.#custom_content_length !== undefined && body === undefined && !this.#streaming) {
+            if (body === undefined && !this.#streaming && this._custom_content_length() !== undefined) {
                 // Send the response with the uWS.HttpResponse.endWithoutBody() method as we have no body data
                 // NOTE: This method is completely undocumented by uWS but exists in the source code to solve the problem of no body being sent with a custom content-length
                 this.#raw_response.endWithoutBody();
@@ -457,13 +459,13 @@ class Response extends stream.Writable {
             }
 
             // Emit the 'finish' event to signify that the response has been sent without streaming
-            if (!this.#streaming) this.emit('finish', this.#wrapped_request, this);
+            if (this._writable && !this.#streaming) this.emit('finish', this.#wrapped_request, this);
 
             // Mark request as completed if we were able to send response properly
             this.completed = true;
 
             // Emit the 'close' event to signify that the response has been completed
-            this.emit('close', this.#wrapped_request, this);
+            if (this._writable) this.emit('close', this.#wrapped_request, this);
         }
         return this;
     }
@@ -671,7 +673,7 @@ class Response extends stream.Writable {
         if (!live_file.is_ready) await live_file.ready();
 
         // Write appropriate extension type if one has not been written yet
-        if (!this.#type_written) this.type(live_file.extension);
+        this.type(live_file.extension);
 
         // Send response with file buffer as body
         this.send(live_file.buffer);
@@ -746,13 +748,13 @@ class Response extends stream.Writable {
         if (!(error instanceof Error)) error = new Error(`ERR_CAUGHT_NON_ERROR_TYPE: ${error}`);
 
         // Trigger the global error handler
-        this.#master_context.handlers.on_error(this.#wrapped_request, this, error);
+        this.route.app.handlers.on_error(this.#wrapped_request, this, error);
 
         // Return this response instance
         return this;
     }
 
-    /* Response Getters */
+    /* HyperExpress Properties */
 
     /**
      * Returns the request locals for this request.
@@ -779,7 +781,7 @@ class Response extends stream.Writable {
      * @returns {import('../Server.js')}
      */
     get app() {
-        return this.#master_context;
+        return this.route.app;
     }
 
     /**
@@ -832,8 +834,6 @@ class Response extends stream.Writable {
         return this.completed ? -1 : this.#raw_response.getWriteOffset();
     }
 
-    /* ExpressJS compatibility properties & methods */
-
     /**
      * Throws a descriptive error when an unsupported ExpressJS property/method is invocated.
      * @private
@@ -847,81 +847,44 @@ class Response extends stream.Writable {
         );
     }
 
-    /**
-     * ExpressJS: Alias of Response.initated
-     */
+    /* ExpressJS Methods - No Docs */
+
     get headersSent() {
         return this.#initiated;
     }
 
-    /**
-     * ExpressJS: Alias of Response.status_code to expose response status code
-     */
     get statusCode() {
         return this.completed ? this.#status_code : undefined;
     }
 
-    /**
-     * ExpressJS: Alias of Response.status_code to expose setter response status code
-     */
     set statusCode(code) {
-        this.status(code);
+        this.#status_code = code;
     }
 
-    /**
-     * ExpressJS: Alias of header() method
-     * @param {String} name
-     * @param {String|Array} values
-     */
     append(name, values) {
         return this.header(name, values);
     }
 
-    /**
-     * ExpressJS: Alias of Response.append()
-     */
     setHeader(name, values) {
         return this.append(name, values);
     }
 
-    /**
-     * ExpressJS: Writes multiple headers in form of an object
-     * @param {Object} headers
-     */
     writeHeaders(headers) {
         Object.keys(headers).forEach((name) => this.header(name, headers[name]));
     }
 
-    /**
-     * ExpressJS: Alias of Response.writeHeaders
-     * @param {Object} headers
-     */
     setHeaders(headers) {
         this.writeHeaders(headers);
     }
 
-    /**
-     * ExpressJS: Writes multiple header values for a single name
-     * @param {String} name
-     * @param {Array} values
-     */
     writeHeaderValues(name, values) {
         values.forEach((value) => this.header(name, value));
     }
 
-    /**
-     * ExpressJS: Returns pending header from this response
-     * @param {String} name
-     * @returns {String|Array|undefined}
-     */
     getHeader(name) {
-        return this.#headers ? this.#headers[name] : undefined;
+        return this.#headers[name];
     }
 
-    /**
-     * ExpressJS: Returns all pending headers from this response
-     * @returns {Object|undefined}
-     */
     getHeaders() {
         const headers = {};
         Object.keys(this.#headers).forEach((key) => {
@@ -930,80 +893,39 @@ class Response extends stream.Writable {
         return headers;
     }
 
-    /**
-     * ExpressJS: Removes header from this response
-     * @param {String} name
-     */
     removeHeader(name) {
-        if (this.#headers) delete this.#headers[name];
+        delete this.#headers[name];
     }
 
-    /**
-     * ExpressJS: Alias of Response.cookie()
-     * @param {String} name
-     * @param {String} value
-     * @param {Object} options
-     */
     setCookie(name, value, options) {
         return this.cookie(name, value, null, options);
     }
 
-    /**
-     * ExpressJS: checks if a cookie exists
-     * @param {String} name
-     * @returns {Boolean}
-     */
     hasCookie(name) {
         return this.#cookies && this.#cookies[name] !== undefined;
     }
 
-    /**
-     * ExpressJS: Alias of Response.cookie(name, null) method.
-     * @param {String} name
-     */
     removeCookie(name) {
         return this.cookie(name, null);
     }
 
-    /**
-     * ExpressJS: Alias of Response.cookie(name, null) method.
-     * @param {String} name
-     */
     clearCookie(name) {
         return this.cookie(name, null);
     }
 
-    /**
-     * ExpressJS: Alias of Response.send()
-     */
     end(data) {
         return this.send(data);
     }
 
-    /**
-     * Unsupported method
-     */
     format() {
         this._throw_unsupported('format()');
     }
 
-    /**
-     * ExpressJS: Returns the HTTP response header specified by field. The match is case-insensitive.
-     * @param {String} name
-     * @returns {String|Array}
-     */
     get(name) {
-        if (this.#headers) {
-            let values = this.#headers[name];
-            if (values) return values.length == 0 ? values[0] : values;
-        }
+        let values = this.#headers[name];
+        if (values) return values.length == 0 ? values[0] : values;
     }
 
-    /**
-     * ExpressJS: Joins the links provided as properties of the parameter to populate the response’s Link HTTP header field.
-     * @param {Object} links
-     * @returns {String}
-     */
     links(links) {
         if (typeof links !== 'object' || links == null)
             this.throw(new Error('HyperExpress: Response.links(links) -> links must be an Object'));
@@ -1017,42 +939,22 @@ class Response extends stream.Writable {
         return chunks.join(', ');
     }
 
-    /**
-     * ExpressJS: Sets the response Location HTTP header to the specified path parameter.
-     * @param {String} path
-     */
     location(path) {
         return this.header('location', path);
     }
 
-    /**
-     * Unsupported method
-     */
     render() {
         this._throw_unsupported('render()');
     }
 
-    /**
-     * ExpressJS: Alias of Response.file()
-     * @param {String} path
-     */
     sendFile(path) {
         return this.file(path);
     }
 
-    /**
-     * ExpressJS: Alias of Response.status()
-     * @param {Number} status_code
-     */
     sendStatus(status_code) {
         return this.status(status_code);
     }
 
-    /**
-     * ExpressJS: Sets the response’s HTTP header field to value. To set multiple fields at once, pass an object as the parameter.
-     * @param {String|Object} object
-     * @param {(String|Array)=} value
-     */
     set(field, value) {
         if (typeof field == 'object') {
             const reference = this;
@@ -1065,13 +967,44 @@ class Response extends stream.Writable {
         }
     }
 
-    /**
-     * ExpressJS: Adds the field to the Vary response header, if it is not there already.
-     * @param {String} name
-     */
     vary(name) {
         return this.header('vary', name);
     }
 }
+
+// Inherit the Writable stream and Event Emitter class prototypes
+const descriptors = Object.getOwnPropertyDescriptors(Response.prototype);
+inherit_prototype({
+    from: [stream.Writable.prototype, emitter.prototype],
+    to: Response.prototype,
+    method: (type, name, original) => {
+        // Initialize a pass through method
+        const passthrough = function () {
+            // Lazy initialize the writable stream on local scope
+            if (!this._writable) {
+                // Initialize the writable stream
+                this._writable = new stream.Writable(this.route.streaming.writable);
+
+                // Bind the natively implemented _write and _writev methods
+                // Ensure the Response scope is passed to these methods
+                this._writable._write = descriptors['_write'].value.bind(this);
+                this._writable._writev = descriptors['_writev'].value.bind(this);
+            }
+
+            // Return the original function with the writable stream as the context
+            return original.apply(this._writable, arguments);
+        };
+
+        // If this inheritance is a function type that may be overwriting a HyperExpress definition
+        // Inherit this method with a _super_ prefix to allow the HyperExpress definitions to call these methods under the hood
+        if (typeof descriptors[name]?.value == 'function') {
+            Request.prototype['_super_' + name] = passthrough;
+            return;
+        }
+
+        // Otherwise, simply return the passthrough method
+        return passthrough;
+    },
+});
 
 module.exports = Response;

@@ -30,7 +30,7 @@ export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
      */
     completed: boolean;
 
-    /* HyperExpress Response Methods */
+    /* HyperExpress Methods */
 
     /**
      * This method can be used to improve Network IO performance by executing
@@ -191,7 +191,7 @@ export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
      */
     throw(error: Error): Response;
 
-    /* HyperExpress Response Properties */
+    /* HyperExpress Properties */
 
     /**
     * Returns the underlying raw uWS.Response object.
@@ -232,10 +232,7 @@ export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
      */
     get upgrade_socket(): uWebsockets.us_socket_context_t;
 
-    /* ExpressJS Compatibility Methods & Properties */
-    get headersSent(): boolean;
-    get statusCode(): number | undefined
-    locals: Locals
+    /* ExpressJS Methods */
     append(name: string, values: string | Array<string>): Response;
     writeHead(name: string, values: string | Array<string>): Response;
     setHeader(name: string, values: string | Array<string>): Response;
@@ -256,4 +253,9 @@ export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
     sendStatus(status_code: number): Response;
     set(field: string | object, value?: string | Array<string>): Response | void;
     vary(name: string): Response;
+
+    /* ExpressJS Properties */
+    get headersSent(): boolean;
+    get statusCode(): number | undefined;
+    locals: Locals;
 }

@@ -1,12 +1,13 @@
 'use strict';
 const cookie = require('cookie');
 const stream = require('stream');
+const emitter = require('events');
 const busboy = require('busboy');
 const querystring = require('qs');
 const signature = require('cookie-signature');
 
 const MultipartField = require('../plugins/MultipartField.js');
-const { array_buffer_to_string } = require('../../shared/operators.js');
+const { inherit_prototype, array_buffer_to_string } = require('../../shared/operators.js');
 
 // ExpressJS compatibility packages
 const accepts = require('accepts');
@@ -14,8 +15,7 @@ const parse_range = require('range-parser');
 const type_is = require('type-is');
 const is_ip = require('net').isIP;
 
-class Request extends stream.Readable {
-    #route;
+class Request {
     #locals;
     #stream_ended = false;
     #stream_flushing = false;
@@ -38,6 +38,13 @@ class Request extends stream.Readable {
     #body_text;
     #body_json;
     #body_urlencoded;
+    route = null;
+
+    /**
+     * Underlying lazy initialized readable body stream.
+     * @private
+     */
+    _readable = null;
 
     /**
      * Returns whether all expected incoming request body chunks have been received.
@@ -59,34 +66,31 @@ class Request extends stream.Readable {
      * @param {import('uWebSockets.js').HttpResponse} raw_response
      */
     constructor(route, raw_request, raw_response) {
-        // Initialize the request readable stream for body consumption
-        super(route.streaming.readable);
-
         // Store references to uWS objects and the master context
-        this.#route = route;
+        this.route = route;
         this.#raw_request = raw_request;
         this.#raw_response = raw_response;
 
         // Perform request pre-parsing for common access data
         // This is required as uWS.Request is forbidden for access after initial execution
-        this.#path = this.#raw_request.getUrl();
-        this.#query = this.#raw_request.getQuery();
-        this.#method = this.#raw_request.getMethod();
+        this.#path = raw_request.getUrl();
+        this.#query = raw_request.getQuery();
+        this.#method = route.method === 'ANY' ? raw_request.getMethod() : route.method;
 
         // Parse headers into a key-value object
-        this.#raw_request.forEach((key, value) => (this.headers[key] = value));
+        raw_request.forEach((key, value) => (this.headers[key] = value));
 
         // Parse path parameters from request path if we have a path parameters parsing key
         if (route.path_parameters_key.length) {
             // Iterate over each expected path parameter key value pair and parse the value from uWS.HttpRequest.getParameter()
             this.#path_parameters = {};
             route.path_parameters_key.forEach(
-                ([key, index]) => (this.#path_parameters[key] = this.#raw_request.getParameter(index))
+                ([key, index]) => (this.#path_parameters[key] = raw_request.getParameter(index))
             );
         }
     }
 
-    /* Request Methods/Operators */
+    /* HyperExpress Methods */
 
     /**
      * Pauses the current request and flow of incoming body data.
@@ -95,9 +99,9 @@ class Request extends stream.Readable {
     pause() {
         // Ensure there is content being streamed before pausing
         // Ensure that the stream is currently not paused before pausing
-        if (!this._stream_forbidden() && !super.isPaused()) {
+        if (!this._stream_forbidden() && !this.isPaused()) {
             this.#raw_response.pause();
-            return super.pause();
+            return this._super_pause();
         }
         return this;
     }
@@ -109,9 +113,9 @@ class Request extends stream.Readable {
     resume() {
         // Ensure there is content being streamed before resuming
         // Ensure that the stream is currently paused before resuming
-        if (!this._stream_forbidden() && super.isPaused()) {
+        if (!this._stream_forbidden() && this.isPaused()) {
             this.#raw_response.resume();
-            return super.resume();
+            return this._super_resume();
         }
         return this;
     }
@@ -125,10 +129,10 @@ class Request extends stream.Readable {
      */
     pipe(destination, options) {
         // Pipe the arguments to the request body stream
-        super.pipe(destination, options);
+        this._super_pipe(destination, options);
 
         // Resume the request body stream as it will be in a paused state by default
-        return super.resume();
+        return this._super_resume();
     }
 
     /**
@@ -165,7 +169,7 @@ class Request extends stream.Readable {
         // Determine if the response has not been initiated yet
         if (!response.initiated) {
             // Abort the request instantly as user has specified usage of fast abort
-            if (this.#route.app._options.fast_abort) {
+            if (this.route.app._options.fast_abort) {
                 response.close();
             } else if (flushed) {
                 // Send a 413 response if the incoming data has been flushed
@@ -181,7 +185,7 @@ class Request extends stream.Readable {
      * @returns {Boolean}
      */
     _stream_forbidden() {
-        return this.#stream_ended || this.#stream_flushing || this.readableEnded || this.readableAborted;
+        return this.#stream_ended || this.#stream_flushing;
     }
 
     /**
@@ -207,7 +211,7 @@ class Request extends stream.Readable {
      */
     _stream_with_limit(response, bytes) {
         // Ensure body streaming is not forbidden for this request
-        if (this._stream_forbidden() === false) {
+        if (!this._stream_forbidden()) {
             // Set the body limit in bytes
             this.#body_limit_bytes = bytes;
 
@@ -226,31 +230,30 @@ class Request extends stream.Readable {
                 if (this.#body_expected_bytes > this.#body_limit_bytes) {
                     // Mark the incoming body data to be flushed
                     this.#stream_flushing = true;
-                    this.emit('limit', this.#body_received_bytes, this.received);
+                    if (this._readable) this.emit('limit', this.#body_received_bytes, this.received);
                     this._on_limit_response(response, this.received);
                     this._stop_streaming();
                 }
 
                 // Begin streaming incoming body chunks if we have not initialized a body received bytes counter yet
-                if (this.#body_received_bytes == undefined) {
+                if (this.#body_received_bytes == undefined && !this.readableEnded) {
                     // Initialize the body received bytes counter
                     this.#body_received_bytes = 0;
 
                     // Overwrite the underlying readable _read handler to resume the request when more chunks are requested
-                    this._read = () => this.resume();
+                    this._readable._read = () => this.resume();
 
                     // Bind a uWS.Response.onData() handler which will provide incoming raw body chunks from uWS
-                    const reference = this;
                     this.#raw_response.onData((array_buffer, is_last) => {
                         // Determine if this is the last chunk from uWS
                         if (is_last) {
                             // Mark the request body as flushed
-                            reference.received = true;
+                            this.received = true;
 
                             // Emit a final 'limit' event if we have crossed the body limit in bytes or the stream flushing
-                            if (reference._stream_limit_exhausted() || reference.#stream_flushing) {
+                            if (this._stream_limit_exhausted() || this.#stream_flushing) {
                                 // Emit the 'limit' event with the body flushed flag
-                                this.emit('limit', this.#body_received_bytes, reference.received);
+                                this.emit('limit', this.#body_received_bytes, this.received);
                                 this._on_limit_response(response, this.received);
                                 this._stop_streaming();
                             } else {
@@ -260,13 +263,13 @@ class Request extends stream.Readable {
                         }
 
                         // Determine if streaming is still allowed for this request
-                        if (!reference._stream_forbidden()) {
+                        if (!this._stream_forbidden()) {
                             // Determine if we have direct consumers from the 'data' event
-                            const raw_listeners = reference.listenerCount('data');
+                            const raw_listeners = this.listenerCount('data');
 
                             // Convert the incoming temporary ArrayBuffer to a Buffer
                             let buffer;
-                            if (raw_listeners > 0 && reference.#stream_raw_chunks) {
+                            if (raw_listeners > 0 && this.#stream_raw_chunks) {
                                 // Store a direct Buffer reference as we have some consumer requesting raw chunks
                                 buffer = Buffer.from(array_buffer);
                             } else {
@@ -276,21 +279,21 @@ class Request extends stream.Readable {
                             }
 
                             // Increment the body received bytes counter
-                            reference.#body_received_bytes += buffer.byteLength;
+                            this.#body_received_bytes += buffer.byteLength;
 
                             // Push the incoming chunk into readable stream for consumption
                             // Pause the uWS request if our stream is backed up
-                            if (!reference.push(buffer)) reference.pause();
+                            if (!this.push(buffer)) this.pause();
 
                             // Determine if this is the last chunk from uWS
                             if (is_last) {
                                 // Push a null chunk signaling an EOF to the stream to end
-                                reference.push(null);
+                                this.push(null);
 
                                 // Determine if we have crossed the body limit in bytes
-                            } else if (reference._stream_limit_exhausted()) {
+                            } else if (this._stream_limit_exhausted()) {
                                 // Emit the 'limit' event with the body flushed flag
-                                this.emit('limit', this.#body_received_bytes, reference.received);
+                                this.emit('limit', this.#body_received_bytes, this.received);
                                 this._on_limit_response(response, this.received);
                                 this._stop_streaming();
                             }
@@ -326,7 +329,7 @@ class Request extends stream.Readable {
      */
     _stop_streaming() {
         // Push an EOF chunk to the body stream signifying the end of the stream
-        if (!this.readableEnded) this.push(null);
+        if (this._readable && !this.readableEnded) this.push(null);
 
         // Mark the stream as ended so all incoming chunks will be ignored from uWS.HttpResponse.onData() handler
         this.#stream_ended = true;
@@ -343,7 +346,7 @@ class Request extends stream.Readable {
      * @returns {Promise}
      */
     _download_buffer(content_length) {
-        // Return pending buffer promise if in flight
+        // Return pending buffer promise if in flight already
         if (this.#buffer_promise) return this.#buffer_promise;
 
         // Resolve an empty buffer instantly if we have no readable body stream
@@ -359,7 +362,7 @@ class Request extends stream.Readable {
         const reference = this;
         this.#buffer_promise = new Promise((resolve) => {
             // Allocate an empty body buffer to store all incoming chunks depending on buffering scheme
-            const use_fast_buffers = reference.#route.app._options.fast_buffers;
+            const use_fast_buffers = reference.route.app._options.fast_buffers;
             const body = {
                 cursor: 0,
                 buffer: Buffer[use_fast_buffers ? 'allocUnsafe' : 'alloc'](content_length),
@@ -414,11 +417,13 @@ class Request extends stream.Readable {
             });
 
             // We must directly resume the readable stream to make it begin accepting data
-            super.resume();
+            this._super_resume();
         });
 
         // Bind a then handler for caching the downloaded buffer
         this.#buffer_promise.then((buffer) => (this.#body_buffer = buffer));
+
+        // Return the buffer promise
         return this.#buffer_promise;
     }
 
@@ -504,6 +509,8 @@ class Request extends stream.Readable {
 
         // Retrieve text body, parse as a query string, cache and resolve
         this.#body_urlencoded = querystring.parse(this.#body_text || (await this.text()));
+
+        // Return the cached urlencoded body
         return this.#body_urlencoded;
     }
 
@@ -634,17 +641,17 @@ class Request extends stream.Readable {
             };
 
             // Bind an 'error' event handler to emit errors
-            uploader.on('error', finish);
+            uploader.once('error', finish);
 
             // Bind limit event handlers to reject as error code constants
-            uploader.on('partsLimit', () => finish('PARTS_LIMIT_REACHED'));
-            uploader.on('filesLimit', () => finish('FILES_LIMIT_REACHED'));
-            uploader.on('fieldsLimit', () => finish('FIELDS_LIMIT_REACHED'));
+            uploader.once('partsLimit', () => finish('PARTS_LIMIT_REACHED'));
+            uploader.once('filesLimit', () => finish('FILES_LIMIT_REACHED'));
+            uploader.once('fieldsLimit', () => finish('FIELDS_LIMIT_REACHED'));
 
             // Define a function to handle incoming multipart data
             const on_field = (name, value, info) => {
                 // Catch and pipe any errors from the value readable stream to the finish function
-                if (value instanceof stream.Readable) value.on('error', finish);
+                if (value instanceof stream.Readable) value.once('error', finish);
 
                 // Call the user defined handler with the incoming multipart field
                 // Catch and pipe any errors to the finish function
@@ -658,7 +665,7 @@ class Request extends stream.Readable {
             uploader.on('file', on_field);
 
             // Bind a 'finish' event handler to resolve the upload promise
-            uploader.on('close', () => {
+            uploader.once('close', () => {
                 // Wait for any pending multipart handler exeuction to complete
                 if (reference.#multipart_promise) {
                     // Wait for the pending promise to resolve
@@ -674,7 +681,7 @@ class Request extends stream.Readable {
         });
     }
 
-    /* Request Getters */
+    /* HyperExpress Properties */
 
     /**
      * Returns underlying uWS.Request reference.
@@ -700,7 +707,7 @@ class Request extends stream.Readable {
      * @returns {import('../Server.js')}
      */
     get app() {
-        return this.#route.app;
+        return this.route.app;
     }
 
     /**
@@ -759,8 +766,10 @@ class Request extends stream.Readable {
         if (this.#cookies) return this.#cookies;
 
         // Parse cookies from Cookie header and cache results
-        let header = this.headers['cookie'];
+        const header = this.headers['cookie'];
         this.#cookies = header ? cookie.parse(header) : {};
+
+        // Return the cookies
         return this.#cookies;
     }
 
@@ -794,7 +803,7 @@ class Request extends stream.Readable {
         if (this.#remote_ip) return this.#remote_ip;
 
         // Determine if we can trust intermediary proxy servers and have a x-forwarded-for header
-        const trust_proxy = this.#route.app._options.trust_proxy;
+        const trust_proxy = this.route.app._options.trust_proxy;
         const x_forwarded_for = this.get('X-Forwarded-For');
         if (trust_proxy && x_forwarded_for) {
             // The first IP in the x-forwarded-for header is the client IP if we trust proxies
@@ -823,17 +832,13 @@ class Request extends stream.Readable {
         return this.#remote_proxy_ip;
     }
 
-    /* ExpressJS compatibility properties & methods */
+    /* ExpressJS Methods - No Docs */
 
-    /**
-     * ExpressJS: Returns header for specified name.
-     * @param {String} name
-     * @returns {String|undefined}
-     */
     get(name) {
         let lowercase = name.toLowerCase();
         switch (lowercase) {
             case 'referer':
+            // Continue execution to below case for catching of both spelling variations
             case 'referrer':
                 return this.headers['referer'] || this.headers['referrer'];
             default:
@@ -841,74 +846,36 @@ class Request extends stream.Readable {
         }
     }
 
-    /**
-     * ExpressJS: Alias of .get(name) method.
-     * @param {String} name
-     * @returns {String|undefined}
-     */
     header(name) {
         return this.get(name);
     }
 
-    /**
-     * ExpressJS: Checks if provided types are accepted.
-     * @param {String|Array} types
-     * @returns {String|Array|Boolean}
-     */
     accepts() {
         let instance = accepts(this);
         return instance.types.apply(instance, arguments);
     }
 
-    /**
-     * ExpressJS: Checks if provided encodings are accepted.
-     * @param {String|Array} encodings
-     * @returns {String|Array}
-     */
     acceptsEncodings() {
         let instance = accepts(this);
         return instance.encodings.apply(instance, arguments);
     }
 
-    /**
-     * ExpressJS: Checks if provided charsets are accepted
-     * @param {String|Array} charsets
-     * @returns {String|Array}
-     */
     acceptsCharsets() {
         let instance = accepts(this);
         return instance.charsets.apply(instance, arguments);
     }
 
-    /**
-     * ExpressJS: Checks if provided languages are accepted
-     * @param {String|Array} languages
-     * @returns {String|Array}
-     */
     acceptsLanguages() {
         let instance = accepts(this);
         return instance.languages.apply(instance, arguments);
     }
 
-    /**
-     * ExpressJS: Parse Range header field, capping to the given `size`.
-     * @param {Number} size
-     * @param {Object} options
-     * @param {Boolean} options.combine Default: false
-     * @returns {Number|Array}
-     */
     range(size, options) {
         let range = this.get('Range');
         if (!range) return;
         return parse_range(size, range, options);
     }
 
-    /**
-     * ExpressJS: Return the value of param `name` when present or `defaultValue`.
-     * @param {String} name
-     * @param {Any} default_value
-     * @returns {String}
-     */
     param(name, default_value) {
         // Parse three dataset candidates
         let body = this.body;
@@ -923,11 +890,6 @@ class Request extends stream.Readable {
         return default_value;
     }
 
-    /**
-     * ExpressJS: Check if the incoming request contains the "Content-Type" header field, and it contains the give mime `type`.
-     * @param {String|Array} types
-     * @returns {String|false|null}
-     */
     is(types) {
         // support flattened arguments
         let arr = types;
@@ -938,59 +900,33 @@ class Request extends stream.Readable {
         return type_is(this, arr);
     }
 
-    /**
-     * Throws a descriptive error when an unsupported ExpressJS property/method is invocated.
-     * @private
-     * @param {String} name
-     */
     _throw_unsupported(name) {
         throw new Error(
             `HyperExpress: One of your middlewares or logic tried to call Request.${name} which is unsupported with HyperExpress.`
         );
     }
 
-    /**
-     * ExpressJS: Alias of HyperExpress.Request.path
-     */
+    /* ExpressJS Properties - No Docs */
+
     get baseUrl() {
         return this.#path;
     }
 
-    /**
-     * ExpressJS: Alias of HyperExpress.Request.url
-     */
     get originalUrl() {
         return this.url;
     }
 
-    /**
-     * ExpressJS: Alias of HyperExpress.Request.path_parameters
-     */
     get params() {
         return this.path_parameters;
     }
 
-    /**
-     * ExpressJS: Returns query parameters
-     */
     get query() {
         return this.query_parameters;
     }
 
-    /**
-     * Unsupported property
-     */
-    get route() {
-        this._throw_unsupported('route');
-    }
-
-    /**
-     * ExpressJS: Returns the current protocol
-     * @returns {('https'|'http')}
-     */
     get protocol() {
         // Resolves x-forwarded-proto header if trust proxy is enabled
-        const trust_proxy = this.#route.app._options.trust_proxy;
+        const trust_proxy = this.route.app._options.trust_proxy;
         const x_forwarded_proto = this.get('X-Forwarded-Proto');
         if (trust_proxy && x_forwarded_proto) {
             // Return the first protocol in the x-forwarded-proto header
@@ -998,29 +934,21 @@ class Request extends stream.Readable {
             return x_forwarded_proto.split(',')[0];
         } else {
             // Use HyperExpress/uWS initially defined protocol as fallback
-            return this.#route.app.is_ssl ? 'https' : 'http';
+            return this.route.app.is_ssl ? 'https' : 'http';
         }
     }
 
-    /**
-     * ExpressJS: Returns true when request is on https protocol
-     * @returns {Boolean}
-     */
     get secure() {
         return this.protocol === 'https';
     }
 
-    /**
-     * ExpressJS: When "trust proxy" is set, trusted proxy addresses + client.
-     * @returns {Array}
-     */
     get ips() {
         // Retrieve the client and proxy IP addresses
         const client_ip = this.ip;
         const proxy_ip = this.proxy_ip;
 
         // Determine if we can trust intermediary proxy servers and have a x-forwarded-for header
-        const trust_proxy = this.#route.app._options.trust_proxy;
+        const trust_proxy = this.route.app._options.trust_proxy;
         const x_forwarded_for = this.get('X-Forwarded-For');
         if (trust_proxy && x_forwarded_for) {
             // Will split and return all possible IP addresses in the x-forwarded-for header (e.g. "client, proxy1, proxy2")
@@ -1031,14 +959,10 @@ class Request extends stream.Readable {
         }
     }
 
-    /**
-     * ExpressJS: Parse the "Host" header field to a hostname.
-     * @returns {String=}
-     */
     get hostname() {
         // Retrieve the host header and determine if we can trust intermediary proxy servers
         let host = this.get('X-Forwarded-Host');
-        const trust_proxy = this.#route.app._options.trust_proxy;
+        const trust_proxy = this.route.app._options.trust_proxy;
         if (!host || !trust_proxy) {
             // Use the 'Host' header as fallback
             host = this.get('Host');
@@ -1056,10 +980,6 @@ class Request extends stream.Readable {
         return index !== -1 ? host.substring(0, index) : host;
     }
 
-    /**
-     * ExpressJS: Return subdomains as an array.
-     * @returns {Array}
-     */
     get subdomains() {
         let hostname = this.hostname;
         if (!hostname) return [];
@@ -1069,27 +989,44 @@ class Request extends stream.Readable {
         return subdomains.slice(offset);
     }
 
-    /**
-     * Unsupported Property
-     */
     get fresh() {
         this._throw_unsupported('fresh');
     }
 
-    /**
-     * Unsupported Property
-     */
     get stale() {
         this._throw_unsupported('stale');
     }
 
-    /**
-     * ExpressJS: Check if the request was an _XMLHttpRequest_.
-     * @returns {Boolean}
-     */
     get xhr() {
         return (this.get('X-Requested-With') || '').toLowerCase() === 'xmlhttprequest';
     }
 }
+
+// Inherit the Readable stream and Event Emitter class prototypes
+const descriptors = Object.getOwnPropertyDescriptors(Request.prototype);
+inherit_prototype({
+    from: [stream.Readable.prototype, emitter.prototype],
+    to: Request.prototype,
+    method: (type, name, original) => {
+        // Initialize a pass through method
+        const passthrough = function () {
+            // Lazy initialize the readable stream on local scope
+            if (!this._readable) this._readable = new stream.Readable(this.route.streaming.readable);
+
+            // Return the original function with the readable stream as the context
+            return original.apply(this._readable, arguments);
+        };
+
+        // If this inheritance is a function type that may be overwriting a HyperExpress definition
+        // Inherit this method with a _super_ prefix to allow the HyperExpress definitions to call these methods under the hood
+        if (typeof descriptors[name]?.value == 'function') {
+            Request.prototype['_super_' + name] = passthrough;
+            return;
+        }
+
+        // Otherwise, simply return the passthrough method
+        return passthrough;
+    },
+});
 
 module.exports = Request;

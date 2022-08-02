@@ -80,7 +80,7 @@ if (cluster.isWorker) {
                 false
             );
         } catch (error) {
-            log(error);
+            console.log(error);
             process.exit();
         }
     })();
@@ -95,7 +95,7 @@ if (cluster.isWorker) {
             HyperExpress.close();
             Fastify.close();
         } catch (error) {
-            log(error);
+            console.log(error);
         }
 
         // Exit the process

@@ -19,7 +19,7 @@ export class Request<Locals = DefaultRequestLocals> {
      */
     received: boolean;
 
-    /* HyperExpress Request Methods */
+    /* HyperExpress Methods */
 
     /**
      * Securely signs a value with provided secret and returns the signed value.
@@ -83,7 +83,7 @@ export class Request<Locals = DefaultRequestLocals> {
      */
     multipart(options: BusboyConfig, handler: MultipartHandler): Promise<void>;
 
-    /* HyperExpress Request Properties */
+    /* HyperExpress Properties */
 
     /**
      * Returns underlying uWS.Request reference.
@@ -164,7 +164,7 @@ export class Request<Locals = DefaultRequestLocals> {
      */
     get proxy_ip(): string;
 
-    /* ExpressJS Compatibility Properties & Methods */
+    /* ExpressJS Methods */
     get(name: 'set-cookie'): string[];
     get(name: string): string;
     header(name: 'set-cookie'): string[];
@@ -188,6 +188,8 @@ export class Request<Locals = DefaultRequestLocals> {
     range(size: number, options?: Options): Ranges | Result;
     param(name: string, defaultValue?: any): string;
     is(type: string | string[]): string | false;
+
+    /* ExpressJS Properties */
     locals: Locals;
     protocol: string;
     secure: boolean;

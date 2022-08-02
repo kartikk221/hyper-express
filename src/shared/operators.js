@@ -89,10 +89,54 @@ function merge_relative_paths(base_path, new_path) {
     return `${base_path}${new_path}`;
 }
 
+/**
+ * Inherits properties, getters, and setters from one prototype to another with the ability to optionally define middleman methods.
+ *
+ * @param {Object} options
+ * @param {Object|Array<Object>} options.from - The prototype to inherit from
+ * @param {Object} options.to - The prototype to inherit to
+ * @param {function(('FUNCTION'|'GETTER'|'SETTER'), string, function):function=} options.method - The method to inherit. Parameters are: type, name, method.
+ * @param {Array<string>} options.ignore - The property names to ignore
+ */
+function inherit_prototype({ from, to, method, ignore = ['constructor'] }) {
+    // Recursively call self if the from prototype is an Array of prototypes
+    if (Array.isArray(from)) return from.forEach((f) => inherit_prototype({ from: f, to, method, ignore }));
+
+    // Inherit the descriptors from the "from" prototype to the "to" prototype
+    const descriptors = Object.getOwnPropertyDescriptors(from);
+    Object.keys(descriptors).forEach((name) => {
+        // Ignore the properties specified in the ignore array
+        if (ignore.includes(name)) return;
+
+        // Destructure the descriptor function properties
+        const { value, get, set } = descriptors[name];
+
+        // Determine if the descriptor is a method aka. a function
+        if (typeof value === 'function') {
+            // Inject a middleman method into the "to" prototype
+            const middleman = method('FUNCTION', name, value);
+            if (middleman) to[name] = middleman;
+        } else {
+            // Initialize a definition object
+            const definition = {};
+
+            // Initialize a middleman getter method
+            if (typeof get === 'function') definition.get = method('GETTER', name, get);
+
+            // Initialize a middleman setter method
+            if (typeof set === 'function') definition.set = method('SETTER', name, set);
+
+            // Inject the definition into the "to" prototype
+            if (definition.get || definition.set) Object.defineProperty(to, name, definition);
+        }
+    });
+}
+
 module.exports = {
     parse_path_parameters,
     array_buffer_to_string,
     wrap_object,
     async_wait,
+    inherit_prototype,
     merge_relative_paths,
 };
