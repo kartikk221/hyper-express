@@ -6,6 +6,7 @@ const mime_types = require('mime-types');
 const stream = require('stream');
 const emitter = require('events');
 
+const ExpressResponse = require('../compatibility/ExpressResponse.js');
 const { inherit_prototype } = require('../../shared/operators.js');
 
 const FilePool = {};
@@ -14,17 +15,32 @@ const SSEventStream = require('../plugins/SSEventStream.js');
 
 class Response {
     #locals;
-    #headers = {};
     #streaming = false;
     #initiated = false;
     #middleware_cursor;
     #wrapped_request;
     #raw_response;
     #upgrade_socket;
-    #status_code;
-    #cookies;
     #sse;
     route = null;
+
+    /**
+     * Returns the HTTP underlying status code of the response.
+     * @private
+     */
+    _status_code;
+
+    /**
+     * Contains underlying headers for the response.
+     * @private
+     */
+    _headers = {};
+
+    /**
+     * Contains underlying cookies for the response.
+     * @private
+     */
+    _cookies;
 
     /**
      * Underlying lazy initialized writable body stream.
@@ -128,7 +144,7 @@ class Response {
      */
     status(code) {
         // Set the numeric status code. Status text is appended before writing status to uws
-        this.#status_code = code;
+        this._status_code = code;
         return this;
     }
 
@@ -162,18 +178,18 @@ class Response {
         // Determine if this operation is an overwrite or append
         if (overwrite) {
             // Overwrite the header value in Array format
-            this.#headers[name] = Array.isArray(value) ? value : [value];
+            this._headers[name] = Array.isArray(value) ? value : [value];
         } else if (Array.isArray(value)) {
             // Append the values to the existing array
-            this.#headers[name] = (this.#headers[name] || []).concat(value);
+            this._headers[name] = (this._headers[name] || []).concat(value);
         } else {
             // Initialize header values as an array to allow for multiple values if it does not exist
-            if (this.#headers[name] == undefined) {
+            if (this._headers[name] == undefined) {
                 // Initialize header value as an array
-                this.#headers[name] = [value];
+                this._headers[name] = [value];
             } else {
                 // Append the value to the header values
-                this.#headers[name].push(value);
+                this._headers[name].push(value);
             }
         }
 
@@ -229,10 +245,10 @@ class Response {
         }
 
         // Initialize the cookies holder object if it does not exist
-        if (this.#cookies == undefined) this.#cookies = {};
+        if (this._cookies == undefined) this._cookies = {};
 
         // Store the seralized cookie value to be written during response
-        this.#cookies[name] = cookie.serialize(name, value, options);
+        this._cookies[name] = cookie.serialize(name, value, options);
         return this;
     }
 
@@ -290,18 +306,18 @@ class Response {
         this._resume_if_paused();
 
         // Write the appropriate status code to the response along with mapped status code message
-        if (this.#status_code)
-            this.#raw_response.writeStatus(this.#status_code + ' ' + status_codes[this.#status_code]);
+        if (this._status_code)
+            this.#raw_response.writeStatus(this._status_code + ' ' + status_codes[this._status_code]);
 
         // Iterate through all headers and write them to uWS
-        Object.keys(this.#headers).forEach((name) =>
-            this.#headers[name].forEach((value) => this.#raw_response.writeHeader(name, value))
+        Object.keys(this._headers).forEach((name) =>
+            this._headers[name].forEach((value) => this.#raw_response.writeHeader(name, value))
         );
 
         // Iterate through all cookies and write them to uWS
-        if (this.#cookies)
-            Object.keys(this.#cookies).forEach((name) =>
-                this.#raw_response.writeHeader('set-cookie', this.#cookies[name])
+        if (this._cookies)
+            Object.keys(this._cookies).forEach((name) =>
+                this.#raw_response.writeHeader('set-cookie', this._cookies[name])
             );
 
         // Signify that the response was successfully initiated
@@ -423,7 +439,7 @@ class Response {
      * @returns {Number=}
      */
     _custom_content_length() {
-        const header = this.#headers['content-length'];
+        const header = this._headers['content-length'];
         const length = parseInt(Array.isArray(header) ? header[header.length - 1] : header);
         if (!isNaN(length) && length > 0) return length;
     }
@@ -840,140 +856,30 @@ class Response {
      * @param {String} name
      */
     _throw_unsupported(name) {
-        this.throw(
-            new Error(
-                `HyperExpress: One of your middlewares or logic tried to call Response.${name} which is unsupported with HyperExpress.`
-            )
+        throw new Error(
+            `ERR_INCOMPATIBLE_CALL: One of your middlewares or route logic tried to call Response.${name} which is unsupported with HyperExpress.`
         );
-    }
-
-    /* ExpressJS Methods - No Docs */
-
-    get headersSent() {
-        return this.#initiated;
-    }
-
-    get statusCode() {
-        return this.completed ? this.#status_code : undefined;
-    }
-
-    set statusCode(code) {
-        this.#status_code = code;
-    }
-
-    append(name, values) {
-        return this.header(name, values);
-    }
-
-    setHeader(name, values) {
-        return this.append(name, values);
-    }
-
-    writeHeaders(headers) {
-        Object.keys(headers).forEach((name) => this.header(name, headers[name]));
-    }
-
-    setHeaders(headers) {
-        this.writeHeaders(headers);
-    }
-
-    writeHeaderValues(name, values) {
-        values.forEach((value) => this.header(name, value));
-    }
-
-    getHeader(name) {
-        return this.#headers[name];
-    }
-
-    getHeaders() {
-        const headers = {};
-        Object.keys(this.#headers).forEach((key) => {
-            headers[key] = this.#headers[key].join(',');
-        });
-        return headers;
-    }
-
-    removeHeader(name) {
-        delete this.#headers[name];
-    }
-
-    setCookie(name, value, options) {
-        return this.cookie(name, value, null, options);
-    }
-
-    hasCookie(name) {
-        return this.#cookies && this.#cookies[name] !== undefined;
-    }
-
-    removeCookie(name) {
-        return this.cookie(name, null);
-    }
-
-    clearCookie(name) {
-        return this.cookie(name, null);
-    }
-
-    end(data) {
-        return this.send(data);
-    }
-
-    format() {
-        this._throw_unsupported('format()');
-    }
-
-    get(name) {
-        let values = this.#headers[name];
-        if (values) return values.length == 0 ? values[0] : values;
-    }
-
-    links(links) {
-        if (typeof links !== 'object' || links == null)
-            this.throw(new Error('HyperExpress: Response.links(links) -> links must be an Object'));
-
-        // Build chunks of links and combine into header spec
-        let chunks = [];
-        Object.keys(links).forEach((rel) => {
-            let url = links[rel];
-            chunks.push(`<${url}>; rel="${rel}"`);
-        });
-        return chunks.join(', ');
-    }
-
-    location(path) {
-        return this.header('location', path);
-    }
-
-    render() {
-        this._throw_unsupported('render()');
-    }
-
-    sendFile(path) {
-        return this.file(path);
-    }
-
-    sendStatus(status_code) {
-        return this.status(status_code);
-    }
-
-    set(field, value) {
-        if (typeof field == 'object') {
-            const reference = this;
-            Object.keys(field).forEach((name) => {
-                let value = field[name];
-                reference.header(field, value);
-            });
-        } else {
-            this.header(field, value);
-        }
-    }
-
-    vary(name) {
-        return this.header('vary', name);
     }
 }
 
-// Inherit the Writable stream and Event Emitter class prototypes
+// Store the descriptors of the original HyperExpress.Response class
 const descriptors = Object.getOwnPropertyDescriptors(Response.prototype);
+
+// Inherit the compatibility classes
+inherit_prototype({
+    from: ExpressResponse.prototype,
+    to: Response.prototype,
+    method: (type, name, original) => {
+        // Return an anonymous function which calls the original function with Request scope
+        return function () {
+            // Call the original function with the Request scope
+            return original.apply(this, arguments);
+        };
+    },
+});
+
+// Inherit the stream.Writable and EventEmitter prototypes
+// Lazy initialize the stream.Writable instance on each call to any of the inherited methods
 inherit_prototype({
     from: [stream.Writable.prototype, emitter.prototype],
     to: Response.prototype,
@@ -998,7 +904,7 @@ inherit_prototype({
         // If this inheritance is a function type that may be overwriting a HyperExpress definition
         // Inherit this method with a _super_ prefix to allow the HyperExpress definitions to call these methods under the hood
         if (typeof descriptors[name]?.value == 'function') {
-            Request.prototype['_super_' + name] = passthrough;
+            Response.prototype['_super_' + name] = passthrough;
             return;
         }
 
