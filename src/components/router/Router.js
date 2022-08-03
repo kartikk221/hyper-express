@@ -1,6 +1,18 @@
 'use strict';
 const { merge_relative_paths } = require('../../shared/operators.js');
 
+/**
+ * @typedef {import('../http/Request.js') & import('stream').Stream} Request
+ */
+
+/**
+ * @typedef {import('../http/Response.js') & import('stream').Stream} Response
+ */
+
+/**
+ * @typedef {function(Request, Response, Function):void} MiddlewareHandler
+ */
+
 class Router {
     #is_app = false;
     #subscribers = [];
@@ -176,11 +188,6 @@ class Router {
         // Register subscriber handler for future updates
         this.#subscribers.push(handler);
     }
-
-    /**
-     * @typedef MiddlewareHandler
-     * @type {function(import('../http/Request.js'), import('../http/Response.js'), Function):void}
-     */
 
     /**
      * Registers middlewares and router instances on the specified pattern if specified.
