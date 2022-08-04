@@ -82,6 +82,9 @@ class Router {
         handler = callbacks.pop();
         options = options || this._default_options(method);
 
+        // Make a shallow copy of the options object to avoid mutating the original
+        options = Object.assign({}, options);
+
         // Concatenate any remaining callbacks to the route options middlewares property
         if (callbacks.length > 0) options.middlewares = (options.middlewares || []).concat(callbacks);
 

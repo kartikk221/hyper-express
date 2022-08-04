@@ -7,8 +7,18 @@ const scenario_endpoint = '/middleware-layered-iteration';
 const endpoint_url = server.base + endpoint + scenario_endpoint;
 
 // Create Backend HTTP Route
+const options = {
+    max_body_length: 1024 * 1024 * 25,
+};
+
+// Shallow copy of options before route creation
+const options_copy = {
+    ...options,
+};
+
 router.post(
     scenario_endpoint,
+    options,
     async (req, res, next) => {
         req.body = await req.json();
     },
@@ -49,6 +59,13 @@ async function test_middleware_layered_iterations(iterations = 5) {
             () => JSON.stringify(payload) === JSON.stringify(body)
         );
     }
+
+    // Test to see that the provided options object was not modified
+    assert_log(
+        group,
+        `${candidate} Middleware Provided Object Immutability Test`,
+        () => JSON.stringify(options) === JSON.stringify(options_copy)
+    );
 }
 
 module.exports = {
