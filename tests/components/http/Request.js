@@ -39,7 +39,6 @@ const global_middleware_2 = (request, response) => {
 };
 router.use(global_middleware_2);
 
-let last_endpoint_body;
 let last_endpoint_mproperty;
 let last_endpoint_mproperty2;
 let last_endpoint_mproperty3;
@@ -87,10 +86,10 @@ router.get(
 
 // Create Backend HTTP Route with expected body of urlencoded to test request.body property
 router.any(endpoint, async (request, response) => {
+    // Parse the incoming request body as text, json, and urlencoded to test all formats
     let text = await request.text();
     let json = await request.json();
     let urlencoded = await request.urlencoded();
-    last_endpoint_body = text;
 
     // Store mproperty if exists on request object to check for middleware
     if (request.mproperty) last_endpoint_mproperty = request.mproperty;

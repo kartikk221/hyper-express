@@ -98,7 +98,8 @@ class Response {
      */
     _track_middleware_cursor(position) {
         // Track and ensure each middleware cursor value is greater than previously tracked value for sequential progression
-        if (!this.#middleware_cursor || position > this.#middleware_cursor) return (this.#middleware_cursor = position);
+        if (this.#middleware_cursor === undefined || position > this.#middleware_cursor)
+            return (this.#middleware_cursor = position);
 
         // If position is not greater than last cursor then we likely have a double middleware execution
         this.throw(

@@ -545,7 +545,7 @@ class Request {
             // Store the promise, so concurrent multipart fields can wait for it
             this.#multipart_promise = output;
 
-            // Hold tje current exectution context until the promise resolves
+            // Hold the current exectution context until the promise resolves
             await this.#multipart_promise;
 
             // Clear the promise reference
@@ -583,6 +583,9 @@ class Request {
             handler = options;
             options = {};
         }
+
+        // Make a shallow copy of the options object
+        options = Object.assign({}, options);
 
         // Inject the request headers into the busboy options if not provided
         if (!options.headers) options.headers = this.headers;
@@ -718,7 +721,11 @@ class Request {
      * @returns {String}
      */
     get method() {
-        return this.#method.toUpperCase();
+        // Enforce uppercase for the returned method value
+        const uppercase = this.#method.toUpperCase();
+
+        // For some reason, uWebsockets.js populates DELETE requests as DEL hence this translation
+        return uppercase === 'DEL' ? 'DELETE' : uppercase;
     }
 
     /**

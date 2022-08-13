@@ -140,9 +140,11 @@ class Server extends Router {
     #handlers = {
         on_not_found: null,
         on_error: (request, response, error) => {
+            // Log the error to the console
+            console.error(error);
+
             // Throw on default if user has not bound an error handler
-            response.status(500).send('HyperExpress: Uncaught Exception Occured');
-            throw error;
+            return response.status(500).send('HyperExpress: Uncaught Exception Occured');
         },
     };
 

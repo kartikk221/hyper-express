@@ -28,6 +28,9 @@ class Route {
         this.streaming = options.streaming || app._options.streaming || {};
         this.max_body_length = options.max_body_length || app._options.max_body_length;
         this.path_parameters_key = parse_path_parameters(pattern);
+
+        // Translate to HTTP DELETE
+        if (this.method === 'DEL') this.method = 'DELETE';
     }
 
     /**
