@@ -845,9 +845,6 @@ class Request {
     }
 }
 
-// Store the descriptors of the original HyperExpress.Request class
-const descriptors = Object.getOwnPropertyDescriptors(Request.prototype);
-
 // Inherit the compatibility classes
 inherit_prototype({
     from: ExpressRequest.prototype,
@@ -866,6 +863,7 @@ inherit_prototype({
 inherit_prototype({
     from: [stream.Readable.prototype, emitter.prototype],
     to: Request.prototype,
+    override: (name) => '_super_' + name, // Prefix all overrides with _super_
     method: (type, name, original) => {
         // Initialize a pass through method
         const passthrough = function () {
@@ -876,14 +874,6 @@ inherit_prototype({
             return original.apply(this._readable, arguments);
         };
 
-        // If this inheritance is a function type that may be overwriting a HyperExpress definition
-        // Inherit this method with a _super_ prefix to allow the HyperExpress definitions to call these methods under the hood
-        if (typeof descriptors[name]?.value == 'function') {
-            Request.prototype['_super_' + name] = passthrough;
-            return;
-        }
-
-        // Otherwise, simply return the passthrough method
         return passthrough;
     },
 });

@@ -96,26 +96,40 @@ function merge_relative_paths(base_path, new_path) {
  * @param {Object|Array<Object>} options.from - The prototype to inherit from
  * @param {Object} options.to - The prototype to inherit to
  * @param {function(('FUNCTION'|'GETTER'|'SETTER'), string, function):function=} options.method - The method to inherit. Parameters are: type, name, method.
+ * @param {function(string):string=} options.override - The method name to override the original with. Parameters are: name.
  * @param {Array<string>} options.ignore - The property names to ignore
  */
-function inherit_prototype({ from, to, method, ignore = ['constructor'] }) {
+function inherit_prototype({ from, to, method, override, ignore = ['constructor'] }) {
     // Recursively call self if the from prototype is an Array of prototypes
-    if (Array.isArray(from)) return from.forEach((f) => inherit_prototype({ from: f, to, method, ignore }));
+    if (Array.isArray(from)) return from.forEach((f) => inherit_prototype({ from: f, to, override, method, ignore }));
 
     // Inherit the descriptors from the "from" prototype to the "to" prototype
-    const descriptors = Object.getOwnPropertyDescriptors(from);
-    Object.keys(descriptors).forEach((name) => {
+    const to_descriptors = Object.getOwnPropertyDescriptors(to);
+    const from_descriptors = Object.getOwnPropertyDescriptors(from);
+    Object.keys(from_descriptors).forEach((name) => {
         // Ignore the properties specified in the ignore array
         if (ignore.includes(name)) return;
 
         // Destructure the descriptor function properties
-        const { value, get, set } = descriptors[name];
+        const { value, get, set } = from_descriptors[name];
+
+        // Determine if this descriptor name would be an override
+        // Override the original name with the provided name resolver for overrides
+        if (typeof override == 'function' && to_descriptors[name]?.value) name = override(name) || name;
 
         // Determine if the descriptor is a method aka. a function
         if (typeof value === 'function') {
             // Inject a middleman method into the "to" prototype
             const middleman = method('FUNCTION', name, value);
-            if (middleman) to[name] = middleman;
+            if (middleman) {
+                // Define the middleman method on the "to" prototype
+                Object.defineProperty(to, name, {
+                    configurable: true,
+                    enumerable: true,
+                    writable: true,
+                    value: middleman,
+                });
+            }
         } else {
             // Initialize a definition object
             const definition = {};
