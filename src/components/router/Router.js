@@ -41,8 +41,8 @@ class Router {
                 };
             default:
                 return {
-                    middlewares: method === 'any' ? undefined : [],
                     streaming: {},
+                    middlewares: method === 'any' ? undefined : [],
                 };
         }
     }
@@ -84,6 +84,9 @@ class Router {
 
         // Make a shallow copy of the options object to avoid mutating the original
         options = Object.assign({}, options);
+
+        // Enforce a leading slash on the pattern if it begins with a catchall star
+        if (pattern.startsWith('*')) pattern = '/' + pattern;
 
         // Concatenate any remaining callbacks to the route options middlewares property
         if (callbacks.length > 0) options.middlewares = (options.middlewares || []).concat(callbacks);
