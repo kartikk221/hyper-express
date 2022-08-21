@@ -108,6 +108,12 @@ const specific_middleware2 = (request, response, next) => {
     return next();
 };
 
+// Notice we dont use the next param, You may only call next() inside of a synchronous middleware while async middlewares are simply awaited internally thus not requiring you to iterate forward with the next callback.
+// 
+const specific_async_middleware3 = async (request, response) => {
+    console.log('route specific middleware 3 ran!');
+}
+
 // Bind a route/method specific middleware
 // Middlewares are executed in the order they are specified in the middlewares Array
 webserver.get('/', {
