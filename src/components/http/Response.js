@@ -10,8 +10,13 @@ const ExpressResponse = require('../compatibility/ExpressResponse.js');
 const { inherit_prototype } = require('../../shared/operators.js');
 
 const FilePool = {};
+const ViewPool = {};
 const LiveFile = require('../plugins/LiveFile.js');
 const SSEventStream = require('../plugins/SSEventStream.js');
+const View = require('../plugins/View.js');
+
+
+
 
 class Response {
     #locals;
@@ -676,6 +681,80 @@ class Response {
     html(body) {
         return this.type('html').send(body);
     }
+
+    _try_render(view, renderOptions, callback) {
+        try {
+            return view.render(renderOptions, callback)
+        } catch (err) {
+            console.log(err)
+        }
+    }
+    // async _try_render_promise(view, renderOptions) {
+    //     try {
+    //         const html = await view.renderPromise()
+    //         return this.html(html)
+    //     } catch (err) {
+    //         this.throw(err)
+    //     }
+    // }
+
+    /**
+     * Callback for adding two numbers.
+     *
+     * @callback renderCallback
+     * @param {Error} error 
+     * @param {String} str - html string
+     */
+    /**
+     * Render `view` with the given `options` and optional callback `fn`.
+     * automatically sets html as the response content type and sends provided html response body when callback provided.
+     *
+     * @param {String} path
+     * @param {RenderOptions} renderOptions
+     * @param {renderCallback} callback Executed after file has been render, 
+     * @returns {Boolean} 
+     */
+     render(path, renderOptions = {}, callback) {
+        const app = this.app;
+        const self = this
+        const defaultEngine = app.view_engine
+        if (!defaultEngine) {
+            throw new Error('HyperExpress: View Engine is Not Initalized, please use the `set_view_engine()` method before using the `render()` method')
+        }
+        let done = callback;
+        done = done ?? function(err, str)  {
+            if (err) self.throw(err)
+            return self.html(str);
+        }
+        let view = ViewPool[path];
+        // primed cache
+        if (view && app.view_cache) {
+            return this._try_render(view, renderOptions, done);
+        }
+
+        view = new View(path, {
+            defaultEngine,
+            root: app.views_dir,
+            // To Enable EJS Cache
+            settings: {
+                'view cache': app.view_cache
+            },
+            cache: app.view_cache,
+            engines: app.engines,
+        })
+        if (!view.path) {
+            const dirs = Array.isArray(view.root) && view.root.length > 1
+            ? 'directories "' + view.root.slice(0, -1).join('", "') + '" or "' + view.root[view.root.length - 1] + '"'
+            : 'directory "' + view.root + '"'
+          var err = new Error('Failed to lookup view "' + path + '" in views ' + dirs);
+          err.view = view;
+          return done(err);
+        }
+        ViewPool[path] = view;
+        return this._try_render(view, renderOptions, done);
+    }
+
+    
 
     /**
      * @private

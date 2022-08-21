@@ -75,9 +75,9 @@ class ExpressResponse {
         return this.header('location', path);
     }
 
-    render() {
-        this._throw_unsupported('render()');
-    }
+    // render() {
+    //     this._throw_unsupported('render()');
+    // }
 
     sendFile(path) {
         return this.file(path);

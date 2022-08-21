@@ -1,6 +1,7 @@
 import * as Stream from 'stream';
 import * as uWebsockets from 'uWebSockets.js';
 import { LiveFile } from '../plugins/LiveFile';
+import { ViewOptions } from '../plugins/View';
 import { Server } from '../Server';
 import { Request } from './Request'
 
@@ -154,6 +155,17 @@ export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
      * @returns {Boolean} Boolean
      */
     html(body: string): boolean;
+
+    /**
+     * Render `view` with the given `options` and optional callback `fn`.
+     * automatically sets html as the response content type and sends provided html response body.
+     *
+     * @param {String} path
+     * @param {ViewOptions} options
+     * @param {function(Object):void=} callback Executed after file has been served with the parameter being the cache pool.
+     * @returns {Boolean} ViewOptions
+     */
+    render(path: string, options: ViewOptions, callback?: ((err: unknown, str: string) => void) | undefined): boolean;
 
     /**
      * This method is an alias of send() method except it sends the file at specified path.

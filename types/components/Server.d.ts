@@ -16,6 +16,11 @@ export interface ServerConstructorOptions {
     trust_proxy?: boolean,
     max_body_length?: number,
     auto_close?: boolean
+    view_engine?: {
+        name: string;
+        cache?: boolean;
+        dir?: string;
+    }
 }
 
 export type GlobalErrorHandler = (request: Request, response: Response, error: Error) => void;

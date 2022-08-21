@@ -9,7 +9,7 @@ const HostManager = require('./plugins/HostManager.js');
 const WebsocketRoute = require('./ws/WebsocketRoute.js');
 
 const { wrap_object } = require('../shared/operators.js');
-
+const { resolve } = require('path');
 class Server extends Router {
     #port;
     #hosts;
@@ -24,6 +24,10 @@ class Server extends Router {
         max_body_length: 250 * 1000,
         streaming: {},
     };
+    #engines = {}
+    #views = resolve('views');
+    #view_engine = null;
+    #view_cache = process.env.NODE_ENV === 'production';
 
     /**
      * Server instance options.
@@ -46,7 +50,8 @@ class Server extends Router {
      * @param {Object} options.streaming Global content streaming options.
      * @param {import('stream').ReadableOptions=} options.streaming.readable Global content streaming options for Readable streams.
      * @param {import('stream').WritableOptions=} options.streaming.writable Global content streaming options for Writable streams.
-     */
+     
+    */
     constructor(options = {}) {
         // Only accept object as a parameter type for options
         if (options == null || typeof options !== 'object')
@@ -161,6 +166,9 @@ class Server extends Router {
         this.#handlers.on_error = handler;
     }
 
+
+    
+
     /**
      * @typedef RouteHandler
      * @type {function(Request, Response):void}
@@ -190,6 +198,24 @@ class Server extends Router {
 
         // Do not allow user to re-register not found handler
         throw new Error('HyperExpress: A Not Found handler has already been registered.');
+    }
+
+    /**
+     * Sets a View Engine which handle all render() requests
+     * @param {Object} options 
+     * @param {String} options.engine
+     * @param {String=} options.views
+     * @param {Boolean=} options.cache
+     */
+    set_view_engine(options) {
+        if (typeof options !== 'object') throw new Error(`HyperExpress: options must be a Object`)
+        if (this.#view_engine === null) {
+            this.#view_engine = options.engine;
+            this.#views = options.views || this.#views;
+            this.#view_cache = options.cache || this.#view_cache;
+        } else {
+            throw new Error('HyperExpress: A View Engine has already been registered.');
+        }
     }
 
     /**
@@ -469,6 +495,22 @@ class Server extends Router {
      */
     get middlewares() {
         return this.#middlewares;
+    }
+
+    get engines() {
+        return this.#engines;
+    }
+
+    get view_engine() {
+        return this.#view_engine
+    }
+
+    get views_dir() {
+        return this.#views
+    }
+
+    get view_cache() {
+        return this.#view_cache
     }
 }
 
