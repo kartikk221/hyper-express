@@ -16,11 +16,6 @@ export interface ServerConstructorOptions {
     trust_proxy?: boolean,
     max_body_length?: number,
     auto_close?: boolean
-    view_engine?: {
-        name: string;
-        cache?: boolean;
-        dir?: string;
-    }
 }
 
 export type GlobalErrorHandler = (request: Request, response: Response, error: Error) => void;
@@ -68,6 +63,14 @@ export class Server extends Router {
      */
     set_not_found_handler(handler: GlobalNotFoundHandler): void;
 
+    /**
+     * Sets a View Engine which handle all render() requests
+     * @param {Object} options 
+     * @param {String} options.engine
+     * @param {String=} options.views
+     * @param {Boolean=} options.cache
+     */
+    set_view_engine(options: {engine: string, views?: string, cache?: boolean;}): void
     /**
      * Publish a message to a topic in MQTT syntax to all WebSocket connections on this Server instance.
      * You cannot publish using wildcards, only fully specified topics.

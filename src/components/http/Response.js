@@ -707,12 +707,14 @@ class Response {
      */
     /**
      * Render `view` with the given `options` and optional callback `fn`.
-     * automatically sets html as the response content type and sends provided html response body when callback provided.
+     * Only works when `app.set_view_engine()` is called beforehand.
+     * 
+     * automatically sets `html` as the response content type and sends provided html response body.
      *
-     * @param {String} path
-     * @param {RenderOptions} renderOptions
-     * @param {renderCallback} callback Executed after file has been render, 
-     * @returns {Boolean} 
+     * @param {String} path The path argument is a string that is the file path of the view file to render. This can be an absolute path, or a path relative to the `app.views` setting. If the path does not contain a file extension, then the view engine setting determines the file extension. If the path does contain a file extension, then HyperExpress will load the module for the specified template engine (via require()) and render it using the loaded module’s __express function.
+     * @param {ViewOptions} options
+     * @param {function(Object):void=} callback  a callback function. If provided, the method returns both the possible error and rendered string, but does not perform an automated response. When an error occurs, the method invokes res.throw(err) internally.
+     * @returns {Boolean}
      */
      render(path, renderOptions = {}, callback) {
         const app = this.app;
