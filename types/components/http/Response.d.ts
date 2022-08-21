@@ -160,6 +160,13 @@ export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
      */
     html(body: string): boolean;
 
+     /**
+     * Callback for adding two numbers.
+     *
+     * @callback renderCallback
+     * @param {Error} error 
+     * @param {String} str - html string
+     */
     /**
      * Render `view` with the given `options` and optional callback `fn`.
      * Only works when `app.set_view_engine()` is called beforehand.
@@ -167,11 +174,11 @@ export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
      * automatically sets `html` as the response content type and sends provided html response body.
      *
      * @param {String} path The path argument is a string that is the file path of the view file to render. This can be an absolute path, or a path relative to the `app.views` setting. If the path does not contain a file extension, then the view engine setting determines the file extension. If the path does contain a file extension, then HyperExpress will load the module for the specified template engine (via require()) and render it using the loaded module’s __express function.
-     * @param {ViewOptions} options
-     * @param {function(Object):void=} callback  a callback function. If provided, the method returns both the possible error and rendered string, but does not perform an automated response. When an error occurs, the method invokes res.throw(err) internally.
+     * @param {ViewOptions} renderOptions
+     * @param {renderCallback} callback a callback function. If provided, the method returns both the possible error and rendered string, but does not perform an automated response. When an error occurs, the method invokes res.throw(err) internally.
      * @returns {Boolean}
      */
-    render(path: string, options: ViewOptions, callback?: ((err: unknown, str: string) => void) | undefined): boolean;
+    render(path: string, renderOptions: ViewOptions, callback?: ((err: unknown, str: string) => void) | undefined): boolean;
 
     /**
      * This method is an alias of send() method except it sends the file at specified path.

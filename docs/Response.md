@@ -62,6 +62,8 @@ Below is a breakdown of the `Response` component which is an **extended** `Writa
 * `jsonp(Object: body, String?: name)`: Alias of `send()`. Sets mime type to `js` and sends response.
   * **Note!** This method uses `callback` query parameter as callback name by default if `name` parameter is not specified.
 * `html(String: body)`: Alias of `send()`. Sets mime type to `html` and sends response.
+* `render(String: path, Object: renderOptions, Function?: callback)`: Alias of `html()`. Render `view` with the given `options` and optional callback function. 
+  * **Note!** If callback provided, the method returns both the possible `Error` and rendered `string`, but does not perform an automated response. When an error occurs, the method invokes `res.throw(err)` internally.. 
 * `attachment(String: path)`: Writes appropriate `Content-Disposition` and `Content-Type` headers for file specified at `path`.
   * **Note!** this method **only** writes the appropriate headers.
 * `download(String: path, String: filename)`: Alias of `send()`. Sets appropriate attachment headers and mime type if one has not been set yet and sends file content at specified path as response body for browser to download.
