@@ -103,7 +103,8 @@ class Response {
      */
     _track_middleware_cursor(position) {
         // Track and ensure each middleware cursor value is greater than previously tracked value for sequential progression
-        if (!this.#middleware_cursor || position > this.#middleware_cursor) return (this.#middleware_cursor = position);
+        if (this.#middleware_cursor === undefined || position > this.#middleware_cursor)
+            return (this.#middleware_cursor = position);
 
         // If position is not greater than last cursor then we likely have a double middleware execution
         this.throw(
@@ -964,6 +965,7 @@ inherit_prototype({
 inherit_prototype({
     from: [stream.Writable.prototype, emitter.prototype],
     to: Response.prototype,
+    override: (name) => '_super_' + name, // Prefix all overrides with _super_
     method: (type, name, original) => {
         // Initialize a pass through method
         const passthrough = function () {
@@ -981,13 +983,6 @@ inherit_prototype({
             // Return the original function with the writable stream as the context
             return original.apply(this._writable, arguments);
         };
-
-        // If this inheritance is a function type that may be overwriting a HyperExpress definition
-        // Inherit this method with a _super_ prefix to allow the HyperExpress definitions to call these methods under the hood
-        if (typeof descriptors[name]?.value == 'function') {
-            Response.prototype['_super_' + name] = passthrough;
-            return;
-        }
 
         // Otherwise, simply return the passthrough method
         return passthrough;

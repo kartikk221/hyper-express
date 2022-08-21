@@ -1,5 +1,6 @@
 const { log, assert_log } = require('./scripts/operators.js');
 const { test_hostmanager_object } = require('./components/features/HostManager.js');
+const { test_router_object } = require('./components/router/Router.js');
 const { test_request_object } = require('./components/http/Request.js');
 const { test_response_object } = require('./components/http/Response.js');
 const { test_websocket_route } = require('./components/ws/WebsocketRoute.js');
@@ -25,6 +26,9 @@ const { TEST_SERVER } = require('./components/Server.js');
 
         // Test Server.HostManager Object
         test_hostmanager_object();
+
+        // Test Router Object
+        await test_router_object();
 
         // Test Request Object
         await test_request_object();
