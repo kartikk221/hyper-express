@@ -6,6 +6,7 @@ const mime_types = require('mime-types');
 const stream = require('stream');
 const emitter = require('events');
 
+const NodeResponse = require('../compatibility/NodeResponse.js');
 const ExpressResponse = require('../compatibility/ExpressResponse.js');
 const { inherit_prototype } = require('../../shared/operators.js');
 
@@ -868,14 +869,17 @@ const descriptors = Object.getOwnPropertyDescriptors(Response.prototype);
 
 // Inherit the compatibility classes
 inherit_prototype({
-    from: ExpressResponse.prototype,
+    from: [NodeResponse.prototype, ExpressResponse.prototype],
     to: Response.prototype,
     method: (type, name, original) => {
-        // Return an anonymous function which calls the original function with Request scope
-        return function () {
+        // Initialize a passthrough method for each descriptor
+        const passthrough = function () {
             // Call the original function with the Request scope
             return original.apply(this, arguments);
         };
+
+        // Return the passthrough function
+        return passthrough;
     },
 });
 
@@ -889,7 +893,7 @@ inherit_prototype({
         // Initialize a pass through method
         const passthrough = function () {
             // Lazy initialize the writable stream on local scope
-            if (!this._writable) {
+            if (this._writable === null) {
                 // Initialize the writable stream
                 this._writable = new stream.Writable(this.route.streaming.writable);
 

@@ -107,14 +107,6 @@ class ExpressResponse {
     get headersSent() {
         return this.initiated;
     }
-
-    get statusCode() {
-        return this._status_code;
-    }
-
-    set statusCode(value) {
-        this._status_code = value;
-    }
 }
 
 module.exports = ExpressResponse;

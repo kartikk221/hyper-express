@@ -3,10 +3,11 @@ const cookie = require('cookie');
 const stream = require('stream');
 const emitter = require('events');
 const busboy = require('busboy');
-const querystring = require('qs');
 const signature = require('cookie-signature');
+const querystring = require('node:querystring');
 
 const MultipartField = require('../plugins/MultipartField.js');
+const NodeRequest = require('../compatibility/NodeRequest.js');
 const ExpressRequest = require('../compatibility/ExpressRequest.js');
 const { inherit_prototype, array_buffer_to_string } = require('../../shared/operators.js');
 
@@ -847,7 +848,7 @@ class Request {
 
 // Inherit the compatibility classes
 inherit_prototype({
-    from: ExpressRequest.prototype,
+    from: [NodeRequest.prototype, ExpressRequest.prototype],
     to: Request.prototype,
     method: (type, name, original) => {
         // Return an anonymous function which calls the original function with Request scope
@@ -868,7 +869,7 @@ inherit_prototype({
         // Initialize a pass through method
         const passthrough = function () {
             // Lazy initialize the readable stream on local scope
-            if (!this._readable) this._readable = new stream.Readable(this.route.streaming.readable);
+            if (this._readable === null) this._readable = new stream.Readable(this.route.streaming.readable);
 
             // Return the original function with the readable stream as the context
             return original.apply(this._readable, arguments);

@@ -42,7 +42,6 @@
         "cookie": "^0.4.1",
         "cookie-signature": "^1.1.0",
         "mime-types": "^2.1.33",
-        "qs": "^6.10.3",
         "range-parser": "^1.2.1",
         "type-is": "^1.6.18",
         "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.10.0"
