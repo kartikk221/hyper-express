@@ -75,7 +75,7 @@ class Server extends Router {
         } catch (error) {
             // Throw error if uWebsockets.js fails to initialize
             throw new Error(
-                `new HyperExpress.Server(): Failed to create new Server instance due to invalid SSL configuration. Please ensure you have entered the correct SSL paths and parameters.`
+                `new HyperExpress.Server(): Failed to create new Server instance due to invalid SSL configuration. Please ensure you have entered the correct SSL paths and parameters. uWebsockets.js: ${error}`
             );
         }
 
