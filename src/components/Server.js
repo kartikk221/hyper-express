@@ -60,17 +60,24 @@ class Server extends Router {
         // Store options locally for access throughout processing
         wrap_object(this.#options, options);
 
-        // Create underlying uWebsockets App or SSLApp to power HyperExpress
-        const { cert_file_name, key_file_name } = options;
-        this.#options.is_ssl = cert_file_name && key_file_name; // cert and key are required for SSL
-        if (this.#options.is_ssl) {
-            this.#uws_instance = uWebSockets.SSLApp(options);
-        } else {
-            this.#uws_instance = uWebSockets.App(options);
-        }
-
         // Expose the options object for future use
         this._options = options;
+
+        try {
+            // Create underlying uWebsockets App or SSLApp to power HyperExpress
+            const { cert_file_name, key_file_name } = options;
+            this.#options.is_ssl = cert_file_name && key_file_name; // cert and key are required for SSL
+            if (this.#options.is_ssl) {
+                this.#uws_instance = uWebSockets.SSLApp(options);
+            } else {
+                this.#uws_instance = uWebSockets.App(options);
+            }
+        } catch (error) {
+            // Throw error if uWebsockets.js fails to initialize
+            throw new Error(
+                `new HyperExpress.Server(): Failed to create new Server instance due to invalid SSL configuration. Please ensure you have entered the correct SSL paths and parameters.`
+            );
+        }
 
         // Initialize the HostManager for this Server instance
         this.#hosts = new HostManager(this);
