@@ -57,6 +57,7 @@ const route_specific_middleware = (request, response, next) => {
 const { test_middleware_double_iteration } = require('./scenarios/middleware_double_iteration.js');
 const { test_middleware_iteration_error } = require('./scenarios/middleware_iteration_error.js');
 const { test_middleware_layered_iterations } = require('./scenarios/middleware_layered_iteration.js');
+const { test_middleware_dynamic_iteration } = require('./scenarios/middleware_dynamic_iteration.js');
 const { TEST_SERVER } = require('../Server.js');
 TEST_SERVER.use(router);
 
@@ -228,6 +229,9 @@ async function test_request_object() {
 
     // Test simulated middleware iteration error
     await test_middleware_iteration_error();
+
+    // Test dynamic middleware iteration
+    await test_middleware_dynamic_iteration();
 
     // Verify .app.locals
     assert_log(group, candidate + '.app.locals', () => body.locals.some_reference.some_data === true);

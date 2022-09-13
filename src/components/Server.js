@@ -110,6 +110,10 @@ class Server extends Router {
         const reference = this;
         return new Promise((resolve, reject) =>
             reference.#uws_instance.listen(host, port, (listen_socket) => {
+                // Compile the Server instance
+                reference._compile();
+
+                // Determine if we received a listen socket
                 if (listen_socket) {
                     // Store the listen socket for future closure & bind the auto close handler if enabled from constructor options
                     reference.#listen_socket = listen_socket;
@@ -177,28 +181,12 @@ class Server extends Router {
 
     /**
      * Sets a global not found handler which will handle all requests that are unhandled by any registered route.
-     * Note! This handler must be registered after all routes and routers.
      *
      * @param {RouteHandler} handler
      */
     set_not_found_handler(handler) {
         if (typeof handler !== 'function') throw new Error('HyperExpress: handler must be a function');
-
-        // Store not_found handler and bind it as a catchall route
-        if (this.#handlers.on_not_found === null) {
-            this.#handlers.on_not_found = handler;
-            return setTimeout(
-                (reference) => {
-                    reference.any('/*', (request, response) => reference.#handlers.on_not_found(request, response));
-                    reference.#routes_locked = true;
-                },
-                0,
-                this
-            );
-        }
-
-        // Do not allow user to re-register not found handler
-        throw new Error('HyperExpress: A Not Found handler has already been registered.');
+        this.#handlers.on_not_found = handler;
     }
 
     /**
@@ -259,40 +247,15 @@ class Server extends Router {
         // Do not allow route creation once it is locked after a not found handler has been bound
         if (this.#routes_locked === true)
             throw new Error(
-                `HyperExpress: Routes/Routers must not be created or used after the set_not_found_handler() has been set due to uWebsockets.js's internal router not allowing for this to occur. [${method.toUpperCase()} ${pattern}]`
+                `HyperExpress: Routes/Routers must not be created or used after the Server.listen() has been called. [${method.toUpperCase()} ${pattern}]`
             );
 
         // Do not allow duplicate routes for performance/stability reasons
         // We make an exception for 'upgrade' routes as they must replace the default route added by WebsocketRoute
-        if (method !== 'upgrade' && this.#routes[method]?.[pattern])
+        if (method !== 'upgrade' && this.#routes[method][pattern])
             throw new Error(
                 `HyperExpress: Failed to create route as duplicate routes are not allowed. Ensure that you do not have any routers or routes that try to handle requests at the same pattern. [${method.toUpperCase()} ${pattern}]`
             );
-
-        // Process and combine middlewares for routes that support middlewares
-        if (!['ws'].includes(method)) {
-            // Initialize a middlewares container array which will cache all middlewares for this route
-            const middlewares = [];
-
-            // Parse middlewares that apply to this route based on execution pattern
-            Object.keys(this.#middlewares).forEach((match) => {
-                // Store middleware if its execution pattern matches our route pattern
-                if (pattern.startsWith(match))
-                    reference.#middlewares[match].forEach((object) => middlewares.push(object));
-            });
-
-            // Initialize route-specific middlewares if they do not exist
-            if (!Array.isArray(options.middlewares)) options.middlewares = [];
-
-            // Map all user specified route specific middlewares with a priority of 2
-            options.middlewares = options.middlewares.map((middleware) => ({
-                priority: 2,
-                middleware,
-            }));
-
-            // Combine matched middlewares with route middlewares
-            options.middlewares = middlewares.concat(options.middlewares);
-        }
 
         // Create a Route object to contain route information through handling process
         const route = new Route({
@@ -354,31 +317,43 @@ class Server extends Router {
         const reference = this;
         const { pattern, middleware } = record;
 
+        // Do not allow route creation once it is locked after a not found handler has been bound
+        if (this.#routes_locked === true)
+            throw new Error(
+                `HyperExpress: Routes/Routers must not be created or used after the Server.listen() has been called. [${method.toUpperCase()} ${pattern}]`
+            );
+
         // Initialize middlewares array for specified pattern
         if (this.#middlewares[pattern] == undefined) this.#middlewares[pattern] = [];
 
         // Create a middleware object with an appropriate priority
         const object = {
-            priority: pattern === '/' ? 0 : 1, // 0 priority are global middlewares
-            middleware,
+            pattern,
+            handler: middleware,
+            priority: pattern === '/' ? 0 : 1, // 0 = global middleware, 1 = local middleware
         };
 
         // Store middleware object in its pattern branch
         this.#middlewares[pattern].push(object);
+    }
 
-        // Inject middleware into all routes that match its execution pattern if it is non global
-        const match = pattern.endsWith('/') ? pattern.substr(0, pattern.length - 1) : pattern;
-        Object.keys(this.#routes).forEach((method) => {
-            // Ignore ws routes as they are WebsocketRoute components
-            if (method === 'ws') return;
+    /**
+     * Compiles the route and middleware structures for this instance for use in the uWS server.
+     * Note! This method will lock any future creation of routes or middlewares.
+     * @private
+     */
+    _compile() {
+        // Bind the not found handler as a catchall route
+        if (this.#handlers.on_not_found)
+            this.any('/*', (request, response) => this.#handlers.on_not_found(request, response));
 
-            // Match middleware pattern against all routes with this method
-            const routes = reference.#routes[method];
-            Object.keys(routes).forEach((pattern) => {
-                // If route's pattern starts with middleware pattern, then use middleware
-                if (pattern.startsWith(match)) routes[pattern].use(object);
-            });
-        });
+        // Iterate through all routes
+        Object.keys(this.#routes).forEach((method) =>
+            Object.keys(this.#routes[method]).forEach((pattern) => this.#routes[method][pattern].compile())
+        );
+
+        // Lock routes from further creation
+        this.#routes_locked = true;
     }
 
     /* uWS -> Server Request/Response Handling Logic */

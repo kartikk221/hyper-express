@@ -34,17 +34,10 @@ class Router {
      * @returns {Object}
      */
     _default_options(method) {
-        switch (method) {
-            case 'ws':
-                return {
-                    streaming: {},
-                };
-            default:
-                return {
-                    streaming: {},
-                    middlewares: method === 'any' ? undefined : [],
-                };
-        }
+        return {
+            streaming: {},
+            middlewares: [],
+        };
     }
 
     /**
@@ -119,7 +112,7 @@ class Router {
      */
     _register_middleware(pattern, middleware) {
         const record = {
-            pattern,
+            pattern: pattern.endsWith('/') ? pattern.slice(0, -1) : pattern, // Do not allow trailing slash in middlewares
             middleware,
         };
 

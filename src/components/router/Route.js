@@ -10,6 +10,7 @@ class Route {
     streaming = null;
     max_body_length = null;
     path_parameters_key = null;
+    is_wildcard = false;
 
     /**
      * Constructs a new Route object.
@@ -47,7 +48,6 @@ class Route {
     use(middleware) {
         // Store and sort middlewares to ensure proper execution order
         this.options.middlewares.push(middleware);
-        this.options.middlewares.sort((a, b) => a.priority - b.priority);
     }
 
     /**
@@ -65,11 +65,13 @@ class Route {
         // Retrieve the middleware for the current cursor, track the cursor if there is a valid middleware
         const middleware = this.options.middlewares[cursor];
 
-        // If there is no middleware, then iterator is undefined by default as we cannot iterate from a route
-
         // Ensure a middleware exists for this cursor index
         let iterator;
         if (middleware !== undefined) {
+            // Enforce request path pattern matching if this is a wildcard route
+            if (this.is_wildcard && !request.path.startsWith(middleware.pattern))
+                return this.handle(request, response, cursor + 1);
+
             // Track the middleware cursor to prevent double execution
             response._track_middleware_cursor(cursor);
 
@@ -88,8 +90,8 @@ class Route {
             // Retrieve an output value from the route handler or the middleware function
             let output;
             if (middleware !== undefined) {
-                // Execute the middleware function with the iterator
-                output = middleware.middleware(request, response, iterator);
+                // Execute the middleware handler with the iterator
+                output = middleware.handler(request, response, iterator);
             } else {
                 // Excute the route handler without the iterator
                 output = this.handler(request, response);
@@ -106,6 +108,53 @@ class Route {
         } catch (error) {
             // Catch and pipe any errors to the error handler
             response.throw(error);
+        }
+    }
+
+    /**
+     * Compiles the route's internal components for incoming requests.
+     */
+    compile() {
+        // Sort the middlewares to ensure proper execution order
+        if (Array.isArray(this.options.middlewares)) {
+            // Initialize a fresh array of middlewares
+            const pattern = this.pattern;
+            const middlewares = [];
+
+            // Determine wildcard properties about this route
+            const is_wildcard = pattern.endsWith('*');
+            const wildcard_path = pattern.substring(0, pattern.length - 1);
+            this.is_wildcard = is_wildcard;
+
+            // Iterate through the global/local middlewares and connect them to this route if eligible
+            const app_middlewares = this.app.middlewares;
+            Object.keys(app_middlewares).forEach((pattern) =>
+                app_middlewares[pattern].forEach((middleware) => {
+                    // A route can be a direct child when a route's pattern has more path depth than the middleware with a matching start
+                    // A route can be an indirect child when it is a wildcard and the middleware's pattern is a direct parent of the route child
+                    const direct_child = pattern.startsWith(middleware.pattern);
+                    const indirect_child = middleware.pattern.startsWith(wildcard_path);
+                    if (direct_child || (is_wildcard && indirect_child)) middlewares.push(middleware);
+                })
+            );
+
+            // Push the route-specific middlewares to the array at the end
+            this.options.middlewares.forEach((middleware) =>
+                middlewares.push({
+                    pattern,
+                    handler: middleware,
+                    priority: 2, // 2 = route-specific middleware
+                })
+            );
+
+            // Sort the middlewares increasing priority
+            middlewares.sort((a, b) => a.priority - b.priority);
+
+            // Replace the middlewares array with the sorted array
+            this.options.middlewares = middlewares;
+        } else {
+            // Initialize an empty array of middlewares so the handler can be executed
+            this.options.middlewares = [];
         }
     }
 }

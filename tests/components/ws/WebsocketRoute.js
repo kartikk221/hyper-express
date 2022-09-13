@@ -59,20 +59,8 @@ async function test_websocket_route() {
         // Create a reject timeout to throw on hangups
         let timeout = setTimeout(reject, 1000);
         ws_unprotected.on('close', () => {
-            // Assert options test on the websocket route
-            const websocket_route = TEST_SERVER.routes.ws[`${TestPath}/unprotected`];
-            assert_log(
-                group,
-                `${candidate} Constructor Options`,
-                () => JSON.stringify(websocket_route.options) === JSON.stringify(TestOptions)
-            );
-
             // Perform assertion to test for valid last message
-            assert_log(
-                group,
-                `${candidate} Default/Unprotected Upgrade Handler`,
-                () => last_message === TestPayload
-            );
+            assert_log(group, `${candidate} Default/Unprotected Upgrade Handler`, () => last_message === TestPayload);
 
             // Cancel reject timeout and move on after assertion succeeds
             clearTimeout(timeout);
@@ -118,11 +106,7 @@ async function test_websocket_route() {
         let timeout = setTimeout(reject, 1000);
         ws_protected_key.on('close', () => {
             // Perform assertion to test for valid last message
-            assert_log(
-                group,
-                `${candidate} Protected Upgrade Handler With Key`,
-                () => last_message === TestPayload
-            );
+            assert_log(group, `${candidate} Protected Upgrade Handler With Key`, () => last_message === TestPayload);
 
             // Cancel reject timeout and move on after assertion succeeds
             clearTimeout(timeout);
