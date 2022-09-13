@@ -4,7 +4,7 @@ const stream = require('stream');
 const emitter = require('events');
 const busboy = require('busboy');
 const signature = require('cookie-signature');
-const querystring = require('node:querystring');
+const querystring = require('querystring');
 
 const MultipartField = require('../plugins/MultipartField.js');
 const NodeRequest = require('../compatibility/NodeRequest.js');

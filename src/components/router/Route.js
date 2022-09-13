@@ -63,11 +63,9 @@ class Route {
         if (response.completed === true || cursor > this.options.middlewares.length) return;
 
         // Retrieve the middleware for the current cursor, track the cursor if there is a valid middleware
-        const middleware = this.options.middlewares[cursor];
-
-        // Ensure a middleware exists for this cursor index
         let iterator;
-        if (middleware !== undefined) {
+        const middleware = this.options.middlewares[cursor];
+        if (middleware) {
             // Enforce request path pattern matching if this is a wildcard route
             if (this.is_wildcard && !request.path.startsWith(middleware.pattern))
                 return this.handle(request, response, cursor + 1);
@@ -89,7 +87,7 @@ class Route {
         try {
             // Retrieve an output value from the route handler or the middleware function
             let output;
-            if (middleware !== undefined) {
+            if (middleware) {
                 // Execute the middleware handler with the iterator
                 output = middleware.handler(request, response, iterator);
             } else {
@@ -112,10 +110,10 @@ class Route {
     }
 
     /**
-     * Compiles the route's internal components for incoming requests.
+     * Compiles the route's internal components and caches for incoming requests.
      */
     compile() {
-        // Sort the middlewares to ensure proper execution order
+        // Determine if this route contains middlewares in the options
         if (Array.isArray(this.options.middlewares)) {
             // Initialize a fresh array of middlewares
             const pattern = this.pattern;
@@ -153,7 +151,7 @@ class Route {
             // Replace the middlewares array with the sorted array
             this.options.middlewares = middlewares;
         } else {
-            // Initialize an empty array of middlewares so the handler can be executed
+            // Fill options with an empty array of middlewares to support chaining in route handler
             this.options.middlewares = [];
         }
     }
