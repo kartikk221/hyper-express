@@ -233,6 +233,18 @@ class Server extends Router {
         ws: {},
     };
 
+    #incremented_id = 0;
+
+    /**
+     * Returns an incremented ID unique to this Server instance.
+     *
+     * @private
+     * @returns {Number}
+     */
+    _get_incremented_id() {
+        return this.#incremented_id++;
+    }
+
     /**
      * Binds route to uWS server instance and begins handling incoming requests.
      *
@@ -326,9 +338,9 @@ class Server extends Router {
 
         // Create a middleware object with an appropriate priority
         const object = {
+            id: this._get_incremented_id(),
             pattern,
             handler: middleware,
-            priority: pattern === '/' ? 0 : 1, // 0 = global middleware, 1 = local middleware
         };
 
         // Store middleware object in its pattern branch

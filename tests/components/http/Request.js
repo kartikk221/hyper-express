@@ -58,6 +58,7 @@ const { test_middleware_double_iteration } = require('./scenarios/middleware_dou
 const { test_middleware_iteration_error } = require('./scenarios/middleware_iteration_error.js');
 const { test_middleware_layered_iterations } = require('./scenarios/middleware_layered_iteration.js');
 const { test_middleware_dynamic_iteration } = require('./scenarios/middleware_dynamic_iteration.js');
+const { test_middleware_execution_order } = require('./scenarios/middleware_execution_order.js');
 const { TEST_SERVER } = require('../Server.js');
 TEST_SERVER.use(router);
 
@@ -206,7 +207,7 @@ async function test_request_object() {
 
     assert_log(group, 'Route Specific Middleware Avoidance Test', () => last_endpoint_mproperty3 == undefined);
 
-    const middleware_response = await fetch(base + route_specific_endpoint, {
+    await fetch(base + route_specific_endpoint, {
         headers: {
             'x-middleware-test-3': 'true',
         },
@@ -232,6 +233,9 @@ async function test_request_object() {
 
     // Test dynamic middleware iteration
     await test_middleware_dynamic_iteration();
+
+    // Test middleware execution order
+    await test_middleware_execution_order();
 
     // Verify .app.locals
     assert_log(group, candidate + '.app.locals', () => body.locals.some_reference.some_data === true);

@@ -26,7 +26,10 @@ TEST_SERVER.set_error_handler((request, response, error) => {
 
 // Bind not found handler for unexpected incoming requests
 TEST_SERVER.set_not_found_handler((request, response) => {
-    log('NOT_FOUND_REQUEST', `${request.method} | ${request.url}\n ${JSON.stringify(request.headers, null, 2)}`);
+    // Handle dynamic middleware executions to the requester
+    if (Array.isArray(request.middleware_executions)) return response.json(request.middleware_executions);
+
+    // Return a 404 response
     return response.status(404).send('Not Found');
 });
 

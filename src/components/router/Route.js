@@ -2,6 +2,7 @@
 const { parse_path_parameters } = require('../../shared/operators.js');
 
 class Route {
+    id = null;
     app = null;
     method = null;
     pattern = null;
@@ -21,8 +22,10 @@ class Route {
      * @param {Function} options.handler - The route handler.
      */
     constructor({ app, method, pattern, options, handler }) {
+        this.id = app._get_incremented_id();
         this.app = app;
         this.pattern = pattern;
+        this.is_wildcard = pattern.endsWith('*');
         this.handler = handler;
         this.options = options;
         this.method = method.toUpperCase();
@@ -36,8 +39,9 @@ class Route {
 
     /**
      * @typedef {Object} Middleware
-     * @property {Function} middleware - The middleware function.
-     * @property {Number} priority - The middleware priority amount. Lower numbers execute first.
+     * @property {Number} id - Unique identifier for this middleware based on it's registeration order.
+     * @property {String} pattern - The middleware pattern.
+     * @property {function} handler - The middleware handler function.
      */
 
     /**
@@ -116,13 +120,12 @@ class Route {
         // Determine if this route contains middlewares in the options
         if (Array.isArray(this.options.middlewares)) {
             // Initialize a fresh array of middlewares
-            const pattern = this.pattern;
             const middlewares = [];
+            const pattern = this.pattern;
 
             // Determine wildcard properties about this route
-            const is_wildcard = pattern.endsWith('*');
+            const is_wildcard = this.is_wildcard;
             const wildcard_path = pattern.substring(0, pattern.length - 1);
-            this.is_wildcard = is_wildcard;
 
             // Iterate through the global/local middlewares and connect them to this route if eligible
             const app_middlewares = this.app.middlewares;
@@ -139,14 +142,15 @@ class Route {
             // Push the route-specific middlewares to the array at the end
             this.options.middlewares.forEach((middleware) =>
                 middlewares.push({
+                    id: this.id,
                     pattern,
                     handler: middleware,
-                    priority: 2, // 2 = route-specific middleware
                 })
             );
 
-            // Sort the middlewares increasing priority
-            middlewares.sort((a, b) => a.priority - b.priority);
+            // Sort the middlewares by their id in ascending order
+            // This will ensure that middlewares are executed in the order they were registered throughout the application
+            middlewares.sort((a, b) => a.id - b.id);
 
             // Replace the middlewares array with the sorted array
             this.options.middlewares = middlewares;

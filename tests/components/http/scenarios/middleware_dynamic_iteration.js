@@ -43,16 +43,26 @@ async function test_middleware_dynamic_iteration() {
     const group = 'REQUEST';
     const candidate = 'HyperExpress.Request';
 
-    // Make a fetch request to a not found path
-    const not_found_response = await fetch(server.base + '/global-wildcard/' + Math.random(), {
+    // Make a fetch request to a random path that will not be found
+    const not_found_response = await fetch(server.base + '/not-found/' + Math.random(), {
         headers: {
             'x-dynamic-middleware': 'true',
         },
     });
-    const not_found_text = await not_found_response.text();
+
+    // Assert that we received a 404 response
+    assert_log(group, `${candidate} Unhandled Middleware Iteration`, () => not_found_response.status === 404);
+
+    // Make a fetch request to a global not found path on the global wildcard pattern
+    const global_response = await fetch(server.base + '/global-wildcard/' + Math.random(), {
+        headers: {
+            'x-dynamic-middleware': 'true',
+        },
+    });
+    const global_text = await global_response.text();
 
     // Assert that the global wildcard middleware was executed
-    assert_log(group, `${candidate} Global Dynamic Middleware Iteration`, () => not_found_text === 'GLOBAL_WILDCARD');
+    assert_log(group, `${candidate} Global Dynamic Middleware Iteration`, () => global_text === 'GLOBAL_WILDCARD');
 
     // Make a fetch request to a path that has a route with a wildcard middleware
     const route_specific_response = await fetch(endpoint_url + '/middleware/' + Math.random(), {
