@@ -241,7 +241,6 @@ class Server extends Router {
      */
     _create_route(record) {
         // Destructure record into route options
-        const reference = this;
         const { method, pattern, options, handler } = record;
 
         // Do not allow route creation once it is locked after a not found handler has been bound
@@ -314,7 +313,6 @@ class Server extends Router {
      */
     _create_middleware(record) {
         // Destructure record from Router
-        const reference = this;
         const { pattern, middleware } = record;
 
         // Do not allow route creation once it is locked after a not found handler has been bound
