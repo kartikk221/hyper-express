@@ -13,6 +13,7 @@ const { inherit_prototype, array_buffer_to_string } = require('../../shared/oper
 
 class Request {
     #locals;
+    #paused = false;
     #stream_ended = false;
     #stream_flushing = false;
     #stream_raw_chunks = false;
@@ -95,7 +96,8 @@ class Request {
     pause() {
         // Ensure there is content being streamed before pausing
         // Ensure that the stream is currently not paused before pausing
-        if (!this._stream_forbidden() && !this.isPaused()) {
+        if (!this.#paused && !this._stream_forbidden() && !this.isPaused()) {
+            this.#paused = true;
             this.#raw_response.pause();
             return this._super_pause();
         }
@@ -109,7 +111,8 @@ class Request {
     resume() {
         // Ensure there is content being streamed before resuming
         // Ensure that the stream is currently paused before resuming
-        if (!this._stream_forbidden() && this.isPaused()) {
+        if (this.#paused && !this._stream_forbidden() && this.isPaused()) {
+            this.#paused = false;
             this.#raw_response.resume();
             return this._super_resume();
         }
