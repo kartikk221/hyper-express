@@ -37,7 +37,16 @@ router.use(scenario_endpoint, (request, response, next) => {
     next();
 });
 
-// Do not bind a route as we will allow the not found handler to handle the request
+// Bind routes for each middleware to test route assignment
+router.get(scenario_endpoint + '/one', (request, response) => {
+    request.middleware_executions.push('one/route');
+    response.json(request.middleware_executions);
+});
+
+router.get(scenario_endpoint + '/one/two/*', (request, response) => {
+    request.middleware_executions.push('one/two/route');
+    response.json(request.middleware_executions);
+});
 
 // Bind router to webserver
 TEST_SERVER.use(endpoint, router);
@@ -52,16 +61,16 @@ async function test_middleware_execution_order() {
     assert_log(
         group,
         `${candidate} Catch-All Middleware Execution Order`,
-        () => ['catch-all'].join(',') === catch_all_response_json.join(',')
+        () => ['catch-all', 'not-found'].join(',') === catch_all_response_json.join(',')
     );
 
     // Make a fetch request to the single depth middleware
-    const single_depth_response = await fetch(endpoint_url + '/one/' + Math.random());
+    const single_depth_response = await fetch(endpoint_url + '/one');
     const single_depth_response_json = await single_depth_response.json();
     assert_log(
         group,
         `${candidate} Single Path Depth Middleware Execution Order`,
-        () => ['one', 'catch-all'].join(',') === single_depth_response_json.join(',')
+        () => ['one', 'catch-all', 'one/route'].join(',') === single_depth_response_json.join(',')
     );
 
     // Make a fetch request to the two depth middleware that depends on the previous middleware
@@ -70,7 +79,7 @@ async function test_middleware_execution_order() {
     assert_log(
         group,
         `${candidate} Double Path Depth-Dependent Middleware Execution Order`,
-        () => ['one', 'one/two', 'catch-all'].join(',') === two_depth_response_json.join(',')
+        () => ['one', 'one/two', 'catch-all', 'one/two/route'].join(',') === two_depth_response_json.join(',')
     );
 
     // Make a fetch request to the unique single depth middleware
@@ -79,7 +88,7 @@ async function test_middleware_execution_order() {
     assert_log(
         group,
         `${candidate} Single Path Depth Unique Middleware Execution Order`,
-        () => ['three', 'catch-all'].join(',') === unique_single_depth_response_json.join(',')
+        () => ['three', 'catch-all', 'not-found'].join(',') === unique_single_depth_response_json.join(',')
     );
 }
 

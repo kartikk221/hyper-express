@@ -11,7 +11,6 @@ class Route {
     streaming = null;
     max_body_length = null;
     path_parameters_key = null;
-    is_wildcard = false;
 
     /**
      * Constructs a new Route object.
@@ -25,7 +24,6 @@ class Route {
         this.id = app._get_incremented_id();
         this.app = app;
         this.pattern = pattern;
-        this.is_wildcard = pattern.endsWith('*');
         this.handler = handler;
         this.options = options;
         this.method = method.toUpperCase();
@@ -42,6 +40,7 @@ class Route {
      * @property {Number} id - Unique identifier for this middleware based on it's registeration order.
      * @property {String} pattern - The middleware pattern.
      * @property {function} handler - The middleware handler function.
+     * @property {Boolean=} match - Whether to match the middleware pattern against the request path.
      */
 
     /**
@@ -71,7 +70,7 @@ class Route {
         const middleware = this.options.middlewares[cursor];
         if (middleware) {
             // Enforce request path pattern matching if this is a wildcard route
-            if (this.is_wildcard && !request.path.startsWith(middleware.pattern))
+            if (middleware.match && !request.path.startsWith(middleware.pattern))
                 return this.handle(request, response, cursor + 1);
 
             // Track the middleware cursor to prevent double execution
@@ -124,7 +123,7 @@ class Route {
             const pattern = this.pattern;
 
             // Determine wildcard properties about this route
-            const is_wildcard = this.is_wildcard;
+            const is_wildcard = pattern.endsWith('*');
             const wildcard_path = pattern.substring(0, pattern.length - 1);
 
             // Iterate through the global/local middlewares and connect them to this route if eligible
@@ -135,7 +134,16 @@ class Route {
                     // A route can be an indirect child when it is a wildcard and the middleware's pattern is a direct parent of the route child
                     const direct_child = pattern.startsWith(middleware.pattern);
                     const indirect_child = middleware.pattern.startsWith(wildcard_path);
-                    if (direct_child || (is_wildcard && indirect_child)) middlewares.push(middleware);
+                    if (direct_child || (is_wildcard && indirect_child)) {
+                        // Create shallow copy of the middleware
+                        const record = Object.assign({}, middleware);
+
+                        // Set the match property based on whether this is a direct child
+                        record.match = direct_child;
+
+                        // Push the middleware
+                        middlewares.push(record);
+                    }
                 })
             );
 
@@ -145,6 +153,7 @@ class Route {
                     id: this.id,
                     pattern,
                     handler: middleware,
+                    match: false, // Route-specific middlewares do not need to be matched
                 })
             );
 

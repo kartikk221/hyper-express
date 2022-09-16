@@ -1,17 +1,13 @@
-const cluster = require('cluster');
 const TimeCost = require('time-cost');
 
 // Initialize costs for certain executions in HyperExpress
 const MEASUREMENTS = {};
-
-if (cluster.isWorker) {
-    setInterval(() => {
-        Object.keys(MEASUREMENTS).forEach((key) => {
-            const measurement = MEASUREMENTS[key];
-            if (measurement.data.length) console.log(key, measurement.statistics);
-        });
-    }, 35000);
-}
+setInterval(() => {
+    Object.keys(MEASUREMENTS).forEach((key) => {
+        const measurement = MEASUREMENTS[key];
+        if (measurement.data.length) console.log(key, measurement.statistics);
+    });
+}, 35000);
 
 function MEASURE_COST(key) {
     // Return from cache

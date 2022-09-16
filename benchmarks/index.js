@@ -16,8 +16,8 @@ import Express from './setup/express.js';
 const configuration = JSON.parse(fs.readFileSync('./configuration.json', 'utf8'));
 
 // Handle spawning of worker processes from the master process
-if (cluster.isMaster || cluster.isPrimary) {
-    const numCPUs = configuration.multi_core ? os.cpus().length : 1;
+const numCPUs = configuration.multi_core ? os.cpus().length : 1;
+if (numCPUs > 1 && (cluster.isMaster || cluster.isPrimary)) {
     for (let i = 0; i < numCPUs; i++) {
         cluster.fork();
     }
@@ -26,7 +26,7 @@ if (cluster.isMaster || cluster.isPrimary) {
 
 // Handle spawning of webservers for each worker process
 let uws_socket;
-if (cluster.isWorker) {
+if (numCPUs <= 1 || cluster.isWorker) {
     // Perform startup tasks
     log('Initializing Webservers...');
     (async () => {
