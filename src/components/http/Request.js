@@ -14,7 +14,7 @@ const { inherit_prototype, array_buffer_to_string } = require('../../shared/oper
 class Request {
     #locals;
     #paused = false;
-    #stream_ended = false;
+    #request_ended = false;
     #stream_flushing = false;
     #stream_raw_chunks = false;
     #raw_request = null;
@@ -184,7 +184,7 @@ class Request {
      * @returns {Boolean}
      */
     _stream_forbidden() {
-        return this.#stream_ended || this.#stream_flushing;
+        return this.#request_ended || this.#stream_flushing;
     }
 
     /**
@@ -331,7 +331,7 @@ class Request {
         if (this._readable && !this.readableEnded) this.push(null);
 
         // Mark the stream as ended so all incoming chunks will be ignored from uWS.HttpResponse.onData() handler
-        this.#stream_ended = true;
+        this.#request_ended = true;
         return this;
     }
 
@@ -802,15 +802,20 @@ class Request {
 
     /**
      * Returns remote IP address in string format from incoming request.
+     * Note! You cannot call this method after the response has been sent or ended.
      * @returns {String}
      */
     get ip() {
         // Resolve IP from cache if already resolved
         if (this.#remote_ip) return this.#remote_ip;
 
+        // Ensure request has not ended yet
+        if (this.#request_ended)
+            throw new Error('HyperExpress.Request.ip cannot be consumed after the Request/Response has ended.');
+
         // Determine if we can trust intermediary proxy servers and have a x-forwarded-for header
-        const trust_proxy = this.route.app._options.trust_proxy;
         const x_forwarded_for = this.get('X-Forwarded-For');
+        const trust_proxy = this.route.app._options.trust_proxy;
         if (trust_proxy && x_forwarded_for) {
             // The first IP in the x-forwarded-for header is the client IP if we trust proxies
             this.#remote_ip = x_forwarded_for.split(',')[0];
@@ -825,11 +830,16 @@ class Request {
 
     /**
      * Returns remote proxy IP address in string format from incoming request.
+     * Note! You cannot call this method after the response has been sent or ended.
      * @returns {String}
      */
     get proxy_ip() {
         // Resolve IP from cache if already resolved
         if (this.#remote_proxy_ip) return this.#remote_proxy_ip;
+
+        // Ensure request has not ended yet
+        if (this.#request_ended)
+            throw new Error('HyperExpress.Request.proxy_ip cannot be consumed after the Request/Response has ended.');
 
         // Parse and cache remote proxy IP from uWS
         this.#remote_proxy_ip = array_buffer_to_string(this.#raw_response.getProxiedRemoteAddressAsText());

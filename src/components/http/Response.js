@@ -404,8 +404,9 @@ class Response {
         }
 
         // Trigger callback with an error if a write() is performed after response has completed
-        if (callback) callback(new Error('Response is already completed/aborted'));
+        if (callback) callback(new Error('HyperExpress: Response is already completed/aborted'));
 
+        // Return false here to signify that this chunk was not written successfully
         return false;
     }
 
