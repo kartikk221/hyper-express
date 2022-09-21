@@ -116,38 +116,37 @@ class Route {
      * Compiles the route's internal components and caches for incoming requests.
      */
     compile() {
-        // Determine if this route contains middlewares in the options
-        if (Array.isArray(this.options.middlewares)) {
-            // Initialize a fresh array of middlewares
-            const middlewares = [];
-            const pattern = this.pattern;
+        // Initialize a fresh array of middlewares
+        const middlewares = [];
+        const pattern = this.pattern;
 
-            // Determine wildcard properties about this route
-            const is_wildcard = pattern.endsWith('*');
-            const wildcard_path = pattern.substring(0, pattern.length - 1);
+        // Determine wildcard properties about this route
+        const is_wildcard = pattern.endsWith('*');
+        const wildcard_path = pattern.substring(0, pattern.length - 1);
 
-            // Iterate through the global/local middlewares and connect them to this route if eligible
-            const app_middlewares = this.app.middlewares;
-            Object.keys(app_middlewares).forEach((pattern) =>
-                app_middlewares[pattern].forEach((middleware) => {
-                    // A route can be a direct child when a route's pattern has more path depth than the middleware with a matching start
-                    // A route can be an indirect child when it is a wildcard and the middleware's pattern is a direct parent of the route child
-                    const direct_child = pattern.startsWith(middleware.pattern);
-                    const indirect_child = middleware.pattern.startsWith(wildcard_path);
-                    if (direct_child || (is_wildcard && indirect_child)) {
-                        // Create shallow copy of the middleware
-                        const record = Object.assign({}, middleware);
+        // Iterate through the global/local middlewares and connect them to this route if eligible
+        const app_middlewares = this.app.middlewares;
+        Object.keys(app_middlewares).forEach((pattern) =>
+            app_middlewares[pattern].forEach((middleware) => {
+                // A route can be a direct child when a route's pattern has more path depth than the middleware with a matching start
+                // A route can be an indirect child when it is a wildcard and the middleware's pattern is a direct parent of the route child
+                const direct_child = pattern.startsWith(middleware.pattern);
+                const indirect_child = middleware.pattern.startsWith(wildcard_path);
+                if (direct_child || (is_wildcard && indirect_child)) {
+                    // Create shallow copy of the middleware
+                    const record = Object.assign({}, middleware);
 
-                        // Set the match property based on whether this is a direct child
-                        record.match = direct_child;
+                    // Set the match property based on whether this is a direct child
+                    record.match = direct_child;
 
-                        // Push the middleware
-                        middlewares.push(record);
-                    }
-                })
-            );
+                    // Push the middleware
+                    middlewares.push(record);
+                }
+            })
+        );
 
-            // Push the route-specific middlewares to the array at the end
+        // Push the route-specific middlewares to the array at the end
+        if (Array.isArray(this.options.middlewares))
             this.options.middlewares.forEach((middleware) =>
                 middlewares.push({
                     id: this.id,
@@ -157,16 +156,12 @@ class Route {
                 })
             );
 
-            // Sort the middlewares by their id in ascending order
-            // This will ensure that middlewares are executed in the order they were registered throughout the application
-            middlewares.sort((a, b) => a.id - b.id);
+        // Sort the middlewares by their id in ascending order
+        // This will ensure that middlewares are executed in the order they were registered throughout the application
+        middlewares.sort((a, b) => a.id - b.id);
 
-            // Replace the middlewares array with the sorted array
-            this.options.middlewares = middlewares;
-        } else {
-            // Fill options with an empty array of middlewares to support chaining in route handler
-            this.options.middlewares = [];
-        }
+        // Write the middlewares property with the sorted array
+        this.options.middlewares = middlewares;
     }
 }
 

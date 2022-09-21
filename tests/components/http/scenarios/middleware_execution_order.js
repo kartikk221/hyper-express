@@ -43,10 +43,16 @@ router.get(scenario_endpoint + '/one', (request, response) => {
     response.json(request.middleware_executions);
 });
 
-router.get(scenario_endpoint + '/one/two/*', (request, response) => {
-    request.middleware_executions.push('one/two/route');
-    response.json(request.middleware_executions);
-});
+router.get(
+    scenario_endpoint + '/one/two/*',
+    {
+        max_body_length: 100 * 1e6,
+    },
+    (request, response) => {
+        request.middleware_executions.push('one/two/route');
+        response.json(request.middleware_executions);
+    }
+);
 
 // Bind router to webserver
 TEST_SERVER.use(endpoint, router);
