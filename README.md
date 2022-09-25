@@ -15,23 +15,18 @@
 ## Motivation
 HyperExpress aims to be a simple yet perfomant HTTP & Websocket Server. Combined with the power of uWebsockets.js, a Node.js binding of uSockets written in C++, HyperExpress allows developers to unlock higher throughput for their web applications with their existing hardware. This can allow many web applications to become much more performant on optimized data serving endpoints without having to scale hardware.
 
-Some of the prominent features implemented are:
+Some of the prominent highlights are:
 - Simplified HTTP & Websocket API
-- Global & Route-Specific Middlewares Support
-- Modular Routers Support
 - Server-Sent Events Support
-- HTTP & Websocket Streaming Support
-- Performant Multipart File Uploading
-- Global Error/Event Handlers
-- Cryptographically Secure Cookie Signing/Authentication
+- Multipart File Uploading Support
+- Modular Routers & Middlewares Support
 - Multiple Host/Domain Support Over SSL
-- ExpressJS API Compatibility Through Shared Methods/Properties
-- TypeScript Types Support
+- Express.js API Compatibility Through Shared Methods/Properties
 
 See [`> [Benchmarks]`](./docs/Benchmarks.md) for **performance metrics** against other webservers in real world deployments.
 
 ## Documentation
-HyperExpress requires Node.js version 14+ and can be installed using Node Package Manager (`npm`).
+HyperExpress **requires** Node.js version `14+` and can be installed using Node Package Manager (`npm`).
 ```
 npm i hyper-express
 ```
@@ -39,12 +34,12 @@ npm i hyper-express
 - See [`> [Examples & Snippets]`](./docs/Examples.md) for small and **easy-to-use snippets** with HyperExpress.
 - See [`> [Server]`](./docs/Server.md) for creating a webserver and working with the **Server** component.
 - See [`> [Router]`](./docs/Router.md) for working with the modular **Router** component.
-- See [`> [Middlewares]`](./docs/Middlewares.md) for working with global and route-specific **Middlewares** in HyperExpress.
 - See [`> [Request]`](./docs/Request.md) for working with the **Request** component made available through handlers.
 - See [`> [Response]`](./docs/Response.md) for working with the **Response** component made available through handlers.
-- See [`> [MultipartField]`](./docs/MultipartField.md) for working with multipart requests and **File Uploading** in HyperExpress.
-- See [`> [SSEventStream]`](./docs/SSEventStream.md) for working with **Server-Sent Events** based streaming in HyperExpress.
 - See [`> [Websocket]`](./docs/Websocket.md) for working with **Websockets** in HyperExpress.
+- See [`> [Middlewares]`](./docs/Middlewares.md) for working with global and route-specific **Middlewares** in HyperExpress.
+- See [`> [SSEventStream]`](./docs/SSEventStream.md) for working with **Server-Sent Events** based streaming in HyperExpress.
+- See [`> [MultipartField]`](./docs/MultipartField.md) for working with multipart requests and **File Uploading** in HyperExpress.
 - See [`> [SessionEngine]`](https://github.com/kartikk221/hyper-express-session) for working with cookie based web **Sessions** in HyperExpress.
 - See [`> [LiveDirectory]`](./docs/LiveDirectory.md) for implementing **static file/asset** serving functionality into HyperExpress.
 - See [`> [HostManager]`](./docs/HostManager.md) for supporting requests over **muliple hostnames** in HyperExpress.
