@@ -26,6 +26,34 @@ class Websocket extends EventEmitter {
         this.#ip = array_buffer_to_string(ws.getRemoteAddressAsText());
     }
 
+    /* EventEmitter overrides */
+
+    /**
+     * Binds an event listener to this `Websocket` instance.
+     * See the Node.js `EventEmitter` documentation for more details on this extended method.
+     * @param {('message'|'close'|'drain'|'ping'|'pong')} eventName
+     * @param {Function} listener
+     * @returns {Websocket}
+     */
+    on(eventName, listener) {
+        // Pass all events to EventEmitter
+        super.on(eventName, listener);
+        return this;
+    }
+
+    /**
+     * Binds a `one-time` event listener to this `Websocket` instance.
+     * See the Node.js `EventEmitter` documentation for more details on this extended method.
+     * @param {('message'|'close'|'drain'|'ping'|'pong')} eventName
+     * @param {Function} listener
+     * @returns {Websocket}
+     */
+    once(eventName, listener) {
+        // Pass all events to EventEmitter
+        super.once(eventName, listener);
+        return this;
+    }
+
     /**
      * Alias of uWS.cork() method. Accepts a callback with multiple operations for network efficiency.
      *

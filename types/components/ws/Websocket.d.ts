@@ -8,16 +8,11 @@ export type WebsocketContext = {
 }
 
 export class Websocket extends EventEmitter {
-    /* Websocket Methods */
-
-    /**
-     * Overrides EventEmitter.on() method with the specific implemented event names
-     *
-     * @param {String} eventName
-     * @param {Function} listener
-     * @returns {Websocket}
-     */
+    /* EventEmitter Overrides */
     on(eventName: 'message' | 'close' | 'drain' | 'ping' | 'pong', listener: (...args: any[]) => void): this;
+    once(eventName: 'message' | 'close' | 'drain' | 'ping' | 'pong', listener: (...args: any[]) => void): this;
+
+    /* Websocket Methods */
 
     /**
      * Alias of uWS.cork() method. Accepts a callback with multiple operations for network efficiency.

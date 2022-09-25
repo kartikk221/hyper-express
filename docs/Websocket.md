@@ -52,18 +52,6 @@ Router.upgrade('/connect', {
 | `topics` | `Array`  | List of topics this websocket is subscribed to. |
 | `writable` | `stream.Writable` | Writable stream to be used for piping into this connection. |
 
-#### Websocket Events
-The `Websocket` component is an extension of the `EventEmitter` component thus you may consume specific events for each connection.
-* `on(String: event, Function: handler)`: Binds a handler which is triggered when specified event is emitted.
-    * Event `'message'`: Emitted when a message is received from websocket connection.
-        * **Example Handler**: `(Mixed: message, Boolean: is_binary) => {}`
-        * **Note** the type for `message` is determined by the `message_type` option specified during route creation.
-    * Event `'drain'`: Emitted when websocket connection has drained and is ready to send more messages.
-        * Use this event to handle backpressure and retry messages that could not be sent earlier.
-    * Event `'close'`: Emitted when websocket connection has closed.
-        * **Example Handler**: `(Number: code, Mixed: message) => {}`
-        * **Note** the type for `message` is determined by the `message_type` option specified during route creation.
-
 #### Websocket Methods
 * `atomic(Function: callback)`: Alias of `uWebsockets.Response.cork()`. This method waits for network socket to become ready before executing all network base calls inside the specified `callback`.
     * This may yield higher performance when executing multiple network heavy operations.  
@@ -86,3 +74,18 @@ The `Websocket` component is an extension of the `EventEmitter` component thus y
 * `subscribe(String: topic)`: Subscribes to specified topic in **MQTT syntax**.
 * `unsubscribe(String: topic)`: Unsubscribes from specified topic in **MQTT syntax**.
 * `publish(String: topic, String|Buffer|ArrayBuffer: message, Boolean: is_binary, Boolean: compress)`: Publishes the specified message to the specified topic in **MQTT syntax**.
+
+#### Websocket Events
+The `Websocket` component is an extension of the `EventEmitter` component thus you may consume lifecycle events for each connection.
+* `on|once(String: eventName, Function: listener)`: Binds a listener which is triggered when the specified event name is emitted.
+    * Event `'message'`: Emitted when a message is received from websocket connection.
+        * **Example Handler**: `(Mixed: message, Boolean: is_binary) => {}`
+        * **Note** the type for `message` is determined by the `message_type` option specified during route creation.
+    * Event `'close'`: Emitted when websocket connection has closed.
+        * **Example Handler**: `(Number: code, Mixed: message) => {}`
+        * **Note** the type for `message` is determined by the `message_type` option specified during route creation.
+    * Event `'drain'`: Emitted when websocket connection has drained and is ready to send more messages.
+        * Use this event to handle backpressure and retry messages that could not be sent earlier.
+    * Event `'ping'`: Emitted when websocket connection has received a ping from client.
+    * Event `'pong'`: Emitted when websocket connection has received a pong from client.
+
