@@ -17,7 +17,7 @@ export class Websocket extends EventEmitter {
      * @param {Function} listener
      * @returns {Websocket}
      */
-    on(eventName: 'message' | 'close' | 'drain', listener: (...args: any[]) => void): this;
+    on(eventName: 'message' | 'close' | 'drain' | 'ping' | 'pong', listener: (...args: any[]) => void): this;
 
     /**
      * Alias of uWS.cork() method. Accepts a callback with multiple operations for network efficiency.
