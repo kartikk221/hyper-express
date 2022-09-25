@@ -14,6 +14,7 @@ export class Websocket extends EventEmitter {
      * Overrides EventEmitter.on() method with the specific implemented event names
      *
      * @param {String} eventName
+     * @param {String} listener
      * @returns {Websocket}
      */
     on(eventName: 'message' | 'close' | 'drain', listener: (...args: any[]) => void): this;
