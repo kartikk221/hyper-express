@@ -82,8 +82,17 @@ class Router {
         // This is because uWebsockets.js does not treat non-leading slashes as catchall stars
         if (pattern.startsWith('*')) pattern = '/' + pattern;
 
-        // Concatenate any remaining callbacks to the route options middlewares property
-        if (callbacks.length > 0) options.middlewares = (options.middlewares || []).concat(callbacks);
+        // Parse the middlewares into a new array to prevent mutating the original
+        const middlewares = [];
+
+        // Push all the options provided middlewares into the middlewares array
+        if (Array.isArray(options.middlewares)) middlewares.push(...options.middlewares);
+
+        // Push all the callback provided middlewares into the middlewares array
+        if (callbacks.length > 0) middlewares.push(...callbacks);
+
+        // Write the middlewares into the options object
+        options.middlewares = middlewares;
 
         // Initialize the record object which will hold information about this route
         const record = {
