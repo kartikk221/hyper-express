@@ -21,9 +21,9 @@ router.get(
     scenario_endpoint,
     double_iteration_middleware,
     [delay_middleware], // This weird parameter pattern is to test Express.js compatibility pattern for providing multiple middlewares through parameters/arrays
-    delay_middleware,
     {
         max_body_length: 1024 * 1024 * 10,
+        middlewares: [delay_middleware],
     },
     async (request, response) => {
         return response.send('Good');
