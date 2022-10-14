@@ -10,7 +10,7 @@ const { merge_relative_paths } = require('../../shared/operators.js');
  */
 
 /**
- * @typedef {function(Request, Response, Function):void} MiddlewareHandler
+ * @typedef {function(Request, Response, Function):any|Promise<any>} MiddlewareHandler
  */
 
 class Router {
@@ -236,7 +236,7 @@ class Router {
     /**
      * @typedef {Object} RouteOptions
      * @property {Number} max_body_length Overrides the global maximum body length specified in Server constructor options.
-     * @property {Array.<MiddlewareHandler>|Array.<PromiseMiddlewareHandler>} middlewares Route specific middlewares
+     * @property {Array.<MiddlewareHandler>} middlewares Route specific middlewares
      * @property {Object} streaming Global content streaming options.
      * @property {import('stream').ReadableOptions} streaming.readable Global content streaming options for Readable streams.
      * @property {import('stream').WritableOptions} streaming.writable Global content streaming options for Writable streams.
