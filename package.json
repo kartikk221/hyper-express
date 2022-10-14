@@ -44,7 +44,7 @@
         "mime-types": "^2.1.33",
         "range-parser": "^1.2.1",
         "type-is": "^1.6.18",
-        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.10.0"
+        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.11.0"
     },
     "devDependencies": {
         "typescript": "^4.4.4"
