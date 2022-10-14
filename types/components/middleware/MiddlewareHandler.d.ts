@@ -1,6 +1,10 @@
 import { MiddlewareNext } from './MiddlewareNext';
-import { Request } from '../http/Request';
-import { Response } from '../http/Response';
+import { Request, DefaultRequestLocals } from '../http/Request';
+import { Response, DefaultResponseLocals } from '../http/Response';
 
 export type MiddlewarePromise = Promise<Error | void>;
-export type MiddlewareHandler = (request: Request, response: Response, next: MiddlewareNext) => MiddlewarePromise | void;
+export type MiddlewareHandler = (
+    request: Request<DefaultRequestLocals>,
+    response: Response<DefaultResponseLocals>,
+    next: MiddlewareNext
+) => MiddlewarePromise | void;
