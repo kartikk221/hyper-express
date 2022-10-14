@@ -21,7 +21,7 @@ Some of the prominent highlights are:
 - Multipart File Uploading Support
 - Modular Routers & Middlewares Support
 - Multiple Host/Domain Support Over SSL
-- Express.js API Compatibility Through Shared Methods/Properties
+- Limited Express.js API Compatibility Through Shared Methods/Properties
 
 See [`> [Benchmarks]`](./docs/Benchmarks.md) for **performance metrics** against other webservers in real world deployments.
 
