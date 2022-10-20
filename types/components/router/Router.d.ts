@@ -58,8 +58,12 @@ export class Router {
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     any(pattern: string, handler: UserRouteHandler): void;
-    any(pattern: string, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
-    any(pattern: string, options: UserRouteOptions, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
+    any(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
+    any(
+        pattern: string,
+        options: UserRouteOptions,
+        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
+    ): void;
 
     /**
      * Alias of any() method.
@@ -70,8 +74,12 @@ export class Router {
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     all(pattern: string, handler: UserRouteHandler): void;
-    all(pattern: string, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
-    all(pattern: string, options: UserRouteOptions, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
+    all(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
+    all(
+        pattern: string,
+        options: UserRouteOptions,
+        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
+    ): void;
 
     /**
      * Creates an HTTP route that handles GET method requests.
@@ -80,8 +88,12 @@ export class Router {
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     get(pattern: string, handler: UserRouteHandler): void;
-    get(pattern: string, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
-    get(pattern: string, options: UserRouteOptions, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
+    get(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
+    get(
+        pattern: string,
+        options: UserRouteOptions,
+        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
+    ): void;
 
     /**
      * Creates an HTTP route that handles POST method requests.
@@ -90,8 +102,12 @@ export class Router {
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     post(pattern: string, handler: UserRouteHandler): void;
-    post(pattern: string, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
-    post(pattern: string, options: UserRouteOptions, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
+    post(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
+    post(
+        pattern: string,
+        options: UserRouteOptions,
+        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
+    ): void;
 
     /**
      * Creates an HTTP route that handles PUT method requests.
@@ -100,8 +116,12 @@ export class Router {
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     put(pattern: string, handler: UserRouteHandler): void;
-    put(pattern: string, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
-    put(pattern: string, options: UserRouteOptions, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
+    put(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
+    put(
+        pattern: string,
+        options: UserRouteOptions,
+        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
+    ): void;
 
     /**
      * Creates an HTTP route that handles DELETE method requests.
@@ -110,8 +130,12 @@ export class Router {
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     delete(pattern: string, handler: UserRouteHandler): void;
-    delete(pattern: string, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
-    delete(pattern: string, options: UserRouteOptions, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
+    delete(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
+    delete(
+        pattern: string,
+        options: UserRouteOptions,
+        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
+    ): void;
 
     /**
      * Creates an HTTP route that handles HEAD method requests.
@@ -120,8 +144,12 @@ export class Router {
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     head(pattern: string, handler: UserRouteHandler): void;
-    head(pattern: string, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
-    head(pattern: string, options: UserRouteOptions, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
+    head(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
+    head(
+        pattern: string,
+        options: UserRouteOptions,
+        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
+    ): void;
 
     /**
      * Creates an HTTP route that handles OPTIONS method requests.
@@ -130,8 +158,12 @@ export class Router {
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     options(pattern: string, handler: UserRouteHandler): void;
-    options(pattern: string, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
-    options(pattern: string, options: UserRouteOptions, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
+    options(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
+    options(
+        pattern: string,
+        options: UserRouteOptions,
+        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
+    ): void;
 
     /**
      * Creates an HTTP route that handles PATCH method requests.
@@ -140,8 +172,12 @@ export class Router {
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     patch(pattern: string, handler: UserRouteHandler): void;
-    patch(pattern: string, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
-    patch(pattern: string, options: UserRouteOptions, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
+    patch(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
+    patch(
+        pattern: string,
+        options: UserRouteOptions,
+        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
+    ): void;
 
     /**
      * Creates an HTTP route that handles TRACE method requests.
@@ -150,8 +186,12 @@ export class Router {
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     trace(pattern: string, handler: UserRouteHandler): void;
-    trace(pattern: string, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
-    trace(pattern: string, options: UserRouteOptions, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
+    trace(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
+    trace(
+        pattern: string,
+        options: UserRouteOptions,
+        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
+    ): void;
 
     /**
      * Creates an HTTP route that handles CONNECT method requests.
@@ -160,8 +200,12 @@ export class Router {
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     connect(pattern: string, handler: UserRouteHandler): void;
-    connect(pattern: string, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
-    connect(pattern: string, options: UserRouteOptions, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
+    connect(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
+    connect(
+        pattern: string,
+        options: UserRouteOptions,
+        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
+    ): void;
 
     /**
      * Intercepts and handles upgrade requests for incoming websocket connections.
@@ -171,8 +215,12 @@ export class Router {
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     upgrade(pattern: string, handler: UserRouteHandler): void;
-    upgrade(pattern: string, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
-    upgrade(pattern: string, options: UserRouteOptions, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
+    upgrade(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
+    upgrade(
+        pattern: string,
+        options: UserRouteOptions,
+        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
+    ): void;
 
     /**
      * @param {String} pattern
