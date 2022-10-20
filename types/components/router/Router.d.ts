@@ -5,7 +5,7 @@ import { Websocket } from '../ws/Websocket';
 import { MiddlewareHandler } from '../middleware/MiddlewareHandler';
 
 // Define types for HTTP Route Creators
-export type UserRouteHandler = (request: Request, response: Response) => void | Promise<void>;
+export type UserRouteHandler = (request: Request, response: Response) => any;
 export interface UserRouteOptions {
     middlewares?: Array<MiddlewareHandler>;
     stream_options?: ReadableOptions;
