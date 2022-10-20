@@ -80,7 +80,7 @@ export class Router {
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     get(pattern: string, handler: UserRouteHandler): void;
-    get(pattern: string, ...handlers: [MiddlewareHandler, UserRouteHandler]): void;
+    get(pattern: string, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
     get(pattern: string, options: UserRouteOptions, ...handlers: [MiddlewareHandler[], UserRouteHandler]): void;
 
     /**
