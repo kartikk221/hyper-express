@@ -26,7 +26,7 @@ Some of the prominent highlights are:
 See [`> [Benchmarks]`](./docs/Benchmarks.md) for **performance metrics** against other webservers in real world deployments.
 
 ## Documentation
-HyperExpress **requires** Node.js version `14+` and can be installed using Node Package Manager (`npm`).
+HyperExpress **requires** Node.js version `16+` and can be installed using Node Package Manager (`npm`).
 ```
 npm i hyper-express
 ```
