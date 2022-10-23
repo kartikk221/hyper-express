@@ -4,7 +4,6 @@ const signature = require('cookie-signature');
 const status_codes = require('http').STATUS_CODES;
 const mime_types = require('mime-types');
 const stream = require('stream');
-const emitter = require('events');
 
 const NodeResponse = require('../compatibility/NodeResponse.js');
 const ExpressResponse = require('../compatibility/ExpressResponse.js');
@@ -884,10 +883,9 @@ inherit_prototype({
     },
 });
 
-// Inherit the stream.Writable and EventEmitter prototypes
-// Lazy initialize the stream.Writable instance on each call to any of the inherited methods
+// Inherit the stream.Writable prototype and lazy initialize the stream on first call to any inherited method
 inherit_prototype({
-    from: [stream.Writable.prototype, emitter.prototype],
+    from: stream.Writable.prototype,
     to: Response.prototype,
     override: (name) => '_super_' + name, // Prefix all overrides with _super_
     method: (type, name, original) => {

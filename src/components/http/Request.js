@@ -1,7 +1,6 @@
 'use strict';
 const cookie = require('cookie');
 const stream = require('stream');
-const emitter = require('events');
 const busboy = require('busboy');
 const signature = require('cookie-signature');
 const querystring = require('querystring');
@@ -485,7 +484,7 @@ class Request {
      * Downloads and parses the request body as a JSON object.
      * Passing default_value as undefined will lead to the function throwing an exception if invalid JSON is received.
      *
-     * @param {Any} default_value Default: {}
+     * @param {Any=} default_value Default: {}
      * @returns {Promise}
      */
     async json(default_value = {}) {
@@ -872,10 +871,9 @@ inherit_prototype({
     },
 });
 
-// Inherit the stream.Readable and EventEmitter prototypes
-// Lazy initialize the stream.Readable instance on each call to any of the inherited methods
+// Inherit the stream.Readable prototype and lazy initialize the stream on first call to inherited methods
 inherit_prototype({
-    from: [stream.Readable.prototype, emitter.prototype],
+    from: stream.Readable.prototype,
     to: Request.prototype,
     override: (name) => '_super_' + name, // Prefix all overrides with _super_
     method: (type, name, original) => {

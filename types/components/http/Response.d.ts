@@ -1,32 +1,35 @@
-import * as Stream from 'stream';
+import { Readable, Writable } from 'stream';
 import * as uWebsockets from 'uWebSockets.js';
 import { LiveFile } from '../plugins/LiveFile';
 import { Server } from '../Server';
-import { Request } from './Request'
 
 export type SendableData = string | Buffer | ArrayBuffer;
 export type FileCachePool = {
-    [key: string]: LiveFile
+    [key: string]: LiveFile;
 };
 
 export interface CookieOptions {
-    domain?: string,
-    path?: string,
-    maxAge?: number,
-    secure?: boolean,
-    httpOnly?: boolean,
-    sameSite?: boolean | 'none' | 'lax' | 'strict'
-    secret?: string
+    domain?: string;
+    path?: string;
+    maxAge?: number;
+    secure?: boolean;
+    httpOnly?: boolean;
+    sameSite?: boolean | 'none' | 'lax' | 'strict';
+    secret?: string;
 }
 
 type DefaultResponseLocals = {
-    [key: string]: any
-}
+    [key: string]: any;
+};
 
-export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
+export class Response<Locals = DefaultResponseLocals> extends Writable {
+    /**
+     * Underlying raw lazy initialized writable stream.
+     */
+    _writable: null | Writable;
+
     /**
      * Alias of aborted property as they both represent the same request state in terms of inaccessibility.
-     * @returns {Boolean}
      */
     completed: boolean;
 
@@ -108,10 +111,10 @@ export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
      * By default, this method will use chunked encoding transfer to stream data.
      * If your use-case requires a content-length header, you must specify the total payload size.
      *
-     * @param {stream.Readable} readable A Readable stream which will be piped as response body
+     * @param {Readable} readable A Readable stream which will be piped as response body
      * @param {Number=} total_size Total size of the Readable stream source in bytes (Optional)
      */
-    stream(readable: Stream.Readable, total_size?: number): void;
+    stream(readable: Readable, total_size?: number): void;
 
     /**
      * Instantly aborts/closes current request without writing a status response code.
@@ -187,16 +190,16 @@ export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
     /**
      * This method allows you to throw an error which will be caught by the global error handler (If one was setup with the Server instance).
      *
-     * @param {Error} error 
+     * @param {Error} error
      */
     throw(error: Error): Response;
 
     /* HyperExpress Properties */
 
     /**
-    * Returns the underlying raw uWS.Response object.
-    * @returns {uWebsockets.Response}
-    */
+     * Returns the underlying raw uWS.Response object.
+     * @returns {uWebsockets.Response}
+     */
     get raw(): uWebsockets.HttpResponse;
 
     /**
@@ -240,7 +243,7 @@ export class Response<Locals = DefaultResponseLocals> extends Stream.Writable {
     setHeaders(headers: Object): void;
     writeHeaderValues(name: string, values: Array<string>): void;
     getHeader(name: string): string | Array<string> | void;
-    getHeaders(): { [key: string]: Array<string> }
+    getHeaders(): { [key: string]: Array<string> };
     removeHeader(name: string): void;
     setCookie(name: string, value: string, options?: CookieOptions): Response;
     hasCookie(name: string): Boolean;

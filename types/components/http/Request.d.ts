@@ -1,6 +1,7 @@
+import { ParsedQs } from 'qs';
+import { Readable } from 'stream';
 import { BusboyConfig } from 'busboy';
 import { ParamsDictionary } from 'express-serve-static-core';
-import { ParsedQs } from 'qs';
 import { Options, Ranges, Result } from 'range-parser';
 import * as uWebsockets from 'uWebSockets.js';
 import { MultipartHandler } from '../plugins/MultipartField';
@@ -9,10 +10,15 @@ import { Server } from '../Server';
 type default_value = any;
 
 type DefaultRequestLocals = {
-    [key: string]: any
-}
+    [key: string]: any;
+};
 
-export class Request<Locals = DefaultRequestLocals> {
+export class Request<Locals = DefaultRequestLocals> extends Readable {
+    /**
+     * Underlying raw lazy initialized readable body stream.
+     */
+    _readable: null | Readable;
+
     /**
      * Returns whether all expected incoming request body chunks have been received.
      * @returns {Boolean}

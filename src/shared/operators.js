@@ -90,6 +90,26 @@ function merge_relative_paths(base_path, new_path) {
 }
 
 /**
+ * Returns all property descriptors of an Object including extended prototypes.
+ *
+ * @param {Object} prototype
+ */
+function get_all_property_descriptors(prototype) {
+    // Retrieve initial property descriptors
+    const descriptors = Object.getOwnPropertyDescriptors(prototype);
+
+    // Determine if we have a parent prototype with a custom name
+    const parent = Object.getPrototypeOf(prototype);
+    if (parent && parent.constructor.name !== 'Object') {
+        // Merge and return property descriptors along with parent prototype
+        return Object.assign(descriptors, get_all_property_descriptors(parent));
+    }
+
+    // Return property descriptors
+    return descriptors;
+}
+
+/**
  * Inherits properties, getters, and setters from one prototype to another with the ability to optionally define middleman methods.
  *
  * @param {Object} options
@@ -104,8 +124,8 @@ function inherit_prototype({ from, to, method, override, ignore = ['constructor'
     if (Array.isArray(from)) return from.forEach((f) => inherit_prototype({ from: f, to, override, method, ignore }));
 
     // Inherit the descriptors from the "from" prototype to the "to" prototype
-    const to_descriptors = Object.getOwnPropertyDescriptors(to);
-    const from_descriptors = Object.getOwnPropertyDescriptors(from);
+    const to_descriptors = get_all_property_descriptors(to);
+    const from_descriptors = get_all_property_descriptors(from);
     Object.keys(from_descriptors).forEach((name) => {
         // Ignore the properties specified in the ignore array
         if (ignore.includes(name)) return;
