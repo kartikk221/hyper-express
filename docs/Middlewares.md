@@ -21,7 +21,8 @@ router.use('/api', (request, response, next) => {
 server.use(async (request, response) => {
     // You can also just return new Promise((resolve, reject) => {}); instead of async callback
     try {
-        await some_async_operation(request, response);
+        await some_async_operation();
+        // The request proceeds to the next middleware/handler after the promise resolves
     } catch (error) {
         return error; // This will trigger global error handler as we are returning an Error
     }
