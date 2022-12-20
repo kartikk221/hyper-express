@@ -1,6 +1,7 @@
 const { log, assert_log, random_string } = require('../../scripts/operators.js');
 const { HyperExpress, fetch, server } = require('../../configuration.js');
 const { test_livefile_object } = require('../../components/features/LiveFile.js');
+const { test_response_custom_status } = require('./scenarios/response_custom_status.js');
 const { test_response_send_no_body } = require('./scenarios/response_send_no_body.js');
 const { test_response_headers_behavior } = require('./scenarios/response_headers_behavior.js');
 const { test_response_stream_method } = require('./scenarios/response_stream.js');
@@ -126,6 +127,9 @@ async function test_response_object() {
         let delete_cookie_props_test = cookies[test_cookie.name]?.properties === 'Max-Age=0';
         return test_cookie_test && delete_cookie_value_test && delete_cookie_props_test;
     });
+
+    // Verify the custom HTTP status code and message support
+    await test_response_custom_status();
 
     // Verify the behavior of the .header() and .cookie() methods
     await test_response_headers_behavior();

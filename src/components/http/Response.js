@@ -25,10 +25,18 @@ class Response {
     route = null;
 
     /**
-     * Returns the HTTP underlying status code of the response.
+     * Returns the custom HTTP underlying status code of the response.
      * @private
+     * @type {Number=}
      */
     _status_code;
+
+    /**
+     * Returns the custom HTTP underlying status code message of the response.
+     * @private
+     * @type {String=}
+     */
+    _status_message;
 
     /**
      * Contains underlying headers for the response.
@@ -141,11 +149,13 @@ class Response {
      * This method is used to set a custom response code.
      *
      * @param {Number} code Example: response.status(403)
+     * @param {String=} message Example: response.status(403, 'Forbidden')
      * @returns {Response} Response (Chainable)
      */
-    status(code) {
+    status(code, message) {
         // Set the numeric status code. Status text is appended before writing status to uws
         this._status_code = code;
+        if (message) this._status_message = message;
         return this;
     }
 
@@ -307,8 +317,10 @@ class Response {
         this._resume_if_paused();
 
         // Write the appropriate status code to the response along with mapped status code message
-        if (this._status_code)
-            this.#raw_response.writeStatus(this._status_code + ' ' + status_codes[this._status_code]);
+        if (this._status_code || this._status_message)
+            this.#raw_response.writeStatus(
+                this._status_code + ' ' + (this._status_message || status_codes[this._status_code])
+            );
 
         // Iterate through all headers and write them to uWS
         Object.keys(this._headers).forEach((name) =>

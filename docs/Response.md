@@ -18,7 +18,7 @@ Below is a breakdown of the `Response` component which is an **extended** `Writa
 #### Response Methods
 * `atomic(Function: callback)`: Alias of uWebsockets's `cork(callback)` method.
     * **Usage:** Wrapping multiple response method calls inside this method can improve performance.
-* `status(Number: code)`: Sets HTTP status response code for current request.
+* `status(Number: code, String?: message)`: Sets the HTTP response status code and message for current request.
 * `type(String: mime_type)`: Writes correct protocol `content-type` header for specified mime type.
     * **Example:** `response.type('json')` writes `application/json`
     * **Supported:** [Mime Types](./src/constants/mime_types.json)

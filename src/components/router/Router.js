@@ -2,14 +2,14 @@
 const { merge_relative_paths } = require('../../shared/operators.js');
 
 /**
- * @typedef {import('../http/Request.js') & import('stream').Stream} Request
- */
-
-/**
- * @typedef {import('../http/Response.js') & import('stream').Stream} Response
- */
-
-/**
+ * @typedef {import('../compatibility/NodeRequest.js')} NodeRequest
+ * @typedef {import('../compatibility/NodeResponse.js').NodeResponseTypes} NodeResponse
+ * @typedef {import('../compatibility/ExpressRequest.js')} ExpressRequest
+ * @typedef {import('../compatibility/ExpressResponse.js')} ExpressResponse
+ * @typedef {import('../http/Request.js')} NativeRequest
+ * @typedef {import('../http/Response.js')} NativeResponse
+ * @typedef {NativeRequest & NodeRequest & ExpressRequest & import('stream').Stream} Request
+ * @typedef {NativeResponse & NodeResponse & ExpressResponse & import('stream').Stream} Response
  * @typedef {function(Request, Response, Function):any|Promise<any>} MiddlewareHandler
  */
 

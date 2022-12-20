@@ -47,9 +47,10 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * This method is used to set a custom response code.
      *
      * @param {Number} code Example: response.status(403)
+     * @param {String=} message Example: response.status(403, 'Forbidden')
      * @returns {Response} Response (Chainable)
      */
-    status(code: number): Response;
+    status(code: number, message?: string): Response;
 
     /**
      * This method is used to set the response content type header
@@ -260,5 +261,8 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
     /* ExpressJS Properties */
     get headersSent(): boolean;
     get statusCode(): number | undefined;
+    set statusCode(value: number | undefined);
+    get statusMessage(): string | undefined;
+    set statusMessage(value: string | undefined);
     locals: Locals;
 }

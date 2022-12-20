@@ -1,5 +1,10 @@
 'use strict';
 
+/**
+ * @typedef {Object} NodeResponseTypes
+ * @property {number} statusCode
+ * @property {string} statusMessage
+ */
 class NodeResponse {
     /* Properties */
     get statusCode() {
@@ -8,6 +13,14 @@ class NodeResponse {
 
     set statusCode(value) {
         this._status_code = value;
+    }
+
+    get statusMessage() {
+        return this._status_message;
+    }
+
+    set statusMessage(value) {
+        this._status_message = value;
     }
 }
 
