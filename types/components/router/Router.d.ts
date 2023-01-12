@@ -61,7 +61,7 @@ export class Router {
     any(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
     any(
         pattern: string,
-        options: UserRouteOptions,
+        options: UserRouteOptions | MiddlewareHandler,
         ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
     ): void;
 
@@ -77,7 +77,7 @@ export class Router {
     all(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
     all(
         pattern: string,
-        options: UserRouteOptions,
+        options: UserRouteOptions | MiddlewareHandler,
         ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
     ): void;
 
@@ -91,7 +91,7 @@ export class Router {
     get(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
     get(
         pattern: string,
-        options: UserRouteOptions,
+        options: UserRouteOptions | MiddlewareHandler,
         ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
     ): void;
 
@@ -105,7 +105,7 @@ export class Router {
     post(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
     post(
         pattern: string,
-        options: UserRouteOptions,
+        options: UserRouteOptions | MiddlewareHandler,
         ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
     ): void;
 
@@ -119,7 +119,7 @@ export class Router {
     put(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
     put(
         pattern: string,
-        options: UserRouteOptions,
+        options: UserRouteOptions | MiddlewareHandler,
         ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
     ): void;
 
@@ -133,7 +133,7 @@ export class Router {
     delete(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
     delete(
         pattern: string,
-        options: UserRouteOptions,
+        options: UserRouteOptions | MiddlewareHandler,
         ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
     ): void;
 
@@ -147,7 +147,7 @@ export class Router {
     head(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
     head(
         pattern: string,
-        options: UserRouteOptions,
+        options: UserRouteOptions | MiddlewareHandler,
         ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
     ): void;
 
@@ -161,7 +161,7 @@ export class Router {
     options(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
     options(
         pattern: string,
-        options: UserRouteOptions,
+        options: UserRouteOptions | MiddlewareHandler,
         ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
     ): void;
 
@@ -175,7 +175,7 @@ export class Router {
     patch(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
     patch(
         pattern: string,
-        options: UserRouteOptions,
+        options: UserRouteOptions | MiddlewareHandler,
         ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
     ): void;
 
@@ -189,7 +189,7 @@ export class Router {
     trace(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
     trace(
         pattern: string,
-        options: UserRouteOptions,
+        options: UserRouteOptions | MiddlewareHandler,
         ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
     ): void;
 
@@ -203,7 +203,7 @@ export class Router {
     connect(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
     connect(
         pattern: string,
-        options: UserRouteOptions,
+        options: UserRouteOptions | MiddlewareHandler,
         ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
     ): void;
 
@@ -218,7 +218,7 @@ export class Router {
     upgrade(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
     upgrade(
         pattern: string,
-        options: UserRouteOptions,
+        options: UserRouteOptions | MiddlewareHandler,
         ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
     ): void;
 
