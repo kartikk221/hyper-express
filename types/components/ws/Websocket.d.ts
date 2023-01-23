@@ -7,7 +7,7 @@ export type WebsocketContext = {
     [key: string]: string
 }
 
-export class Websocket extends EventEmitter {
+export class Websocket<TUserData = unknown> extends EventEmitter {
     /* EventEmitter Overrides */
     on(eventName: 'message' | 'close' | 'drain' | 'ping' | 'pong', listener: (...args: any[]) => void): this;
     once(eventName: 'message' | 'close' | 'drain' | 'ping' | 'pong', listener: (...args: any[]) => void): this;
@@ -20,7 +20,7 @@ export class Websocket extends EventEmitter {
      * @param {Function} callback
      * @returns {Websocket}
      */
-    atomic(callback: () => void): Websocket;
+    atomic(callback: () => void): Websocket<TUserData>;
 
     /**
      * Sends a message to websocket connection.
@@ -111,7 +111,7 @@ export class Websocket extends EventEmitter {
     /**
      * Underlying uWS.Websocket object
      */
-    get raw(): uWebsockets.WebSocket;
+    get raw(): uWebsockets.WebSocket<TUserData>;
 
     /**
      * Returns IP address of this websocket connection.
