@@ -13,7 +13,7 @@ export interface UserRouteOptions {
 }
 
 // Define types for Websocket Route Creator
-export type WSRouteHandler = (websocket: Websocket) => void;
+export type WSRouteHandler<TUserData = unknown> = (websocket: Websocket<TUserData>) => void;
 export interface WSRouteOptions {
     message_type?: 'String' | 'Buffer' | 'ArrayBuffer';
     idle_timeout?: number;
@@ -227,8 +227,8 @@ export class Router {
      * @param {WSRouteOptions|WSRouteHandler} options
      * @param {WSRouteHandler} handler
      */
-    ws(pattern: string, handler: WSRouteHandler): void;
-    ws(pattern: string, options: WSRouteOptions, handler: WSRouteHandler): void;
+    ws<TUserData = unknown>(pattern: string, handler: WSRouteHandler<TUserData>): void;
+    ws<TUserData = unknown>(pattern: string, options: WSRouteOptions, handler: WSRouteHandler<TUserData>): void;
 
     /**
      * Returns All routes in this router in the order they were registered.
