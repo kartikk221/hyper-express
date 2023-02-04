@@ -246,8 +246,14 @@ class Response {
                 maxAge: 0,
             });
 
-        // Convert expiry to a valid Date object or delete expiry altogether
-        if (typeof expiry == 'number') options.expires = new Date(Date.now() + expiry);
+        // Determine if a expiry duration was provided in milliseconds
+        if (typeof expiry == 'number') {
+            // Set the expires value of the cookie if one was not already defined
+            options.expires = options.expires || new Date(Date.now() + expiry);
+
+            // Set the maxAge value of the cookie if one was not already defined
+            options.maxAge = options.maxAge || Math.round(expiry / 1000);
+        }
 
         // Sign cookie value if signing is enabled and a valid secret is provided
         if (sign_cookie && typeof options.secret == 'string') {

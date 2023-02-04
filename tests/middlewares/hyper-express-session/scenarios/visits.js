@@ -1,4 +1,4 @@
-const { log, assert_log, random_string, async_for_each } = require('../../../scripts/operators.js');
+const { log, assert_log, async_for_each } = require('../../../scripts/operators.js');
 const { fetch, server } = require('../../../configuration.js');
 const { TEST_SERVER } = require('../../../components/Server.js');
 const { TEST_STORE } = require('../test_engine.js');
@@ -59,7 +59,11 @@ async function test_visits_scenario() {
                 let name = chunks[0];
                 let value = chunks[1];
                 let header = `${name}=${value}`;
-                if (chunk.split('; ')[1].indexOf('0') > -1) return;
+
+                // Ensure the cookie is not a "delete" operation with a max-age of 0
+                if (chunk.toLowerCase().includes('max-age=0')) return;
+
+                // Push the cookie to the list of cookies to send with future requests
                 cookies.push(header);
             });
         }
