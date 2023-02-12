@@ -26,11 +26,11 @@ router.post(scenario_endpoint, async (request, response) => {
             await new Promise((_, reject) => reject(new Error('MANUAL_DEEP_ERROR')));
         case 3:
             // Manually thrown non-Error object
-            throw 'MANUAL_SHALLOW_NON_ERROR';
+            throw 'NON_ERROR_MANUAL_SHALLOW_NON_ERROR';
         case 4:
             // Manually thrown non-Error object
             await (async () => {
-                throw 'MANUAL_DEEP_NON_ERROR';
+                throw 'NON_ERROR_MANUAL_DEEP_NON_ERROR';
             })();
         default:
             return response.json({
@@ -49,8 +49,8 @@ async function test_request_uncaught_rejections() {
     const promises = [
         [1, 'MANUAL_SHALLOW_ERROR'],
         [2, 'MANUAL_DEEP_ERROR'],
-        [3, 'ERR_CAUGHT_NON_ERROR_TYPE: MANUAL_SHALLOW_NON_ERROR'],
-        [4, 'ERR_CAUGHT_NON_ERROR_TYPE: MANUAL_DEEP_NON_ERROR'],
+        [3, 'NON_ERROR_MANUAL_SHALLOW_NON_ERROR'],
+        [4, 'NON_ERROR_MANUAL_DEEP_NON_ERROR'],
     ].map(
         ([scenario, expected_code]) =>
             new Promise(async (resolve) => {

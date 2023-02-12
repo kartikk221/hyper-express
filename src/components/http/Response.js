@@ -782,9 +782,6 @@ class Response {
      * @returns {Response}
      */
     throw(error) {
-        // If the error is not an instance of Error, wrap it in an Error object that
-        if (!(error instanceof Error)) error = new Error(`ERR_CAUGHT_NON_ERROR_TYPE: ${error}`);
-
         // Trigger the global error handler
         this.route.app.handlers.on_error(this.#wrapped_request, this, error);
 
