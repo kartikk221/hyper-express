@@ -69,9 +69,21 @@ class Route {
         let iterator;
         const middleware = this.options.middlewares[cursor];
         if (middleware) {
-            // Enforce request path pattern matching if this is a wildcard route
-            if (middleware.match && !request.path.startsWith(middleware.pattern))
-                return this.handle(request, response, cursor + 1);
+            // Determine if this middleware requires path matching
+            if (middleware.match) {
+                // Check if the middleware pattern matches that starting of the request path
+                if (request.path.startsWith(middleware.pattern)) {
+                    // Ensure that the character after the middleware pattern is either a trailing slash or out of bounds of string
+                    const trailing = request.path[middleware.pattern.length];
+                    if (trailing !== '/' && trailing !== undefined) {
+                        // This handles cases where "/docs" middleware will incorrectly match "/docs-JSON" for example
+                        return this.handle(request, response, cursor + 1);
+                    }
+                } else {
+                    // Since the middleware pattern does not match the start of the request path, skip this middleware
+                    return this.handle(request, response, cursor + 1);
+                }
+            }
 
             // Track the middleware cursor to prevent double execution
             response._track_middleware_cursor(cursor);

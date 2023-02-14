@@ -31,6 +31,14 @@ const route_specific_dynamic_middleware = (request, response, next) => {
 };
 router.use('/middleware-dynamic-iteration/middleware', route_specific_dynamic_middleware);
 
+// Bind a middleware which will try target an incomplete part of the path and should not be executed
+const incomplete_path_middleware = (request, response, next) => {
+    // This should never be executed
+    console.log('INCOMPLETE_PATH_MIDDLEWARE');
+    return response.send('INCOMPLETE_PATH_MIDDLEWARE');
+};
+router.use('/middleware-dy', incomplete_path_middleware); // Notice how "/middleware-dy" should not match "/middleware-dynamic-iteration/..."
+
 // Create Backend HTTP Route
 router.get(scenario_endpoint + '/*', async (request, response) => {
     response.send('ROUTE_HANDLER');
