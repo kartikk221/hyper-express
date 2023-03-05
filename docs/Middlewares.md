@@ -1,5 +1,5 @@
 # Middlewares
-HyperExpress follows the standard format of middlewares and implements similar API to ExpressJS. This allows for full compatibility with most existing ExpressJS middlewares while maintaining high performance. 
+HyperExpress follows the standard format of middlewares and implements similar API to ExpressJS. This allows for limited compatibility with some existing ExpressJS middlewares while maintaining high performance. 
 * See [`> [Server]`](./Server.md) and [`> [Router]`](./Router.md) for details about the `use()` method and parameter types.
 
 # How To Use
