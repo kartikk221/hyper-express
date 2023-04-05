@@ -252,7 +252,7 @@ class Response {
             // Set the expires value of the cookie if one was not already defined
             options.expires = options.expires || new Date(Date.now() + expiry);
 
-            // Set the maxAge value of the cookie if one was not already defined
+            // Define a max age if one was not already defined
             options.maxAge = options.maxAge || Math.round(expiry / 1000);
         }
 
