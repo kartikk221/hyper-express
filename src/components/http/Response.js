@@ -141,8 +141,7 @@ class Response {
             this.throw(new Error('HyperExpress: atomic(handler) -> handler must be a Javascript function'));
 
         // Cork the provided handler
-        if(!this.completed)
-            this.#raw_response.cork(handler);
+        if (!this.completed) this.#raw_response.cork(handler);
 
         return this;
     }
