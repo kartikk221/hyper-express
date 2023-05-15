@@ -1,19 +1,22 @@
 import * as uWebsockets from 'uWebSockets.js';
 import { EventEmitter } from "events";
 import { Readable, Writable } from 'stream';
+import TypedEmitter from 'typed-emitter';
 import { SendableData } from "../http/Response";
 
 export type WebsocketContext = {
     [key: string]: string
 }
 
-export class Websocket<TUserData = unknown> extends EventEmitter {
-    /* EventEmitter Overrides */
-    on(eventName: 'message' | 'close' | 'drain' | 'ping' | 'pong', listener: (...args: any[]) => void): this;
-    once(eventName: 'message' | 'close' | 'drain' | 'ping' | 'pong', listener: (...args: any[]) => void): this;
+type Events = {
+    message: (...args: any[]) => void | Promise<void>;
+    close: (...args: any[]) => void | Promise<void>;
+    drain: (...args: any[]) => void | Promise<void>;
+    ping: (...args: any[]) => void | Promise<void>;
+    pong: (...args: any[]) => void | Promise<void>;
+}
 
-    /* Websocket Methods */
-
+export class Websocket<TUserData = unknown> extends (EventEmitter as new () => TypedEmitter<Events>) {
     /**
      * Alias of uWS.cork() method. Accepts a callback with multiple operations for network efficiency.
      *

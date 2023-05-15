@@ -34,7 +34,7 @@ webserver.post('/api/v1/delete_user/:id', async (request, response) => {
 webserver.post('/api/v1/delete_user/:id', async (request, response) => {
    // Some bad stuff happened and this request is now forbidden
    
-   // We multiple response network calls in atomic callback for best performance
+   // We wrap multiple response network calls in atomic callback for best performance
    response.atomic(() => {
         // All methods EXCEPT "response ending methods" such as send(), json(), upgrade() support chaining
        response
