@@ -1,5 +1,6 @@
+const group = 'Server';
 const { HyperExpress } = require('../configuration.js');
-const { log } = require('../scripts/operators.js');
+const { log, assert_log } = require('../scripts/operators.js');
 
 // Create a test HyperExpress instance
 const TEST_SERVER = new HyperExpress.Server({

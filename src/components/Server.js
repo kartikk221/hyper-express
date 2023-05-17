@@ -1,4 +1,6 @@
 'use strict';
+const path = require('path');
+const fs = require('fs/promises');
 const uWebSockets = require('uWebSockets.js');
 
 const Route = require('./router/Route.js');
@@ -8,7 +10,7 @@ const Response = require('./http/Response.js');
 const HostManager = require('./plugins/HostManager.js');
 const WebsocketRoute = require('./ws/WebsocketRoute.js');
 
-const { wrap_object } = require('../shared/operators.js');
+const { wrap_object, to_forward_slashes } = require('../shared/operators.js');
 
 class Server extends Router {
     #port;
@@ -68,14 +70,25 @@ class Server extends Router {
             const { cert_file_name, key_file_name } = options;
             this.#options.is_ssl = cert_file_name && key_file_name; // cert and key are required for SSL
             if (this.#options.is_ssl) {
+                // Convert the certificate and key file names to absolute system paths
+                options.cert_file_name = to_forward_slashes(path.resolve(cert_file_name));
+                options.key_file_name = to_forward_slashes(path.resolve(key_file_name));
+
+                // Create an SSL app with the provided SSL options
                 this.#uws_instance = uWebSockets.SSLApp(options);
             } else {
+                // Create a non-SSL app since no SSL options were provided
                 this.#uws_instance = uWebSockets.App(options);
             }
         } catch (error) {
+            // Convert all the options to string values for logging purposes
+            const _options = Object.keys(options)
+                .map((key) => `options.${key}: "${options[key]}"`)
+                .join('\n');
+
             // Throw error if uWebsockets.js fails to initialize
             throw new Error(
-                `new HyperExpress.Server(): Failed to create new Server instance due to invalid SSL configuration. Please ensure you have entered the correct SSL paths and parameters. uWebsockets.js: ${error}`
+                `new HyperExpress.Server(): Failed to create new Server instance due to an invalid configuration in options.\n${_options}`
             );
         }
 
@@ -106,21 +119,52 @@ class Server extends Router {
      * @param {String=} host Optional. Default: 0.0.0.0
      * @returns {Promise} Promise
      */
-    listen(port, host = '0.0.0.0') {
+    async listen(port, host = '0.0.0.0') {
+        // Validate that the key and cert files exist if SSL is enabled
+        if (this.#options.is_ssl) {
+            // Destructure the cert and key file names from options
+            const { cert_file_name, key_file_name } = options;
+
+            // Verify the certificate file exists
+            try {
+                await fs.access(cert_file_name, fs.constants.F_OK | fs.constants.R_OK);
+            } catch (error) {
+                throw new Error(
+                    `HyperExpress.Server.listen(port, host): The provided SSL certificate file does not exist or is not readable: ${cert_file_name}`
+                );
+            }
+
+            // Verify the key file exists
+            try {
+                await fs.access(key_file_name, fs.constants.F_OK | fs.constants.R_OK);
+            } catch (error) {
+                throw new Error(
+                    `HyperExpress.Server.listen(port, host): The provided SSL private key file does not exist or is not readable: ${key_file_name}`
+                );
+            }
+        }
+
+        // Listen to the specified host and port with uWS
         const reference = this;
-        return new Promise((resolve, reject) =>
+        return await new Promise((resolve, reject) =>
             reference.#uws_instance.listen(host, port, (listen_socket) => {
-                // Compile the Server instance
+                // Compile the Server instance to cache the routes and middlewares
                 reference._compile();
 
                 // Determine if we received a listen socket
                 if (listen_socket) {
-                    // Store the listen socket for future closure & bind the auto close handler if enabled from constructor options
+                    // Store the listen socket for future closure
                     reference.#listen_socket = listen_socket;
+
+                    // Bind the auto close handler if enabled from constructor options
                     if (reference.#options.auto_close) reference._bind_auto_close();
+
+                    // Resolve the listen socket
                     resolve(listen_socket);
                 } else {
-                    reject('No Socket Received From uWebsockets.js');
+                    reject(
+                        'HyperExpress.Server.listen(port, host): No Socket Received From uWebsockets.js likely due to an invalid host or busy port.'
+                    );
                 }
             })
         );

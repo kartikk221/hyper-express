@@ -166,6 +166,15 @@ function inherit_prototype({ from, to, method, override, ignore = ['constructor'
     });
 }
 
+/**
+ * Converts Windows path backslashes to forward slashes.
+ * @param {string} string
+ * @returns {string}
+ */
+function to_forward_slashes(string) {
+    return string.split('\\').join('/');
+}
+
 module.exports = {
     parse_path_parameters,
     array_buffer_to_string,
@@ -173,4 +182,5 @@ module.exports = {
     async_wait,
     inherit_prototype,
     merge_relative_paths,
+    to_forward_slashes,
 };
