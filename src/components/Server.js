@@ -63,22 +63,21 @@ class Server extends Router {
         wrap_object(this.#options, options);
 
         // Expose the options object for future use
-        this._options = options;
-
+        this._options = this.#options;
         try {
             // Create underlying uWebsockets App or SSLApp to power HyperExpress
             const { cert_file_name, key_file_name } = options;
             this.#options.is_ssl = cert_file_name && key_file_name; // cert and key are required for SSL
             if (this.#options.is_ssl) {
                 // Convert the certificate and key file names to absolute system paths
-                options.cert_file_name = to_forward_slashes(path.resolve(cert_file_name));
-                options.key_file_name = to_forward_slashes(path.resolve(key_file_name));
+                this.#options.cert_file_name = to_forward_slashes(path.resolve(cert_file_name));
+                this.#options.key_file_name = to_forward_slashes(path.resolve(key_file_name));
 
                 // Create an SSL app with the provided SSL options
-                this.#uws_instance = uWebSockets.SSLApp(options);
+                this.#uws_instance = uWebSockets.SSLApp(this.#options);
             } else {
                 // Create a non-SSL app since no SSL options were provided
-                this.#uws_instance = uWebSockets.App(options);
+                this.#uws_instance = uWebSockets.App(this.#options);
             }
         } catch (error) {
             // Convert all the options to string values for logging purposes
