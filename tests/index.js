@@ -23,13 +23,15 @@ const { TEST_SERVER } = require('./components/Server.js');
         assert_log(group, 'Server Listening Port Test', () => +server.port === TEST_SERVER.port);
 
         // Assert that a server instance with a bad SSL configuration throws an error
-        assert_log(group, 'Good SSL Configuration Error Test', () => {
+        assert_log(group, 'Good SSL Configuration Initialization Test', async () => {
             let result = false;
             try {
                 const TEST_GOOD_SERVER = new HyperExpress.Server({
                     key_file_name: './tests/ssl/dummy-key.pem',
                     cert_file_name: './tests/ssl/dummy-cert.pem',
                 });
+                await TEST_GOOD_SERVER.listen(server.port, server.host);
+                TEST_GOOD_SERVER.close();
                 result = true;
             } catch (error) {
                 console.log(error);

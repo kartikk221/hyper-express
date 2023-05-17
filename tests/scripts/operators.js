@@ -19,9 +19,9 @@ function random_string(length = 7) {
     return result.join('');
 }
 
-function assert_log(group, target, assertion) {
+async function assert_log(group, target, assertion) {
     try {
-        let result = assertion();
+        let result = await assertion();
         if (result) {
             log(group, 'Verified ' + target);
         } else {

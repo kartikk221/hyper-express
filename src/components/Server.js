@@ -123,7 +123,7 @@ class Server extends Router {
         // Validate that the key and cert files exist if SSL is enabled
         if (this.#options.is_ssl) {
             // Destructure the cert and key file names from options
-            const { cert_file_name, key_file_name } = options;
+            const { cert_file_name, key_file_name } = this.#options;
 
             // Verify the certificate file exists
             try {
