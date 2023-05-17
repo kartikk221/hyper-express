@@ -126,7 +126,7 @@ class Server extends Router {
 
             // Verify the certificate file exists
             try {
-                await fs.access(cert_file_name, fs.constants.F_OK | fs.constants.R_OK);
+                await fs.access(cert_file_name);
             } catch (error) {
                 throw new Error(
                     `HyperExpress.Server.listen(port, host): The provided SSL certificate file at "${cert_file_name}" does not exist or is not readable.\n${error}`
@@ -135,7 +135,7 @@ class Server extends Router {
 
             // Verify the key file exists
             try {
-                await fs.access(key_file_name, fs.constants.F_OK | fs.constants.R_OK);
+                await fs.access(key_file_name);
             } catch (error) {
                 throw new Error(
                     `HyperExpress.Server.listen(port, host): The provided SSL private key file at "${key_file_name}" does not exist or is not readable.\n${error}`
