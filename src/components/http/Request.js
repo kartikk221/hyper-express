@@ -110,7 +110,7 @@ class Request {
     resume() {
         // Ensure there is content being streamed before resuming
         // Ensure that the stream is currently paused before resuming
-        if (this.#paused && !this._stream_forbidden() && this.isPaused()) {
+        if ((this.#paused || this.isPaused()) && !this._stream_forbidden()) {
             this.#paused = false;
             this.#raw_response.resume();
             return this._super_resume();
