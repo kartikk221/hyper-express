@@ -39,7 +39,7 @@ class Server extends Router {
      * @param {String=} options.key_file_name Path to SSL private key file to be used for SSL/TLS.
      * @param {String=} options.passphrase Strong passphrase for SSL cryptographic purposes.
      * @param {String=} options.dh_params_file_name Path to SSL Diffie-Hellman parameters file.
-     * @param {Boolean=} options.ssl_prefer_low_memory_usage Specifies uWebsockets to prefer lower memory usage while serving SSL
+     * @param {Boolean=} options.ssl_prefer_low_memory_usage Specifies uWebsockets to prefer lower memory usage while serving SSL.
      * @param {Boolean=} options.fast_buffers Buffer.allocUnsafe is used when set to true for faster performance.
      * @param {Boolean=} options.fast_abort Determines whether HyperExpress will abrubptly close bad requests. This can be much faster but the client does not receive an HTTP status code as it is a premature connection closure.
      * @param {Boolean=} options.trust_proxy Specifies whether to trust incoming request data from intermediate proxy(s)

@@ -20,6 +20,7 @@ module.exports = {
     server: {
         host: '127.0.0.1',
         port: 8080,
+        secure_port: 8443,
         base: 'http://127.0.0.1:8080',
     },
 };

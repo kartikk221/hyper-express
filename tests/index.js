@@ -30,7 +30,7 @@ const { TEST_SERVER } = require('./components/Server.js');
                     key_file_name: './tests/ssl/dummy-key.pem',
                     cert_file_name: './tests/ssl/dummy-cert.pem',
                 });
-                await TEST_GOOD_SERVER.listen(server.port, server.host);
+                await TEST_GOOD_SERVER.listen(server.secure_port, server.host);
                 TEST_GOOD_SERVER.close();
                 result = true;
             } catch (error) {
