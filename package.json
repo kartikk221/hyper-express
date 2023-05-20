@@ -48,6 +48,6 @@
         "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.25.0"
     },
     "devDependencies": {
-        "typescript": "^4.4.4"
+        "typescript": "^5.0.4"
     }
 }
