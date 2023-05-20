@@ -1,7 +1,8 @@
 'use strict';
-
 // Use uWebsockets.js new alien mode in which uWebsockets.js runs on a separate event-loop from Node.js allowing for better performance
-// process.env['ALIEN_UWS'] = 1;
+// This mode seems to only be supported on Linux at the moment
+const supported_platforms = ['linux'];
+if (supported_platforms.includes(process.platform) && !process.env['ALIEN_UWS']) process.env['ALIEN_UWS'] = 1;
 
 // Load uWebSockets.js and fundamental Server/Router classes
 const uWebsockets = require('uWebSockets.js');

@@ -354,7 +354,8 @@ class Request {
         }
 
         // Mark this instance to provide raw buffers through readable stream
-        this.#stream_raw_chunks = true;
+        // Note! Only do this if we are not using the alien uWS mode in which uWebsocket.js will run on a faster event loop
+        this.#stream_raw_chunks = process.env['ALIEN_UWS'] === undefined;
 
         // Initiate a buffer promise with chunk retrieval process
         const reference = this;
