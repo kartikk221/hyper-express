@@ -13,7 +13,11 @@ type DefaultRequestLocals = {
     [key: string]: any;
 };
 
-export class Request<Locals = DefaultRequestLocals> extends Readable {
+export type RequestParams = {
+	[key : string] : number | string | boolean;
+}
+
+export class Request<RequestOptions extends { Locals ? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {Locals : DefaultRequestLocals}> extends Readable {
     /**
      * Underlying raw lazy initialized readable body stream.
      */
@@ -150,7 +154,7 @@ export class Request<Locals = DefaultRequestLocals> extends Readable {
      * Returns path parameters from incoming request.
      * @returns {Object.<string, string>}
      */
-    get path_parameters(): { [key: string]: string };
+    get path_parameters(): RequestOptions['Params'] extends undefined ? ParamsDictionary : RequestOptions['Params'];
 
     /**
      * Returns query parameters from incoming request.
@@ -196,7 +200,7 @@ export class Request<Locals = DefaultRequestLocals> extends Readable {
     is(type: string | string[]): string | false;
 
     /* ExpressJS Properties */
-    locals: Locals;
+    locals: RequestOptions['Locals'] extends undefined ? any : RequestOptions['Locals'];
     protocol: string;
     secure: boolean;
     ips: string[];
@@ -205,8 +209,8 @@ export class Request<Locals = DefaultRequestLocals> extends Readable {
     fresh: boolean;
     stale: boolean;
     xhr: boolean;
-    body: any;
-    params: ParamsDictionary;
+    body: RequestOptions['Body'] extends undefined ? any : RequestOptions['Body'];
+    params: RequestOptions['Params'] extends undefined ? ParamsDictionary : RequestOptions['Params'];
     query: ParsedQs;
     originalUrl: string;
     baseUrl: string;

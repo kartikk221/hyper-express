@@ -1,11 +1,11 @@
 import { ReadableOptions } from 'stream';
-import { Request } from '../http/Request';
+import { DefaultRequestLocals, Request, RequestParams } from '../http/Request';
 import { Response } from '../http/Response';
 import { Websocket } from '../ws/Websocket';
 import { MiddlewareHandler } from '../middleware/MiddlewareHandler';
 
 // Define types for HTTP Route Creators
-export type UserRouteHandler = (request: Request, response: Response) => any;
+export type UserRouteHandler<RequestOptions extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {Locals? : DefaultRequestLocals}> = (request: Request<RequestOptions>, response: Response) => any;
 export interface UserRouteOptions {
     middlewares?: Array<MiddlewareHandler>;
     stream_options?: ReadableOptions;
@@ -34,6 +34,12 @@ export interface MiddlewareRecord {
     middleware: MiddlewareHandler;
 }
 
+// Define the pattern based on Request params
+type HyphenedKeys<S extends string | number | symbol> = keyof { [key in S as key extends string ? `${string}/:${key}${string}` : never] : any};
+type UnionToIntersection<U> = (U extends any ? (k: U)=>void : never) extends ((k: infer I)=>void) ? I : never
+export type Pattern<RequestOptions extends {Params ? : RequestParams}> = RequestOptions['Params'] extends undefined ? string : UnionToIntersection<HyphenedKeys<keyof RequestOptions['Params']>>
+
+
 export class Router {
     constructor();
 
@@ -45,10 +51,11 @@ export class Router {
      */
     use(router: Router): void;
     use(...routers: Router[]): void;
-    use(...middlewares: MiddlewareHandler[]): void;
+    use<RequestOptions extends {Locals? : DefaultRequestLocals, Body?: any, Params?: RequestParams}>(...middlewares: MiddlewareHandler<RequestOptions>[]): void;
     use(pattern: string, router: Router): void;
     use(pattern: string, ...routers: Router[]): void;
-    use(pattern: string, ...middlewares: MiddlewareHandler[]): void;
+    use<RequestOptions extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(pattern: Pattern<RequestOptions>, ...middlewares: MiddlewareHandler<RequestOptions>[]): void;
+	use<RequestOptions extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(...args : [Router] | Router[] | MiddlewareHandler<RequestOptions>[] | [string, Router] | [string, ...Router[]] | [string, ...MiddlewareHandler<RequestOptions>[]]) : void;
 
     /**
      * Creates an HTTP route that handles any HTTP method requests.
@@ -57,13 +64,14 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    any(pattern: string, handler: UserRouteHandler): void;
-    any(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    any(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    any<RequestOptions extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(pattern: Pattern<RequestOptions>, handler: UserRouteHandler<RequestOptions>): void;
+    any<RequestOptions extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(pattern: Pattern<RequestOptions>, ...handlers: [...MiddlewareHandler<RequestOptions>[], UserRouteHandler<RequestOptions>]): void;
+    any<RequestOptions extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(pattern: Pattern<RequestOptions>, options: UserRouteOptions, ...handlers: [...MiddlewareHandler<RequestOptions>[], UserRouteHandler<RequestOptions>]): void;
+	any<RequestOptions extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(...args : 
+			[Pattern<RequestOptions>, UserRouteHandler<RequestOptions>] 
+		| 	[Pattern<RequestOptions>, ...MiddlewareHandler<RequestOptions>[], UserRouteHandler<RequestOptions>] 
+		| 	[Pattern<RequestOptions>, UserRouteOptions, ...MiddlewareHandler<RequestOptions>[], UserRouteHandler<RequestOptions>]
+	): void;
 
     /**
      * Alias of any() method.
@@ -73,13 +81,14 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    all(pattern: string, handler: UserRouteHandler): void;
-    all(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    all(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    all<Custom extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, handler: UserRouteHandler<Custom>): void;
+    all<Custom extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+    all<Custom extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, options: UserRouteOptions, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+	all<Custom extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(...args : 
+			[Pattern<Custom>, UserRouteHandler<Custom>] 
+		|	[Pattern<Custom>, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>] 
+		|	[Pattern<Custom>, UserRouteOptions, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+	): void;
 
     /**
      * Creates an HTTP route that handles GET method requests.
@@ -87,13 +96,14 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    get(pattern: string, handler: UserRouteHandler): void;
-    get(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    get(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    get<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = any>(pattern: Pattern<Custom>, handler: UserRouteHandler<Custom>): void;
+    get<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = any>(pattern: Pattern<Custom>, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+    get<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = any>(pattern: Pattern<Custom>, options: UserRouteOptions, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+	get<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = any>(...args : 
+			[Pattern<Custom>, UserRouteHandler<Custom>] 
+		|	[Pattern<Custom>, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, UserRouteOptions, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+	): void;
 
     /**
      * Creates an HTTP route that handles POST method requests.
@@ -101,13 +111,14 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    post(pattern: string, handler: UserRouteHandler): void;
-    post(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    post(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    post<Custom extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, handler: UserRouteHandler<Custom>): void;
+    post<Custom extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+    post<Custom extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, options: UserRouteOptions, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+	post<Custom extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(...args : 
+			[Pattern<Custom>, UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, UserRouteOptions, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+	): void;
 
     /**
      * Creates an HTTP route that handles PUT method requests.
@@ -115,13 +126,14 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    put(pattern: string, handler: UserRouteHandler): void;
-    put(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    put(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+	put<Custom extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, handler: UserRouteHandler<Custom>): void;
+    put<Custom extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+    put<Custom extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, options: UserRouteOptions, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+	put<Custom extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(...args : 
+			[Pattern<Custom>, UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, UserRouteOptions, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+	): void;
 
     /**
      * Creates an HTTP route that handles DELETE method requests.
@@ -129,13 +141,14 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    delete(pattern: string, handler: UserRouteHandler): void;
-    delete(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    delete(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    delete<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, handler: UserRouteHandler<Custom>): void;
+    delete<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+    delete<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, options: UserRouteOptions, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+	delete<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = {}>(...args : 
+			[Pattern<Custom>, UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, UserRouteOptions, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+	): void;
 
     /**
      * Creates an HTTP route that handles HEAD method requests.
@@ -143,13 +156,14 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    head(pattern: string, handler: UserRouteHandler): void;
-    head(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    head(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    head<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, handler: UserRouteHandler<Custom>): void;
+    head<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+    head<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, options: UserRouteOptions, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+	head<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = {}>(...args : 
+			[Pattern<Custom>, UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, UserRouteOptions, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+	): void;
 
     /**
      * Creates an HTTP route that handles OPTIONS method requests.
@@ -157,13 +171,14 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    options(pattern: string, handler: UserRouteHandler): void;
-    options(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    options(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    options<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, handler: UserRouteHandler<Custom>): void;
+    options<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+    options<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, options: UserRouteOptions, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+	options<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = {}>(...args : 
+			[Pattern<Custom>, UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, UserRouteOptions, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+	): void;
 
     /**
      * Creates an HTTP route that handles PATCH method requests.
@@ -171,13 +186,14 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    patch(pattern: string, handler: UserRouteHandler): void;
-    patch(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    patch(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    patch<Custom extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, handler: UserRouteHandler<Custom>): void;
+    patch<Custom extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+    patch<Custom extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, options: UserRouteOptions, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+	patch<Custom extends { Locals? : DefaultRequestLocals, Body? : any, Params? : RequestParams} = {}>(...args : 
+			[Pattern<Custom>, UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, UserRouteOptions, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+	): void;
 
     /**
      * Creates an HTTP route that handles TRACE method requests.
@@ -185,13 +201,14 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    trace(pattern: string, handler: UserRouteHandler): void;
-    trace(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    trace(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    trace<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, handler: UserRouteHandler<Custom>): void;
+    trace<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+    trace<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = {}>(pattern: Pattern<Custom>, options: UserRouteOptions, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+	trace<Custom extends { Locals? : DefaultRequestLocals, Params? : RequestParams} = {}>(...args : 
+			[Pattern<Custom>, UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, UserRouteOptions, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+	): void;
 
     /**
      * Creates an HTTP route that handles CONNECT method requests.
@@ -199,13 +216,14 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    connect(pattern: string, handler: UserRouteHandler): void;
-    connect(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    connect(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    connect<Custom extends { Locals? : DefaultRequestLocals,  Params? : RequestParams} = {}>(pattern: Pattern<Custom>, handler: UserRouteHandler<Custom>): void;
+    connect<Custom extends { Locals? : DefaultRequestLocals,  Params? : RequestParams} = {}>(pattern: Pattern<Custom>, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+    connect<Custom extends { Locals? : DefaultRequestLocals,  Params? : RequestParams} = {}>(pattern: Pattern<Custom>, options: UserRouteOptions, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+	connect<Custom extends { Locals? : DefaultRequestLocals,  Params? : RequestParams} = {}>(...args : 
+			[Pattern<Custom>, UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, UserRouteOptions, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+	): void;
 
     /**
      * Intercepts and handles upgrade requests for incoming websocket connections.
@@ -214,13 +232,14 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    upgrade(pattern: string, handler: UserRouteHandler): void;
-    upgrade(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    upgrade(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    upgrade<Custom extends { Locals? : DefaultRequestLocals,  Params? : RequestParams} = {}>(pattern: Pattern<Custom>, handler: UserRouteHandler<Custom>): void;
+    upgrade<Custom extends { Locals? : DefaultRequestLocals,  Params? : RequestParams} = {}>(pattern: Pattern<Custom>, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+    upgrade<Custom extends { Locals? : DefaultRequestLocals,  Params? : RequestParams} = {}>(pattern: Pattern<Custom>, options: UserRouteOptions, ...handlers: [...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]): void;
+	upgrade<Custom extends { Locals? : DefaultRequestLocals,  Params? : RequestParams} = {}>(...args : 
+			[Pattern<Custom>, UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+		|	[Pattern<Custom>, UserRouteOptions, ...MiddlewareHandler<Custom>[], UserRouteHandler<Custom>]
+	): void;
 
     /**
      * @param {String} pattern
