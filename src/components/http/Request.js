@@ -65,11 +65,13 @@ class Request {
         this.route = route;
         this.#raw_response = raw_response;
 
-        // Cache various properties and headers from uWS.HttpRequest as it is stack allocated and will be deallocated after this function returns
+        // Cache request properties from uWS.HttpRequest as it is stack allocated and will be deallocated after this function returns
         this.#path = raw_request.getUrl();
         this.#query = raw_request.getQuery();
         this.#method = route.method === 'ANY' ? raw_request.getMethod() : route.method;
-        raw_request.forEach(this._set_new_header);
+
+        // Cache request headers from uWS.HttpRequest as it is stack allocated and will be deallocated after this function returns
+        raw_request.forEach(this._set_new_header.bind(this));
 
         // Cache the path parameters from the route pattern if any as uWS.HttpRequest will be deallocated after this function returns
         if (route.path_parameters_key.length) {
@@ -153,6 +155,7 @@ class Request {
 
     /**
      * Writes the header into the Request.headers object.
+     *
      * @private
      * @param {string} key
      * @param {string} value

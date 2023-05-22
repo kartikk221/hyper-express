@@ -14,15 +14,15 @@ const LiveFile = require('../plugins/LiveFile.js');
 const SSEventStream = require('../plugins/SSEventStream.js');
 
 class Response {
+    #sse;
     #locals;
+    route = null;
     #streaming = false;
     #initiated = false;
     #middleware_cursor;
-    #wrapped_request;
-    #raw_response;
-    #upgrade_socket;
-    #sse;
-    route = null;
+    #wrapped_request = null;
+    #upgrade_socket = null;
+    #raw_response = null;
 
     /**
      * Returns the custom HTTP underlying status code of the response.
@@ -78,25 +78,32 @@ class Response {
         this.#raw_response = raw_response;
 
         // Bind the abort handler as required by uWebsockets.js for each uWS.HttpResponse to allow for async processing
-        raw_response.onAborted(() => {
-            // Mark this response as completed since the client has disconnected
-            this.completed = true;
-
-            // Stop streaming any further data from the client that may still be flowing to provide discarded access errors on the Request
-            this.#wrapped_request._stop_streaming();
-
-            // Ensure we have a writable/emitter instance to emit over
-            if (this._writable) {
-                // Emit an 'abort' event to signify that the client aborted the request
-                this.emit('abort', this.#wrapped_request, this);
-
-                // Emit an 'close' event to signify that the client has disconnected
-                this.emit('close', this.#wrapped_request, this);
-            }
-        });
+        raw_response.onAborted(this._on_aborted.bind(this));
     }
 
     /* HyperExpress Methods */
+
+    /**
+     * Performs cleanup operations when uWS.HttpResponse calls the onAborted handler to due to an aborted request.
+     *
+     * @private
+     */
+    _on_aborted() {
+        // Mark this response as completed since the client has disconnected
+        this.completed = true;
+
+        // Stop streaming any further data from the client that may still be flowing to provide discarded access errors on the Request
+        this.#wrapped_request._stop_streaming();
+
+        // Ensure we have a writable/emitter instance to emit over
+        if (this._writable) {
+            // Emit an 'abort' event to signify that the client aborted the request
+            this.emit('abort', this.#wrapped_request, this);
+
+            // Emit an 'close' event to signify that the client has disconnected
+            this.emit('close', this.#wrapped_request, this);
+        }
+    }
 
     /**
      * Tracks middleware cursor position over a request's lifetime.
