@@ -33,12 +33,23 @@ Router.ws('/echo', (ws) => {
 Router.upgrade('/echo', (request, response) => {
     // Reject upgrade request if valid key is not provided
     const key = request.query_parameters['key'];
+    const delay = +request.query_parameters['delay'] || 0;
     if (key !== TestKey) return response.status(403).send();
 
-    // Upgrade request normally
-    response.upgrade({
-        key,
-    });
+    // Upgrade request with delay to simulate async upgrade handler or not
+    if (delay) {
+        setTimeout(
+            () =>
+                response.upgrade({
+                    key,
+                }),
+            delay
+        );
+    } else {
+        response.upgrade({
+            key,
+        });
+    }
 });
 
 // Bind router to test server instance
@@ -51,61 +62,63 @@ async function test_websocket_component() {
     const endpoint_base = `${server.base.replace('http', 'ws')}${TestPath}`;
     log(group, 'Testing ' + candidate);
 
-    // Test protected websocket route upgrade handling (NO KEY)
-    let count = 5;
-    const ws_echo = new Websocket(`${endpoint_base}/echo?key=${TestKey}`);
-    await new Promise((resolve, reject) => {
-        let expecting;
-        ws_echo.on('open', () => {
-            // Assert that remote upgrade context was accessible from polyfill component
-            assert_log(
-                group,
-                `${candidate} Upgrade Context Integrity`,
-                () => remote_ws.context.key === TestKey
-            );
+    // Test with No delay and random delay between 30-60ms for upgrade handler
+    await Promise.all(
+        [0, Math.floor(Math.random() * 30) + 30].map((delay) => {
+            // Test protected websocket route upgrade handling (NO KEY)
+            let count = 5;
+            const delay_message = `With ${delay}ms Delay`;
+            const ws_echo = new Websocket(`${endpoint_base}/echo?key=${TestKey}&delay=${delay}`);
+            return new Promise((resolve, reject) => {
+                let expecting;
+                ws_echo.on('open', () => {
+                    // Assert that remote upgrade context was accessible from polyfill component
+                    assert_log(
+                        group,
+                        `${candidate} ${delay_message} Upgrade Context Integrity`,
+                        () => remote_ws.context.key === TestKey
+                    );
 
-            // Start of echo chain with an expected random string
-            expecting = random_string(10);
-            ws_echo.send(expecting);
-        });
+                    // Start of echo chain with an expected random string
+                    expecting = random_string(10);
+                    ws_echo.send(expecting);
+                });
 
-        ws_echo.on('message', (message) => {
-            // Perform assertion to compare expected value with received value
-            message = message.toString();
-            assert_log(
-                group,
-                `${candidate} Echo Test > [${expecting} === ${message}]`,
-                () => expecting === message
-            );
+                ws_echo.on('message', (message) => {
+                    // Perform assertion to compare expected value with received value
+                    message = message.toString();
+                    assert_log(
+                        group,
+                        `${candidate} ${delay_message} Echo Test > [${expecting} === ${message}]`,
+                        () => expecting === message
+                    );
 
-            // Perform echo tests until count is 0
-            count--;
-            if (count > 0) {
-                expecting = random_string(10);
-                ws_echo.send(expecting);
-            } else {
-                // Tell remote to close connection
-                ws_echo.send('CLOSE');
-            }
-        });
+                    // Perform echo tests until count is 0
+                    count--;
+                    if (count > 0) {
+                        expecting = random_string(10);
+                        ws_echo.send(expecting);
+                    } else {
+                        // Tell remote to close connection
+                        ws_echo.send('CLOSE');
+                    }
+                });
 
-        // Create a reject timeout to throw on hangups
-        let timeout = setTimeout(reject, 1000);
-        ws_echo.on('close', (code) => {
-            // Assert that close code matches the test code
-            assert_log(group, `${candidate} Connection Close Code`, () => code === TestCode);
+                // Create a reject timeout to throw on hangups
+                let timeout = setTimeout(reject, 1000);
+                ws_echo.on('close', (code) => {
+                    // Assert that close code matches the test code
+                    assert_log(group, `${candidate} ${delay_message} Connection Close Code`, () => code === TestCode);
 
-            clearTimeout(timeout);
-            resolve();
-        });
-    });
+                    clearTimeout(timeout);
+                    resolve();
+                });
+            });
+        })
+    );
 
     // Assert that remote server also closed connection/update polyfill state appropriately
-    assert_log(
-        group,
-        `${candidate} Remote Polyfill Close`,
-        () => remote_ws.closed === true && remote_closed === true
-    );
+    assert_log(group, `${candidate} Remote Polyfill Close`, () => remote_ws.closed === true && remote_closed === true);
 
     // Test websocket .stream() method
     await test_websocket_stream();
