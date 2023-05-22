@@ -16,14 +16,13 @@ class Request {
     #request_ended = false;
     #stream_flushing = false;
     #stream_raw_chunks = false;
-    #raw_request = null;
     #raw_response = null;
-    #method;
-    #url;
-    #path;
-    #query;
-    #remote_ip;
-    #remote_proxy_ip;
+    #method = '';
+    #url = '';
+    #path = '';
+    #query = '';
+    #remote_ip = '';
+    #remote_proxy_ip = '';
     #cookies;
     #path_parameters;
     #query_parameters;
@@ -62,27 +61,23 @@ class Request {
      * @param {import('uWebSockets.js').HttpResponse} raw_response
      */
     constructor(route, raw_request, raw_response) {
-        // Store references to uWS objects and the master context
+        // Store reference to the route of this request and the raw uWS.HttpResponse instance for certain operations
         this.route = route;
-        this.#raw_request = raw_request;
         this.#raw_response = raw_response;
 
-        // Perform request pre-parsing for common access data
-        // This is required as uWS.Request is forbidden for access after initial execution
+        // Cache various properties and headers from uWS.HttpRequest as it is stack allocated and will be deallocated after this function returns
         this.#path = raw_request.getUrl();
         this.#query = raw_request.getQuery();
         this.#method = route.method === 'ANY' ? raw_request.getMethod() : route.method;
+        raw_request.forEach(this._set_new_header);
 
-        // Parse headers into a key-value object
-        raw_request.forEach((key, value) => (this.headers[key] = value));
-
-        // Parse path parameters from request path if we have a path parameters parsing key
+        // Cache the path parameters from the route pattern if any as uWS.HttpRequest will be deallocated after this function returns
         if (route.path_parameters_key.length) {
-            // Iterate over each expected path parameter key value pair and parse the value from uWS.HttpRequest.getParameter()
             this.#path_parameters = {};
-            route.path_parameters_key.forEach(
-                ([key, index]) => (this.#path_parameters[key] = raw_request.getParameter(index))
-            );
+            for (let i = 0; i < route.path_parameters_key.length; i++) {
+                const [key, index] = route.path_parameters_key[i];
+                this.#path_parameters[key] = raw_request.getParameter(index);
+            }
         }
     }
 
@@ -154,6 +149,16 @@ class Request {
     unsign(signed_value, secret) {
         let unsigned_value = signature.unsign(signed_value, secret);
         if (unsigned_value !== false) return unsigned_value;
+    }
+
+    /**
+     * Writes the header into the Request.headers object.
+     * @private
+     * @param {string} key
+     * @param {string} value
+     */
+    _set_new_header(key, value) {
+        this.headers[key] = value;
     }
 
     /**
@@ -684,15 +689,6 @@ class Request {
     }
 
     /* HyperExpress Properties */
-
-    /**
-     * Returns underlying uWS.Request reference.
-     * Note! Utilizing any of uWS.Request's methods after initial synchronous call will throw a forbidden access error.
-     * @returns {import('uWebSockets.js').HttpRequest}
-     */
-    get raw() {
-        return this.#raw_request;
-    }
 
     /**
      * Returns the request locals for this request.

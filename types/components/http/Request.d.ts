@@ -1,11 +1,10 @@
 import { ParsedQs } from 'qs';
 import { Readable } from 'stream';
-import { BusboyConfig } from 'busboy';
-import { ParamsDictionary } from 'express-serve-static-core';
-import { Options, Ranges, Result } from 'range-parser';
-import * as uWebsockets from 'uWebSockets.js';
-import { MultipartHandler } from '../plugins/MultipartField';
 import { Server } from '../Server';
+import { BusboyConfig } from 'busboy';
+import { Options, Ranges, Result } from 'range-parser';
+import { ParamsDictionary } from 'express-serve-static-core';
+import { MultipartHandler } from '../plugins/MultipartField';
 
 type default_value = any;
 
@@ -90,13 +89,6 @@ export class Request<Locals = DefaultRequestLocals> extends Readable {
     multipart(options: BusboyConfig, handler: MultipartHandler): Promise<void>;
 
     /* HyperExpress Properties */
-
-    /**
-     * Returns underlying uWS.Request reference.
-     * Note! Utilizing any of uWS.Request's methods after initial synchronous call will throw a forbidden access error.
-     * @returns {uWebsockets.HttpRequest}
-     */
-    get raw(): uWebsockets.HttpRequest;
 
     /**
      * Returns the HyperExpress.Server instance this Request object originated from.
