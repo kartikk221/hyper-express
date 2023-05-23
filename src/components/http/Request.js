@@ -26,7 +26,7 @@ class Request {
     #cookies;
     #path_parameters;
     #query_parameters;
-    #body_limit_bytes;
+    #body_limit_bytes = 0;
     #body_expected_bytes;
     #body_received_bytes;
     #body_buffer;
@@ -222,10 +222,8 @@ class Request {
             this.#body_limit_bytes = bytes;
 
             // Initialize the expected body size if it hasn't been yet
-            if (this.#body_expected_bytes === undefined) {
-                const content_length = +this.headers['content-length'];
-                this.#body_expected_bytes = isNaN(content_length) || content_length < 1 ? 0 : content_length;
-            }
+            if (this.#body_expected_bytes === undefined)
+                this.#body_expected_bytes = +this.headers['content-length'] || 0;
 
             // Determine if we have some expected body bytes to stream
             if (this.#body_expected_bytes > 0) {
