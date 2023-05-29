@@ -44,9 +44,8 @@ npm i hyper-express
 - See [`> [HostManager]`](./docs/HostManager.md) for supporting requests over **muliple hostnames** in HyperExpress.
 
 ## Encountering Problems?
-- HyperExpress enables the `ALIEN_UWS` mode from [`uWebSockets.js`](https://github.com/uNetworking/uWebSockets.js/) by default for performance. You may **disable** this mode by setting the `ALIEN_UWS_FORBIDDEN` to `1` **BEFORE** importing anything from `hyper-express` for the first time.
-- HyperExpress is mostly compatible with `Express` but not **100%** thus you may encounter some middlewares not working out of the box. In this scenario, you must either write your own polyfill or omit the middleware to continue.
-- Open an [`> [Issues]`](https://github.com/kartikk221/hyper-express/issues) with as much detail about what led up to the problem including error traces, route information etc etc.
+- HyperExpress is mostly compatible with `Express` but not **100%** therefore you may encounter some middlewares not working out of the box. In this scenario, you must either write your own polyfill or omit the middleware to continue.
+- Open an [`> [Issues]`](https://github.com/kartikk221/hyper-express/issues) with details about what led up to the problem including error traces, route information etc etc.
 
 ## Testing Changes
 To run HyperExpress functionality tests locally on your machine, you must follow the steps below.
