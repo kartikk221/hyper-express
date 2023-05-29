@@ -1,4 +1,5 @@
 'use strict';
+
 // Load uWebSockets.js and fundamental Server/Router classes
 const uWebsockets = require('uWebSockets.js');
 const Server = require('./src/components/Server.js');

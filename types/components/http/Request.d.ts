@@ -2,6 +2,7 @@ import { ParsedQs } from 'qs';
 import { Readable } from 'stream';
 import { Server } from '../Server';
 import { BusboyConfig } from 'busboy';
+import { HttpRequest } from 'uWebSockets.js';
 import { Options, Ranges, Result } from 'range-parser';
 import { ParamsDictionary } from 'express-serve-static-core';
 import { MultipartHandler } from '../plugins/MultipartField';
@@ -25,6 +26,13 @@ export class Request<Locals = DefaultRequestLocals> extends Readable {
     received: boolean;
 
     /* HyperExpress Methods */
+
+    /**
+     * Returns the raw uWS.HttpRequest instance.
+     * Note! This property is unsafe and should not be used unless you have no asynchronous code or you are accessing from the first top level synchronous middleware before any asynchronous code.
+     * @returns {import('uWebSockets.js').HttpRequest}
+     */
+    get raw(): HttpRequest;
 
     /**
      * Securely signs a value with provided secret and returns the signed value.

@@ -2,8 +2,8 @@
 const cookie = require('cookie');
 const stream = require('stream');
 const busboy = require('busboy');
-const signature = require('cookie-signature');
 const querystring = require('querystring');
+const signature = require('cookie-signature');
 
 const MultipartField = require('../plugins/MultipartField.js');
 const NodeRequest = require('../compatibility/NodeRequest.js');
@@ -16,6 +16,7 @@ class Request {
     #request_ended = false;
     #stream_flushing = false;
     #stream_raw_chunks = false;
+    #raw_request = null;
     #raw_response = null;
     #method = '';
     #url = '';
@@ -63,6 +64,7 @@ class Request {
     constructor(route, raw_request, raw_response) {
         // Store reference to the route of this request and the raw uWS.HttpResponse instance for certain operations
         this.route = route;
+        this.#raw_request = raw_request;
         this.#raw_response = raw_response;
 
         // Cache request properties from uWS.HttpRequest as it is stack allocated and will be deallocated after this function returns
@@ -84,6 +86,15 @@ class Request {
     }
 
     /* HyperExpress Methods */
+
+    /**
+     * Returns the raw uWS.HttpRequest instance.
+     * Note! This property is unsafe and should not be used unless you have no asynchronous code or you are accessing from the first top level synchronous middleware before any asynchronous code.
+     * @returns {import('uWebSockets.js').HttpRequest}
+     */
+    get raw() {
+        return this.#raw_request;
+    }
 
     /**
      * Pauses the current request and flow of incoming body data.
