@@ -73,7 +73,7 @@ class Request {
         this.#method = route.method === 'ANY' ? raw_request.getMethod() : route.method;
 
         // Cache request headers from uWS.HttpRequest as it is stack allocated and will be deallocated after this function returns
-        raw_request.forEach(this._set_new_header.bind(this));
+        raw_request.forEach((key, value) => (this.headers[key] = value));
 
         // Cache the path parameters from the route pattern if any as uWS.HttpRequest will be deallocated after this function returns
         if (route.path_parameters_key.length) {
@@ -162,17 +162,6 @@ class Request {
     unsign(signed_value, secret) {
         let unsigned_value = signature.unsign(signed_value, secret);
         if (unsigned_value !== false) return unsigned_value;
-    }
-
-    /**
-     * Writes the header into the Request.headers object.
-     *
-     * @private
-     * @param {string} key
-     * @param {string} value
-     */
-    _set_new_header(key, value) {
-        this.headers[key] = value;
     }
 
     /**

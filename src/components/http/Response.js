@@ -58,6 +58,12 @@ class Response {
     _writable = null;
 
     /**
+     * Whether this response needs to cork before sending.
+     * @private
+     */
+    _cork = false;
+
+    /**
      * Alias of aborted property as they both represent the same request state in terms of inaccessibility.
      * @returns {Boolean}
      */
@@ -72,39 +78,31 @@ class Response {
      * @param {import('uWebSockets.js').us_socket_context_t=} socket
      */
     constructor(route, wrapped_request, raw_response, socket = null) {
-        // Store the provided references for later use
         this.route = route;
         this.#upgrade_socket = socket;
-        this.#wrapped_request = wrapped_request;
         this.#raw_response = raw_response;
+        this.#wrapped_request = wrapped_request;
 
         // Bind the abort handler as required by uWebsockets.js for each uWS.HttpResponse to allow for async processing
-        raw_response.onAborted(this._on_aborted.bind(this));
+        raw_response.onAborted(() => {
+            // Mark this response as completed since the client has disconnected
+            this.completed = true;
+
+            // Stop streaming any further data from the client that may still be flowing to provide discarded access errors on the Request
+            this.#wrapped_request._stop_streaming();
+
+            // Ensure we have a writable/emitter instance to emit over
+            if (this._writable) {
+                // Emit an 'abort' event to signify that the client aborted the request
+                this.emit('abort', this.#wrapped_request, this);
+
+                // Emit an 'close' event to signify that the client has disconnected
+                this.emit('close', this.#wrapped_request, this);
+            }
+        });
     }
 
     /* HyperExpress Methods */
-
-    /**
-     * Performs cleanup operations when uWS.HttpResponse calls the onAborted handler to due to an aborted request.
-     *
-     * @private
-     */
-    _on_aborted() {
-        // Mark this response as completed since the client has disconnected
-        this.completed = true;
-
-        // Stop streaming any further data from the client that may still be flowing to provide discarded access errors on the Request
-        this.#wrapped_request._stop_streaming();
-
-        // Ensure we have a writable/emitter instance to emit over
-        if (this._writable) {
-            // Emit an 'abort' event to signify that the client aborted the request
-            this.emit('abort', this.#wrapped_request, this);
-
-            // Emit an 'close' event to signify that the client has disconnected
-            this.emit('close', this.#wrapped_request, this);
-        }
-    }
 
     /**
      * Tracks middleware cursor position over a request's lifetime.
@@ -298,7 +296,7 @@ class Response {
         this._resume_if_paused();
 
         // Cork the response if it has not been corked yet
-        if (!this.#corked) {
+        if (this._cork && !this.#corked) {
             this.#corked = true;
             return this.#raw_response.cork(this.upgrade.bind(this, context));
         }
@@ -344,15 +342,18 @@ class Response {
             );
 
         // Iterate through all headers and write them to uWS
-        Object.keys(this._headers).forEach((name) =>
-            this._headers[name].forEach((value) => this.#raw_response.writeHeader(name, value))
-        );
+        for (const name in this._headers) {
+            for (const value of this._headers[name]) {
+                this.#raw_response.writeHeader(name, value);
+            }
+        }
 
         // Iterate through all cookies and write them to uWS
-        if (this._cookies)
-            Object.keys(this._cookies).forEach((name) =>
-                this.#raw_response.writeHeader('set-cookie', this._cookies[name])
-            );
+        if (this._cookies) {
+            for (const name in this._cookies) {
+                this.#raw_response.writeHeader('set-cookie', this._cookies[name]);
+            }
+        }
 
         // Signify that the response was successfully initiated
         return true;
@@ -485,9 +486,9 @@ class Response {
      */
     send(body, close_connection) {
         // If the response has not been corked yet, cork it and wait for the next tick to send the response
-        if (!this.#corked) {
+        if (this._cork && !this.#corked) {
             this.#corked = true;
-            return this.#raw_response.cork(this.send.bind(this, body, close_connection));
+            return this.#raw_response.cork(() => this.send(body, close_connection));
         }
 
         // Ensure response connection is still active
@@ -498,9 +499,11 @@ class Response {
                 this.#wrapped_request._stop_streaming();
             }
 
-            // Wait for any expected request body data to be fully received to prevent an ECONNRESET error
+            // Wait for any expected request body data to be fully received / flushed to prevent an ECONNRESET error
             if (!this.#wrapped_request.received)
-                return this.#wrapped_request.once('received', () => this.send(body, close_connection));
+                return this.#wrapped_request.once('received', () =>
+                    this.#raw_response.cork(() => this.send(body, close_connection))
+                );
 
             // Determine if we have a custom content length header and no body data and were not streaming the request body
             if (body === undefined && !this.#streaming && this._custom_content_length() !== undefined) {
