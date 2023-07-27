@@ -485,14 +485,14 @@ class Response {
      * @returns {Response}
      */
     send(body, close_connection) {
-        // If the response has not been corked yet, cork it and wait for the next tick to send the response
-        if (this._cork && !this.#corked) {
-            this.#corked = true;
-            return this.#raw_response.cork(() => this.send(body, close_connection));
-        }
-
         // Ensure response connection is still active
         if (!this.completed) {
+            // If the response has not been corked yet, cork it and wait for the next tick to send the response
+            if (this._cork && !this.#corked) {
+                this.#corked = true;
+                return this.#raw_response.cork(() => this.send(body, close_connection));
+            }
+
             // Attempt to initiate the response to ensure status code & headers get written first
             if (this._initiate_response()) {
                 // Stop downloading further body chunks as we are done with the response
