@@ -42,6 +42,7 @@ npm i hyper-express
 - See [`> [SessionEngine]`](https://github.com/kartikk221/hyper-express-session) for working with cookie based web **Sessions** in HyperExpress.
 - See [`> [LiveDirectory]`](./docs/LiveDirectory.md) for implementing **static file/asset** serving functionality into HyperExpress.
 - See [`> [HostManager]`](./docs/HostManager.md) for supporting requests over **muliple hostnames** in HyperExpress.
+- See [`> [Typescript]`](./docs/Typescript.md) for working with Typescript in HyperExpress.
 
 ## Encountering Problems?
 - HyperExpress is mostly compatible with `Express` but not **100%** therefore you may encounter some middlewares not working out of the box. In this scenario, you must either write your own polyfill or omit the middleware to continue.
