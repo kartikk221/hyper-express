@@ -62,8 +62,7 @@ class Route {
      */
     handle(request, response, cursor) {
         // Do not handle the request if the response has been aborted
-        // Do not handle the request if the cursor is greater than the middleware count aka. past the route handler
-        if (response.completed === true || cursor > this.options.middlewares.length) return;
+        if (response.completed) return;
 
         // Retrieve the middleware for the current cursor, track the cursor if there is a valid middleware
         let iterator;

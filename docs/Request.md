@@ -6,8 +6,8 @@ Below is a breakdown of the `Request` component which is an extended `Readable` 
 #### Request Properties
 | Property  | Type     | Description                |
 | :-------- | :------- | :------------------------- |
+| `raw` | `uWS.HttpRequest`  | The underlying raw uWS Http Request instance. (Unsafe) |
 | `app` | `HyperExpress.Server`  | HyperExpress Server instance this `Request` originated from. |
-| `raw` | `uWS.Request`  | Underlying uWebsockets.js request object.|
 | `method` | `String`  | Request HTTP method in uppercase. |
 | `url` | `String`  | path + path_query string. |
 | `path` | `String`  | Request path without the query.|

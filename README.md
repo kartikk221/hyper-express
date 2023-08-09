@@ -5,7 +5,6 @@
 
 [![NPM version](https://img.shields.io/npm/v/hyper-express.svg?style=flat)](https://www.npmjs.com/package/hyper-express)
 [![NPM downloads](https://img.shields.io/npm/dm/hyper-express.svg?style=flat)](https://www.npmjs.com/package/hyper-express)
-[![Language grade: JavaScript](https://img.shields.io/lgtm/grade/javascript/g/kartikk221/hyper-express.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/kartikk221/hyper-express/context:javascript)
 [![GitHub issues](https://img.shields.io/github/issues/kartikk221/hyper-express)](https://github.com/kartikk221/hyper-express/issues)
 [![GitHub stars](https://img.shields.io/github/stars/kartikk221/hyper-express)](https://github.com/kartikk221/hyper-express/stargazers)
 [![GitHub license](https://img.shields.io/github/license/kartikk221/hyper-express)](https://github.com/kartikk221/hyper-express/blob/master/LICENSE)
@@ -23,7 +22,7 @@ Some of the prominent highlights are:
 - Multiple Host/Domain Support Over SSL
 - Limited Express.js API Compatibility Through Shared Methods/Properties
 
-See [`> [Benchmarks]`](./docs/Benchmarks.md) for **performance metrics** against other webservers in real world deployments.
+See [`> [Benchmarks]`](https://web-frameworks-benchmark.netlify.app/result?l=javascript) for **performance metrics** against other webservers in real world deployments.
 
 ## Documentation
 HyperExpress **supports** the latest three LTS (Long-term Support) Node.js versions only and can be installed using Node Package Manager (`npm`).
@@ -43,6 +42,11 @@ npm i hyper-express
 - See [`> [SessionEngine]`](https://github.com/kartikk221/hyper-express-session) for working with cookie based web **Sessions** in HyperExpress.
 - See [`> [LiveDirectory]`](./docs/LiveDirectory.md) for implementing **static file/asset** serving functionality into HyperExpress.
 - See [`> [HostManager]`](./docs/HostManager.md) for supporting requests over **muliple hostnames** in HyperExpress.
+
+## Encountering Problems?
+- HyperExpress is mostly compatible with `Express` but not **100%** therefore you may encounter some middlewares not working out of the box. In this scenario, you must either write your own polyfill or omit the middleware to continue.
+- The uWebsockets.js version header is disabled by default. You may opt-out of this behavior by setting the `KEEP_UWS_HEADER` to a truthy value such as `1` or `true`.
+- Still having problems? Open an [`> [Issue]`](https://github.com/kartikk221/hyper-express/issues) with details about what led up to the problem including error traces, route information etc etc.
 
 ## Testing Changes
 To run HyperExpress functionality tests locally on your machine, you must follow the steps below.
