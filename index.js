@@ -1,13 +1,16 @@
 'use strict';
-// Use uWebsockets.js new alien mode in which uWebsockets.js runs on a separate event-loop from Node.js allowing for better performance
-// This mode seems to only be supported on Linux at the moment
-const supported_platforms = ['linux', 'darwin'];
-if (supported_platforms.includes(process.platform) && !process.env['ALIEN_UWS']) process.env['ALIEN_UWS'] = 1;
 
 // Load uWebSockets.js and fundamental Server/Router classes
 const uWebsockets = require('uWebSockets.js');
 const Server = require('./src/components/Server.js');
 const Router = require('./src/components/router/Router.js');
+
+// Disable the uWebsockets.js version header if not specified to be kept
+if (!process.env['KEEP_UWS_HEADER']) {
+    try {
+        uWebsockets._cfg('999999990007');
+    } catch (error) {}
+}
 
 // Expose Server and Router classes along with uWebSockets.js constants
 module.exports = {

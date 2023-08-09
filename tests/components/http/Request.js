@@ -180,6 +180,9 @@ async function test_request_object() {
         body: too_large_body_value,
     });
 
+    // Assert no uwebsockets version header to be found
+    assert_log(group, 'No uWebsockets Version Header', () => !too_large_response.headers.get('uwebsockets'));
+
     // Assert rejection status code as 413 Too Large Payload
     assert_log(group, 'Too Large Body 413 HTTP Code Reject', () => too_large_response.status === 413);
 

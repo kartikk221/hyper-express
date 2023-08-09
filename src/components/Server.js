@@ -421,17 +421,20 @@ class Server extends Router {
      * @param {uWebSockets.us_socket_context_t=} socket
      */
     _handle_uws_request(route, uws_request, uws_response, socket) {
-        // Wrap uWS.Request -> HyperExpress.Request
+        // Construct the wrapper Request around uWS.Request
         const request = new Request(route, uws_request, uws_response);
 
-        // Wrap uWS.Response -> HyperExpress.Response
+        // Construct the wrapper Response around uWS.Response
         const response = new Response(route, request, uws_response, socket);
 
-        // Stream any incoming request body data with configured limit
-        // Use the route-specific max body length if it is set else use the global max body length
+        // Attempt to stream the request body to the response
+        // This method will return false If the request body is larger than the max_body_length
         if (request._stream_with_limit(response, route.max_body_length)) {
-            // Handle the request with its associated route
+            // Handle this request with the associated route
             route.handle(request, response, 0);
+
+            // If the response has not been completed yet, then it must cork before sending as required by uWS for asynchronous writes
+            if (!response.completed) response._cork = true;
         }
     }
 

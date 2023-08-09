@@ -1,11 +1,11 @@
 import { ParsedQs } from 'qs';
 import { Readable } from 'stream';
-import { BusboyConfig } from 'busboy';
-import { ParamsDictionary } from 'express-serve-static-core';
-import { Options, Ranges, Result } from 'range-parser';
-import * as uWebsockets from 'uWebSockets.js';
-import { MultipartHandler } from '../plugins/MultipartField';
 import { Server } from '../Server';
+import { BusboyConfig } from 'busboy';
+import { HttpRequest } from 'uWebSockets.js';
+import { Options, Ranges, Result } from 'range-parser';
+import { ParamsDictionary } from 'express-serve-static-core';
+import { MultipartHandler } from '../plugins/MultipartField';
 
 type default_value = any;
 
@@ -30,6 +30,13 @@ export class Request<RequestOptions extends { Locals ? : DefaultRequestLocals, B
     received: boolean;
 
     /* HyperExpress Methods */
+
+    /**
+     * Returns the raw uWS.HttpRequest instance.
+     * Note! This property is unsafe and should not be used unless you have no asynchronous code or you are accessing from the first top level synchronous middleware before any asynchronous code.
+     * @returns {import('uWebSockets.js').HttpRequest}
+     */
+    get raw(): HttpRequest;
 
     /**
      * Securely signs a value with provided secret and returns the signed value.
@@ -94,13 +101,6 @@ export class Request<RequestOptions extends { Locals ? : DefaultRequestLocals, B
     multipart(options: BusboyConfig, handler: MultipartHandler): Promise<void>;
 
     /* HyperExpress Properties */
-
-    /**
-     * Returns underlying uWS.Request reference.
-     * Note! Utilizing any of uWS.Request's methods after initial synchronous call will throw a forbidden access error.
-     * @returns {uWebsockets.HttpRequest}
-     */
-    get raw(): uWebsockets.HttpRequest;
 
     /**
      * Returns the HyperExpress.Server instance this Request object originated from.

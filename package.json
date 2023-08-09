@@ -1,6 +1,6 @@
 {
     "name": "hyper-express",
-    "version": "6.6.0",
+    "version": "6.8.2",
     "description": "High performance Node.js webserver with a simple-to-use API powered by uWebsockets.js under the hood.",
     "main": "index.js",
     "types": "./types/index.d.ts",
@@ -45,7 +45,7 @@
         "range-parser": "^1.2.1",
         "type-is": "^1.6.18",
         "typed-emitter": "^2.1.0",
-        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.25.0"
+        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.31.0"
     },
     "devDependencies": {
         "typescript": "^5.0.4"

@@ -2,8 +2,8 @@
 const cookie = require('cookie');
 const stream = require('stream');
 const busboy = require('busboy');
-const signature = require('cookie-signature');
 const querystring = require('querystring');
+const signature = require('cookie-signature');
 
 const MultipartField = require('../plugins/MultipartField.js');
 const NodeRequest = require('../compatibility/NodeRequest.js');
@@ -18,16 +18,16 @@ class Request {
     #stream_raw_chunks = false;
     #raw_request = null;
     #raw_response = null;
-    #method;
-    #url;
-    #path;
-    #query;
-    #remote_ip;
-    #remote_proxy_ip;
+    #method = '';
+    #url = '';
+    #path = '';
+    #query = '';
+    #remote_ip = '';
+    #remote_proxy_ip = '';
     #cookies;
     #path_parameters;
     #query_parameters;
-    #body_limit_bytes;
+    #body_limit_bytes = 0;
     #body_expected_bytes;
     #body_received_bytes;
     #body_buffer;
@@ -62,31 +62,39 @@ class Request {
      * @param {import('uWebSockets.js').HttpResponse} raw_response
      */
     constructor(route, raw_request, raw_response) {
-        // Store references to uWS objects and the master context
+        // Store reference to the route of this request and the raw uWS.HttpResponse instance for certain operations
         this.route = route;
         this.#raw_request = raw_request;
         this.#raw_response = raw_response;
 
-        // Perform request pre-parsing for common access data
-        // This is required as uWS.Request is forbidden for access after initial execution
+        // Cache request properties from uWS.HttpRequest as it is stack allocated and will be deallocated after this function returns
         this.#path = raw_request.getUrl();
         this.#query = raw_request.getQuery();
         this.#method = route.method === 'ANY' ? raw_request.getMethod() : route.method;
 
-        // Parse headers into a key-value object
+        // Cache request headers from uWS.HttpRequest as it is stack allocated and will be deallocated after this function returns
         raw_request.forEach((key, value) => (this.headers[key] = value));
 
-        // Parse path parameters from request path if we have a path parameters parsing key
+        // Cache the path parameters from the route pattern if any as uWS.HttpRequest will be deallocated after this function returns
         if (route.path_parameters_key.length) {
-            // Iterate over each expected path parameter key value pair and parse the value from uWS.HttpRequest.getParameter()
             this.#path_parameters = {};
-            route.path_parameters_key.forEach(
-                ([key, index]) => (this.#path_parameters[key] = raw_request.getParameter(index))
-            );
+            for (let i = 0; i < route.path_parameters_key.length; i++) {
+                const [key, index] = route.path_parameters_key[i];
+                this.#path_parameters[key] = raw_request.getParameter(index);
+            }
         }
     }
 
     /* HyperExpress Methods */
+
+    /**
+     * Returns the raw uWS.HttpRequest instance.
+     * Note! This property is unsafe and should not be used unless you have no asynchronous code or you are accessing from the first top level synchronous middleware before any asynchronous code.
+     * @returns {import('uWebSockets.js').HttpRequest}
+     */
+    get raw() {
+        return this.#raw_request;
+    }
 
     /**
      * Pauses the current request and flow of incoming body data.
@@ -95,7 +103,7 @@ class Request {
     pause() {
         // Ensure there is content being streamed before pausing
         // Ensure that the stream is currently not paused before pausing
-        if (!this.#paused && !this._stream_forbidden() && !this.isPaused()) {
+        if (!this.#paused && !this._stream_forbidden()) {
             this.#paused = true;
             this.#raw_response.pause();
             return this._super_pause();
@@ -110,7 +118,7 @@ class Request {
     resume() {
         // Ensure there is content being streamed before resuming
         // Ensure that the stream is currently paused before resuming
-        if ((this.#paused || this.isPaused()) && !this._stream_forbidden()) {
+        if (this.#paused && !this._stream_forbidden()) {
             this.#paused = false;
             this.#raw_response.resume();
             return this._super_resume();
@@ -214,10 +222,8 @@ class Request {
             this.#body_limit_bytes = bytes;
 
             // Initialize the expected body size if it hasn't been yet
-            if (this.#body_expected_bytes === undefined) {
-                const content_length = +this.headers['content-length'];
-                this.#body_expected_bytes = isNaN(content_length) || content_length < 1 ? 0 : content_length;
-            }
+            if (this.#body_expected_bytes === undefined)
+                this.#body_expected_bytes = +this.headers['content-length'] || 0;
 
             // Determine if we have some expected body bytes to stream
             if (this.#body_expected_bytes > 0) {
@@ -686,15 +692,6 @@ class Request {
     /* HyperExpress Properties */
 
     /**
-     * Returns underlying uWS.Request reference.
-     * Note! Utilizing any of uWS.Request's methods after initial synchronous call will throw a forbidden access error.
-     * @returns {import('uWebSockets.js').HttpRequest}
-     */
-    get raw() {
-        return this.#raw_request;
-    }
-
-    /**
      * Returns the request locals for this request.
      * @returns {Object.<string, any>}
      */
@@ -717,7 +714,7 @@ class Request {
      * @returns {Boolean}
      */
     get paused() {
-        return this.isPaused();
+        return this.#paused;
     }
 
     /**
