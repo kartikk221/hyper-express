@@ -230,28 +230,28 @@ class Response {
      * To delete a cookie, set the value to null.
      *
      * @param {String} name Cookie Name
-     * @param {String} value Cookie Value
-     * @param {Number} expiry In milliseconds
-     * @param {CookieOptions} options Cookie Options
-     * @param {Boolean} sign_cookie Enables/Disables Cookie Signing
+     * @param {String|null} value Cookie Value
+     * @param {Number=} expiry In milliseconds
+     * @param {CookieOptions=} options Cookie Options
+     * @param {Boolean=} sign_cookie Enables/Disables Cookie Signing
      * @returns {Response} Response (Chainable)
      */
-    cookie(
-        name,
-        value,
-        expiry,
-        options = {
-            secure: true,
-            sameSite: 'none',
-            path: '/',
-        },
-        sign_cookie = true
-    ) {
+    cookie(name, value, expiry, options, sign_cookie = true) {
         // Determine if this is a delete operation and recursively call self with appropriate options
         if (name && value === null)
             return this.cookie(name, '', null, {
                 maxAge: 0,
             });
+
+        // If an options object was not provided, shallow copy it to prevent mutation to the original object
+        // If an options object was not provided, create a new object with default options
+        options = options
+            ? { ...options }
+            : {
+                  secure: true,
+                  sameSite: 'none',
+                  path: '/',
+              };
 
         // Determine if a expiry duration was provided in milliseconds
         if (typeof expiry == 'number') {
