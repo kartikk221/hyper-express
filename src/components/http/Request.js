@@ -103,7 +103,7 @@ class Request {
     pause() {
         // Ensure there is content being streamed before pausing
         // Ensure that the stream is currently not paused before pausing
-        if (!this.#paused && !this._stream_forbidden() && !this.isPaused()) {
+        if (!this.#paused && !this._stream_forbidden()) {
             this.#paused = true;
             this.#raw_response.pause();
             return this._super_pause();
@@ -118,7 +118,7 @@ class Request {
     resume() {
         // Ensure there is content being streamed before resuming
         // Ensure that the stream is currently paused before resuming
-        if ((this.#paused || this.isPaused()) && !this._stream_forbidden()) {
+        if (this.#paused && !this._stream_forbidden()) {
             this.#paused = false;
             this.#raw_response.resume();
             return this._super_resume();
@@ -714,7 +714,7 @@ class Request {
      * @returns {Boolean}
      */
     get paused() {
-        return this.isPaused();
+        return this.#paused;
     }
 
     /**
