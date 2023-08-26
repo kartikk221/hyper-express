@@ -76,13 +76,19 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * To delete a cookie, set the value to null.
      *
      * @param {String} name Cookie Name
-     * @param {String} value Cookie Value
-     * @param {Number} expiry In milliseconds
-     * @param {CookieOptions} options Cookie Options
-     * @param {Boolean} sign_cookie Enables/Disables Cookie Signing
+     * @param {String|null} value Cookie Value
+     * @param {Number=} expiry In milliseconds
+     * @param {CookieOptions=} options Cookie Options
+     * @param {Boolean=} sign_cookie Enables/Disables Cookie Signing
      * @returns {Response} Response (Chainable)
      */
-    cookie(name: string, value: string, expiry?: number, options?: CookieOptions, sign_cookie?: boolean): Response;
+    cookie(
+        name: string,
+        value: string | null,
+        expiry?: number,
+        options?: CookieOptions,
+        sign_cookie?: boolean
+    ): Response;
 
     /**
      * This method is used to upgrade an incoming upgrade HTTP request to a Websocket connection.
