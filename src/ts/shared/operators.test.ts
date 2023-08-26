@@ -1,6 +1,7 @@
 import {
   wrap_object,
   parse_path_parameters,
+  parsePathParameters,
   array_buffer_to_string,
   async_wait,
   merge_relative_paths,
@@ -44,6 +45,12 @@ console.log("parse_path_parameters test started");
 console.log("ddd/:id/:ev/:co", res);
 console.log("parse_path_parameters test done");
 
+// parsePathParameters
+const res2 = parsePathParameters(route);
+console.log("parsePathParameters test started");
+console.log("ddd/:id/:ev/:co", res2);
+console.log("parsePathParameters test done");
+
 // array_buffer_to_string
 const ab = new ArrayBuffer(8);
 const view = new Int8Array(ab);
@@ -54,6 +61,7 @@ for (const index of [...Array(ab.byteLength).keys()]) {
 
 const abString = array_buffer_to_string(ab);
 console.log("array_buffer_to_string test started");
+console.log(ab)
 console.log(abString);
 console.log("array_buffer_to_string test done");
 
@@ -78,7 +86,7 @@ console.log("merge_relative_paths test started");
   {base_path: "api", new_path: "/"},
   {base_path: "api/", new_path: "docs"},
 ].forEach(
-  ({base_path, new_path}) => console.log(merge_relative_paths(base_path, new_path))
+  ({base_path, new_path}) => console.log({base_path, new_path, merged_paths: merge_relative_paths(base_path, new_path)})
 );
 console.log("merge_relative_paths test ended");
 
@@ -110,15 +118,7 @@ class TreeX {
 
 console.log(
   get_all_property_descriptors(
-  {
-    a: 1,
-    b: new Tree("timi", "adesina"),
-    c: 4,
-    d: {
-      e: '1',
-      f: 'g'
-    }
-  }
+    new Tree("timi", "adesina")
 ));
 console.log("get_all_property_descriptors test done");
 

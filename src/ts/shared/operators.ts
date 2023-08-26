@@ -1,4 +1,3 @@
-
 /**
  * Writes values from focus object onto base object.
  *
@@ -7,36 +6,32 @@
  */
 type ObjectType = Record<string, any>;
 export const wrap_object = (original: ObjectType, target: ObjectType) => {
-  // initial implemmentation
-  // Object.keys(target).forEach((key) => {
-  //   if (typeof target[key] == 'object') {
-  //     if (Array.isArray(target[key])) return (original[key] = target[key]); // lgtm [js/prototype-pollution-utility]
-  //     if (original[key] === null || typeof original[key] !== 'object') original[key] = {};
-  //     wrap_object(original[key], target[key]);
-  //   } else {
-  //     original[key] = target[key];
-  //   }
-  // });
-
-  Object.assign(original, target);
+    // initial implemmentation
+    // Object.keys(target).forEach((key) => {
+    //   if (typeof target[key] == 'object') {
+    //     if (Array.isArray(target[key])) return (original[key] = target[key]); // lgtm [js/prototype-pollution-utility]
+    //     if (original[key] === null || typeof original[key] !== 'object') original[key] = {};
+    //     wrap_object(original[key], target[key]);
+    //   } else {
+    //     original[key] = target[key];
+    //   }
 
 
-  // for (const key in target) {
-  //   if (typeof target[key] == 'object') {
-  //     if (Array.isArray(target[key])) {
-  //       original[key] = target[key]; // lgtm [js/prototype-pollution-utility]
-  //       continue;
-  //     }
-  //     if (original[key] === null || typeof original[key] !== 'object') original[key] = {};
-  //     wrap_object(original[key], target[key]);
-  //   } else {
-  //     original[key] = target[key];
-  //   }
-  // }
+    Object.assign(original, target);
+
+    // for (const key in target) {
+    //   if (typeof target[key] == 'object') {
+    //     if (Array.isArray(target[key])) {
+    //       original[key] = target[key]; // lgtm [js/prototype-pollution-utility]
+    //       continue;
+    //     }
+    //     if (original[key] === null || typeof original[key] !== 'object') original[key] = {};
+    //     wrap_object(original[key], target[key]);
+    //   } else {
+    //     original[key] = target[key];
+    //   }
+    // }
 };
-
-
-
 
 /**
  * This method parses route pattern into an array of expected path parameters.
@@ -61,6 +56,24 @@ export const parse_path_parameters = (pattern: string) => {
   return results;
 };
 
+// change return type
+// @parse_path_parameters: "ddd/:id/:ev/:co" --> [ [ 'id', 0 ], [ 'ev', 1 ], [ 'co', 2 ] ]
+// @parsePathParameters: "ddd/:id/:ev/:co" --> { 'id': 0, 'ev': 1, 'co': 2 }
+export const parsePathParameters = (pattern: string) => {
+  const results: Record<string, number> = {};
+  let counter = 0;
+  if (pattern.indexOf('/:') > -1)
+    pattern
+      .split('/')
+      .filter((chunk) => chunk.length > 0)
+      .forEach((chunk) => {
+        if (chunk.startsWith(':') && chunk.length > 2) {
+          results[chunk.substring(1)] = counter;
+          counter++;
+        }
+      });
+  return results;
+};
 
 /**
  * This method converts ArrayBuffers to a string.
@@ -79,11 +92,9 @@ export const array_buffer_to_string = (array_buffer: ArrayBuffer, encoding: 'utf
   // return initString;
 };
 
-
 export const async_wait = (delay: number) => {
   return new Promise((resolve, _reject) => setTimeout((res: () => void) => res(), delay, resolve));
 };
-
 
 /**
  * Merges provided relative paths into a singular relative path.
@@ -112,30 +123,20 @@ export const merge_relative_paths = (base_path: string, new_path: string) => {
   return `${base_path}${new_path}`;
 };
 
-
 /**
  * Returns all property descriptors of an Object including extended prototypes.
  *
  * @param {Object} prototype
  */
-type Descriptor = Record<
-  string, 
-  {
-    value: any,
-    writable: boolean,
-    enumerable: boolean,
-    configurable: boolean,
-  }
->
-export const get_all_property_descriptors = (prototype: Object): Descriptor => {
+export const get_all_property_descriptors = (prototype: Object): PropertyDescriptor => {
   // Retrieve initial property descriptors
-  const descriptors = Object.getOwnPropertyDescriptors(prototype) as Descriptor;
+  const descriptors = Object.getOwnPropertyDescriptors(prototype) as PropertyDescriptor;
 
   // Determine if we have a parent prototype with a custom name
   const parent = Object.getPrototypeOf(prototype);
   if (parent && parent.constructor.name !== 'Object') {
       // Merge and return property descriptors along with parent prototype
-      return Object.assign(descriptors, get_all_property_descriptors(parent)) as Descriptor;
+      return Object.assign(descriptors, get_all_property_descriptors(parent)) as PropertyDescriptor;
   }
 
   // Return property descriptors

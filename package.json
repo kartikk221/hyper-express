@@ -5,7 +5,8 @@
     "main": "index.js",
     "types": "./types/index.d.ts",
     "scripts": {
-        "test": "node tests/index.js"
+        "test": "node tests/index.js",
+        "test-operators": "node dist/src/ts/shared/operators.test.js"
     },
     "repository": {
         "type": "git",

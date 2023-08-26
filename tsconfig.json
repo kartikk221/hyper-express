@@ -1,7 +1,33 @@
 {
   "compilerOptions": {
-    "target": "ES2021",
+    "module": "commonjs",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "skipLibCheck": true,
+    "declaration": false,
+    "noFallthroughCasesInSwitch": true,
+    "composite": false,
+    "noImplicitAny": true,
     "moduleResolution": "node",
+    "lib": ["dom", "es2016", "esnext.asynciterable"],
+    "sourceMap": true,
+    "emitDecoratorMetadata": true,
+    "strict": false,
+    "experimentalDecorators": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "baseUrl": ".",
+    "target": "ES2021",
+    "paths": {
+      "*": ["node_modules/*"]
+    },
     "typeRoots": [
       "./types/*.d.ts",
       "./node_modules/@types"
@@ -11,7 +37,6 @@
       "express"
     ]
   },
-  "exclude": [
-    "./src"
-  ]
+  "include": ["src/**/*", "./src/**/*.ts", "./src/**/*.tsx", "types/types.ts"],
+  "exclude": ["node_modules"]
 }
