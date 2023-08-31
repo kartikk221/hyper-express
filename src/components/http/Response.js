@@ -558,71 +558,54 @@ class Response {
     }
 
     /**
-     * Streams individual chunk from a stream.
-     * Delivers with chunked transfer without content-length header when no total_size is specified.
-     * Delivers with backpressure handling and content-length header when a total_size is specified.
+     * Stream an individual chunk to the client with backpressure handling.
+     * Delivers with chunked transfer and without content-length header when no total_size is specified.
+     * Delivers with chunk writes and content-length header when a total_size is specified.
+     * Calls the `callback` once the chunk has been fully sent to the client.
      *
      * @private
-     * @param {stream.Readable} stream
      * @param {Buffer} chunk
      * @param {Number=} total_size
+     * @returns {Promise}
      */
-    _stream_chunk(stream, chunk, total_size) {
-        // Ensure the client is still connected and request is pending
-        if (!this.completed) {
-            // Cork the write call for performance
+    _stream_chunk(chunk, total_size) {
+        // Ensure this request has not been completed yet
+        if (this.completed) return Promise.resolve();
+
+        // Return a Promise which resolves once the chunk has been fully sent to the client
+        return new Promise((resolve) =>
             this.#raw_response.cork(() => {
+                // Ensure the client is still connected
+                if (this.completed) return resolve();
+
                 // Remember the initial write offset for future backpressure sliced chunks
                 // Write the chunk to the client using the appropriate uWS chunk writing method
                 const write_offset = this.write_offset;
-                const [sent, finished] = this._uws_write_chunk(chunk, total_size);
-                if (finished) {
-                    // Destroy the readable stream as no more writing will occur
-                    if (!stream.destroyed) stream.destroy();
-                } else if (!sent) {
-                    // Pause the readable stream to prevent any further data from being read as chunk was not fully sent
-                    if (!stream.isPaused()) stream.pause();
-
+                const [sent] = this._uws_write_chunk(chunk, total_size);
+                if (sent) {
+                    // The chunk was fully sent, we can resolve the promise
+                    resolve();
+                } else {
                     // Bind a drain handler to relieve backpressure
                     // Note! This callback may be called as many times as neccessary to send a full chunk when using the tryEnd method
                     this.drain((offset) => {
-                        // Check if the response has been completed / connection has been closed
+                        // Check if the response has been completed / connection has been closed since we can no longer write to the client
                         if (this.completed) {
-                            // Destroy the readable stream as no more writing will occur
-                            if (!stream.destroyed) stream.destroy();
-
-                            // Return true to signify this was a no-op
+                            resolve();
                             return true;
                         }
 
-                        // If we have a total size then we need to serve sliced chunks as uWS does not buffer under the hood
-                        if (total_size) {
-                            // Slice the chunk to the correct offset and send it to the client
-                            const [flushed, ended] = this._uws_write_chunk(
-                                chunk.slice(offset - write_offset),
-                                total_size
-                            );
-                            if (ended) {
-                                // Destroy the readable stream as no more writing will occur
-                                if (!stream.destroyed) stream.destroy();
-                            } else if (flushed) {
-                                // Resume the readable stream to allow more data to be read
-                                if (stream.isPaused()) stream.resume();
-                            }
+                        // Attempt to write the remaining chunk to the client
+                        const remaining = chunk.slice(offset - write_offset);
+                        const [flushed] = this._uws_write_chunk(remaining, total_size);
+                        if (flushed) resolve();
 
-                            // Return the flushed boolean as that signifies whether this specific chunk was fully sent
-                            return flushed;
-                        }
-
-                        // Resume the readable stream to allow more data to be read
-                        if (stream.isPaused()) stream.resume();
-
-                        // Return true to signify this was a no-op
-                        return true;
+                        // Return the flushed boolean as not flushed means we are still waiting for more drain events from uWS
+                        return flushed;
                     });
                 }
-            });
-        }
+            })
+        );
     }
 
     /**
@@ -632,8 +615,9 @@ class Response {
      *
      * @param {stream.Readable} readable A Readable stream which will be consumed as response body
      * @param {Number=} total_size Total size of the Readable stream source in bytes (Optional)
+     * @returns {Promise} a Promise which resolves once the stream has been fully consumed and response has been sent
      */
-    stream(readable, total_size) {
+    async stream(readable, total_size) {
         // Ensure readable is an instance of a stream.Readable
         if (!(readable instanceof stream.Readable))
             this.throw(
@@ -645,14 +629,33 @@ class Response {
             // Initiate response as we will begin writing body chunks
             this._initiate_response();
 
-            // Bind an 'abort' event handler which will destroy the consumed stream if request is aborted
-            this.once('abort', () => (!readable.destroyed ? readable.destroy() : null));
-
-            // Bind an 'data' event handler on the readable stream to stream each chunk to the client
-            readable.on('data', (chunk) => this._stream_chunk(readable, chunk, total_size));
+            // Bind an 'close' event handler which will destroy the consumed stream if request is closed
+            this.once('close', () => (!readable.destroyed ? readable.destroy() : null));
 
             // Bind an 'end' event handler on the readable stream to send the response if no total size was provided hence chunked encoding is used
             if (total_size === undefined) readable.once('end', () => this.send());
+
+            // Define a while loop to consume chunks from the readable stream until it is fully consumed or the response has been completed
+            while (!this.completed && !readable.destroyed) {
+                // Attempt to read a chunk from the readable stream
+                let chunk = readable.read();
+                if (!chunk) {
+                    // Wait for the readable stream to emit a 'readable' event if no chunk was available
+                    await new Promise((resolve) => readable.once('readable', resolve));
+
+                    // Attempt to read a chunk from the readable stream again
+                    chunk = readable.read();
+                }
+
+                if (chunk) {
+                    // Stream the chunk to the client
+                    await this._stream_chunk(chunk, total_size);
+
+                    // This is a workaround due to a uWebsockets.js bug where the drain callback gets called in the context of the current chunk write for the failure of the next chunk write
+                    // By waiting for the next tick, we can ensure that the drain callback is called in the context of the next chunk write
+                    await new Promise((resolve) => setImmediate(resolve));
+                }
+            }
         }
     }
 
