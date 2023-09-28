@@ -128,18 +128,94 @@ export const merge_relative_paths = (base_path: string, new_path: string) => {
  *
  * @param {Object} prototype
  */
-export const get_all_property_descriptors = (prototype: Object): PropertyDescriptor => {
+export const get_all_property_descriptors = (prototype: Object): Record<string, PropertyDescriptor> => {
   // Retrieve initial property descriptors
-  const descriptors = Object.getOwnPropertyDescriptors(prototype) as PropertyDescriptor;
+  const descriptors = Object.getOwnPropertyDescriptors(prototype);
 
   // Determine if we have a parent prototype with a custom name
   const parent = Object.getPrototypeOf(prototype);
   if (parent && parent.constructor.name !== 'Object') {
       // Merge and return property descriptors along with parent prototype
-      return Object.assign(descriptors, get_all_property_descriptors(parent)) as PropertyDescriptor;
+      return Object.assign(descriptors, get_all_property_descriptors(parent));
   }
 
   // Return property descriptors
   return descriptors;
+};
+
+/**
+ * Inherits properties, getters, and setters from one prototype to another with the ability to optionally define middleman methods.
+ *
+ * @param {Object} options
+ * @param {Object|Array<Object>} options.from - The prototype to inherit from
+ * @param {Object} options.to - The prototype to inherit to
+ * @param {function(('FUNCTION'|'GETTER'|'SETTER'), string, function):function=} options.method - The method to inherit. Parameters are: type, name, method.
+ * @param {function(string):string=} options.override - The method name to override the original with. Parameters are: name.
+ * @param {Array<string>} options.ignore - The property names to ignore
+ */
+type InheritPrototypeParams = {
+  from: Object | Array<Object>;
+  to: Object;
+  override?: (name: string) => string;
+  method: (type: 'FUNCTION'|'GETTER'|'SETTER', name: string, original: (...args: any[]) => any) => (...args: any[]) => any;
+  ignore?: string[]
+};
+export const inherit_prototype = ({ from, to, method, override, ignore = ['constructor'] }: InheritPrototypeParams): void => {
+  // Recursively call self if the from prototype is an Array of prototypes
+  if (Array.isArray(from)) return from.forEach((f) => inherit_prototype({ from: f, to, override, method, ignore }));
+
+  // Inherit the descriptors from the "from" prototype to the "to" prototype
+  const to_descriptors = get_all_property_descriptors(to);
+  const from_descriptors = get_all_property_descriptors(from);
+  Object.keys(from_descriptors).forEach((name) => {
+      // Ignore the properties specified in the ignore array
+      if (ignore.includes(name)) return;
+
+      // Destructure the descriptor function properties
+      const { value, get, set } = from_descriptors[name];
+
+      // Determine if this descriptor name would be an override
+      // Override the original name with the provided name resolver for overrides
+      if (typeof override == 'function' && to_descriptors[name]?.value) name = override(name) || name;
+
+      // Determine if the descriptor is a method aka. a function
+      if (typeof value === 'function') {
+          // Inject a middleman method into the "to" prototype
+          const middleman = method('FUNCTION', name, value);
+          if (middleman) {
+              // Define the middleman method on the "to" prototype
+              Object.defineProperty(to, name, {
+                  configurable: true,
+                  enumerable: true,
+                  writable: true,
+                  value: middleman,
+              });
+          }
+      } else {
+          // Initialize a definition object
+          const definition = {} as {
+              get?: (...args: any[]) => any;
+              set?: (...args: any[]) => any};
+            ;
+
+          // Initialize a middleman getter method
+          if (typeof get === 'function') definition.get = method('GETTER', name, get);
+
+          // Initialize a middleman setter method
+          if (typeof set === 'function') definition.set = method('SETTER', name, set);
+
+          // Inject the definition into the "to" prototype
+          if (definition.get || definition.set) Object.defineProperty(to, name, definition);
+      }
+  });
+}
+
+/**
+* Converts Windows path backslashes to forward slashes.
+* @param {string} string
+* @returns {string}
+*/
+export const to_forward_slashes = (path: string) => {
+  return path.split('\\').join('/');
 };
 
