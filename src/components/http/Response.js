@@ -41,12 +41,14 @@ class Response {
     /**
      * Contains underlying headers for the response.
      * @private
+     * @type {Record<string, string|string[]}
      */
     _headers = {};
 
     /**
      * Contains underlying cookies for the response.
      * @private
+     * @type {Record<string, string>}
      */
     _cookies;
 
@@ -191,7 +193,7 @@ class Response {
      * This method can be used to write a response header and supports chaining.
      *
      * @param {String} name Header Name
-     * @param {String|Array<String>} value Header Value
+     * @param {String|String[]} value Header Value
      * @param {Boolean=} overwrite If true, overwrites existing header value with same name
      * @returns {Response} Response (Chainable)
      */
@@ -199,21 +201,30 @@ class Response {
         // Enforce header names to be lowercase
         name = name.toLowerCase();
 
-        // Determine if this operation is an overwrite or append
+        // Determine if this operation is an overwrite onto any existing header values
         if (overwrite) {
-            // Overwrite the header value in Array format
-            this._headers[name] = Array.isArray(value) ? value : [value];
-        } else if (Array.isArray(value)) {
-            // Append the values to the existing array
-            this._headers[name] = (this._headers[name] || []).concat(value);
+            // Overwrite the header value
+            this._headers[name] = value;
         } else {
-            // Initialize header values as an array to allow for multiple values if it does not exist
-            if (this._headers[name] == undefined) {
-                // Initialize header value as an array
-                this._headers[name] = [value];
+            // Check if some value(s) already exist for this header name
+            if (this._headers[name]) {
+                // Check if there are multiple current values for this header name
+                if (Array.isArray(this._headers[name])) {
+                    // Check if the provided value is an array
+                    if (Array.isArray(value)) {
+                        // Concatenate the current and provided header values
+                        this._headers[name] = this._headers[name].concat(value);
+                    } else {
+                        // Push the provided header value to the current header values array
+                        this._headers[name].push(value);
+                    }
+                } else {
+                    // Convert the current header value to an array
+                    this._headers[name] = [this._headers[name], value];
+                }
             } else {
-                // Append the value to the header values
-                this._headers[name].push(value);
+                // Write the header value
+                this._headers[name] = value;
             }
         }
 
@@ -349,8 +360,15 @@ class Response {
 
         // Iterate through all headers and write them to uWS
         for (const name in this._headers) {
-            for (const value of this._headers[name]) {
-                this.#raw_response.writeHeader(name, value);
+            const values = this._headers[name];
+            if (Array.isArray(values)) {
+                for (const value of values) {
+                    // Write each header value to uWS
+                    this.#raw_response.writeHeader(name, value);
+                }
+            } else {
+                // Write the single header value to uWS
+                this.#raw_response.writeHeader(name, values);
             }
         }
 
