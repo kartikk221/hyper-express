@@ -76,6 +76,9 @@ export default class Server extends Router {
         wrap_object(this.#options, options);
 
 
+
+ 
+
         // Expose the options object for future use
         this._options = this.#options;
         try {
@@ -132,7 +135,7 @@ export default class Server extends Router {
      * @param {String=} host Optional. Default: 0.0.0.0
      * @returns {Promise} Promise
      */
-    async listen(port: number, host = '0.0.0.0') {
+    async listen(port: number, host = '0.0.0.0'): Promise<uWebSockets.us_listen_socket> {
         // Validate that the key and cert files exist if SSL is enabled
         if (this.#options.is_ssl) {
             // Destructure the cert and key file names from options
@@ -206,7 +209,7 @@ export default class Server extends Router {
 
     #routes_locked = false;
     #handlers = {
-        on_not_found: null,
+        on_not_found: null as ((request: Request, response: Response) => any) | null,
         on_error: (_request: Request, response: Response, error: any) => {
             // Log the error to the console
             console.error(error);
@@ -226,7 +229,7 @@ export default class Server extends Router {
      *
      * @param {RouteErrorHandler} handler
      */
-    set_error_handler(handler) {
+    set_error_handler(handler: (request: Request, response: Response) => any) {
         if (typeof handler !== 'function') throw new Error('HyperExpress: handler must be a function');
         this.#handlers.on_error = handler;
     }
@@ -241,7 +244,7 @@ export default class Server extends Router {
      *
      * @param {RouteHandler} handler
      */
-    set_not_found_handler(handler) {
+    set_not_found_handler(handler: (request: Request, response: Response) => any) {
         if (typeof handler !== 'function') throw new Error('HyperExpress: handler must be a function');
         this.#handlers.on_not_found = handler;
     }
@@ -412,7 +415,7 @@ export default class Server extends Router {
     _compile() {
         // Bind the not found handler as a catchall route
         if (this.#handlers.on_not_found)
-            this.any('/*', (request, response) => this.#handlers.on_not_found(request, response));
+            this.any('/*', (request: Request, response: Response) => this.#handlers.on_not_found?.(request, response));
 
         // Iterate through all routes
         Object.keys(this.#routes).forEach((method) =>

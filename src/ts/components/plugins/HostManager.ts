@@ -1,19 +1,14 @@
 import EventEmitter from 'events';
+import { AppOptions } from 'uWebSockets.js';
 
-// TODO: remove this
-type HostOptions = {
-    passphrase?: string,
-    cert_file_name?: string,
-    key_file_name?: string,
-    dh_params_file_name?: string,
-    ssl_prefer_low_memory_usage?: boolean,
-};
+import Server from '../Server';
+
 
 export default class HostManager extends EventEmitter {
-    #app;
-    #hosts: Record<string, HostOptions> = {};
+    #app: Server;
+    #hosts: Record<string, AppOptions> = {};
 
-    constructor(app) {
+    constructor(app: Server) {
         // Initialize event emitter
         super();
 
@@ -40,7 +35,7 @@ export default class HostManager extends EventEmitter {
      * @param {HostOptions} options
      * @returns {HostManager}
      */
-    add(hostname: string, options: HostOptions) {
+    add(hostname: string, options: AppOptions) {
         // Store host options
         this.#hosts[hostname] = options;
 

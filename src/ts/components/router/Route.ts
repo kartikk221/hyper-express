@@ -1,19 +1,41 @@
+import stream from 'stream';
 import Server from '../Server';
-import { parse_path_parameters } from '../../shared/operators.js';
 import Request from '../http/Request';
 import Response from '../http/Response';
+import { parse_path_parameters } from '../../shared/operators.js';
 
+
+type Middleware = {
+    id: number;
+    pattern: string;
+    handler: (
+        request: Request, 
+        response: Response,
+        error?: ((error: any) => Response | undefined)
+    ) => void;
+    match: boolean;
+};
 
 export default class Route {
-    id = null as unknown as number;
-    app = null as unknown as Server;
-    method = null as unknown as string;
-    pattern = null as unknown as string;
-    handler = null;
-    options = null;
-    streaming = null;
-    max_body_length = null as unknown as number;
-    path_parameters_key = null as unknown as Array<[key: string, index: number]>;
+    id = null as number | null;
+    app = null as Server | null;
+    method = null as string | null;
+    pattern = null as string | null;
+    handler = null as ((request: Request, response: Response) => any) | null;
+    options = null as {
+      streaming: {
+        readable: stream.ReadableOptions;
+        writable: stream.WritableOptions;
+      };
+      max_body_length: number;
+      middlewares: Middleware[];
+    } | null;
+    streaming = null as {
+      readable: stream.ReadableOptions;
+      writable: stream.WritableOptions;
+    } | null;
+    max_body_length = null as number | null;
+    path_parameters_key = null as Array<[key: string, index: number]> | null;
 
     /**
      * Constructs a new Route object.
@@ -28,6 +50,15 @@ export default class Route {
         app: Server;
         method: string;
         pattern: string;
+        handler: (request: Request, response: Response) => any;
+        options: {
+          streaming: {
+            readable: stream.ReadableOptions;
+            writable: stream.WritableOptions;
+          };
+          max_body_length: number;
+          middlewares: Middleware[];
+        };
       }
     ) {
         this.id = app._get_incremented_id();
@@ -36,8 +67,8 @@ export default class Route {
         this.handler = handler;
         this.options = options;
         this.method = method.toUpperCase();
-        this.streaming = options.streaming || app._options.streaming || {};
-        this.max_body_length = options.max_body_length || app._options.max_body_length;
+        this.streaming = options?.streaming || app._options.streaming || {};
+        this.max_body_length = options?.max_body_length || app._options.max_body_length;
         this.path_parameters_key = parse_path_parameters(pattern);
 
         // Translate to HTTP DELETE
@@ -52,14 +83,15 @@ export default class Route {
      * @property {Boolean=} match - Whether to match the middleware pattern against the request path.
      */
 
+
     /**
      * Binds middleware to this route and sorts middlewares to ensure execution order.
      *
      * @param {Middleware} middleware
      */
-    use(middleware) {
+    use(middleware: Middleware) {
         // Store and sort middlewares to ensure proper execution order
-        this.options.middlewares.push(middleware);
+        this.options?.middlewares.push(middleware);
     }
 
     /**
@@ -69,18 +101,18 @@ export default class Route {
      * @param {import('../http/Response.js')} response The HyperExpress response object.
      * @param {Number=} cursor The middleware cursor.
      */
-    handle(request: Request, response: Response, cursor: number) {
+    handle(request: Request, response: Response, cursor: number): void {
         // Do not handle the request if the response has been aborted
         if (response.completed) return;
 
         // Retrieve the middleware for the current cursor, track the cursor if there is a valid middleware
         let iterator;
-        const middleware = this.options.middlewares[cursor];
+        const middleware = this.options?.middlewares[cursor];
         if (middleware) {
             // Determine if this middleware requires path matching
             if (middleware.match) {
                 // Check if the middleware pattern matches that starting of the request path
-                if (request.path.startsWith(middleware.pattern)) {
+                if (request.path.startsWith(middleware.pattern!)) {
                     // Ensure that the character after the middleware pattern is either a trailing slash or out of bounds of string
                     const trailing = request.path[middleware.pattern.length];
                     if (trailing !== '/' && trailing !== undefined) {
@@ -116,7 +148,7 @@ export default class Route {
                 output = middleware.handler(request, response, iterator);
             } else {
                 // Excute the route handler without the iterator
-                output = this.handler(request, response);
+                output = this.handler?.(request, response);
             }
 
             // Determine if the a Promise was returned which must be safely handled and iterated from
@@ -125,7 +157,7 @@ export default class Route {
                 if (middleware) output.then(iterator);
 
                 // Catch and pipe any errors to the global error handler
-                output.catch((error) => response.throw(error));
+                output.catch((error: any) => response.throw(error));
             }
         } catch (error) {
             // Catch and pipe any errors to the error handler
@@ -139,14 +171,14 @@ export default class Route {
     compile() {
         // Initialize a fresh array of middlewares
         const middlewares = [];
-        const pattern = this.pattern;
+        const pattern = this.pattern!;
 
         // Determine wildcard properties about this route
         const is_wildcard = pattern.endsWith('*');
         const wildcard_path = pattern.substring(0, pattern.length - 1);
 
         // Iterate through the global/local middlewares and connect them to this route if eligible
-        const app_middlewares = this.app.middlewares;
+        const app_middlewares = this.app?.middlewares;
         Object.keys(app_middlewares).forEach((pattern) =>
             app_middlewares[pattern].forEach((middleware) => {
                 // A route can be a direct child when a route's pattern has more path depth than the middleware with a matching start

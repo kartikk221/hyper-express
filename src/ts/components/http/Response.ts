@@ -114,7 +114,7 @@ export default class Response {
      * @private
      * @param {Number} position - Cursor position
      */
-    _track_middleware_cursor(position) {
+    _track_middleware_cursor(position: number) {
         // Track and ensure each middleware cursor value is greater than previously tracked value for sequential progression
         if (this.#middleware_cursor === undefined || position > this.#middleware_cursor)
             return (this.#middleware_cursor = position);

@@ -48,16 +48,16 @@ export default class Router {
      * @param {Object} options Route processor options (Optional)
      * @param {Function} handler Example: (request, response) => {}
      */
-    _register_route() {
+    _register_route(...args: any[]) {
         // Initialize property holders for building a route record
-        let method = arguments[0]; // First argument will always be the method (in lowercase)
-        let pattern = arguments[1]; // Second argument will always be the pattern
+        let method = args[0]; // First argument will always be the method (in lowercase)
+        let pattern = args[1]; // Second argument will always be the pattern
         let options, handler;
 
         // Look for object/function types to parse route options, potential middlewares and route handler from remaining arguments
         const callbacks = [];
-        for (let i = 2; i < arguments.length; i++) {
-            const parameter = arguments[i];
+        for (let i = 2; i < args.length; i++) {
+            const parameter = args[i];
             if (typeof parameter == 'function') {
                 // Scenario: Single function
                 callbacks.push(parameter);
@@ -248,8 +248,8 @@ export default class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    any() {
-        return this._register_route('any', ...arguments);
+    any(...args: any[]) {
+        return this._register_route('any', ...args);
     }
 
     /**
@@ -400,7 +400,7 @@ export default class Router {
     }
 
     /**
-     * Returns all middlewares in this router in the order they were registered.
+     * Returns allall middlewares in this router in the order they were registered.
      * @returns {Array}
      */
     get middlewares() {
