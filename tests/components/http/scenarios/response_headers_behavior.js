@@ -1,5 +1,5 @@
-const { assert_log, async_wait } = require('../../../scripts/operators.js');
-const { HyperExpress, fetch, server, AbortController } = require('../../../configuration.js');
+const { assert_log } = require('../../../scripts/operators.js');
+const { HyperExpress, fetch, server } = require('../../../configuration.js');
 const router = new HyperExpress.Router();
 const endpoint = '/tests/response';
 const scenario_endpoint = '/headers-behavior';

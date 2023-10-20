@@ -4,6 +4,7 @@ const { parse_path_parameters } = require('../../shared/operators.js');
 class Route {
     id = null;
     app = null;
+    path = null;
     method = null;
     pattern = null;
     handler = null;
@@ -33,6 +34,11 @@ class Route {
 
         // Translate to HTTP DELETE
         if (this.method === 'DEL') this.method = 'DELETE';
+
+        // Cache the expected request path for this route if it is not a wildcard route
+        // This will be used to optimize performance for determining incoming request paths
+        const wildcard = pattern.includes('*') || this.path_parameters_key.length > 0;
+        if (!wildcard) this.path = pattern;
     }
 
     /**
@@ -60,7 +66,7 @@ class Route {
      * @param {import('../http/Response.js')} response The HyperExpress response object.
      * @param {Number=} cursor The middleware cursor.
      */
-    handle(request, response, cursor) {
+    handle(request, response, cursor = 0) {
         // Do not handle the request if the response has been aborted
         if (response.completed) return;
 
@@ -111,7 +117,7 @@ class Route {
 
             // Determine if the a Promise was returned which must be safely handled and iterated from
             if (typeof output?.then === 'function') {
-                // Bind a then callback if this was a middleware trigger
+                // Bind a then callback if this was a middleware trigger to proceed to the next middleware or route handler after this middleware resolves
                 if (middleware) output.then(iterator);
 
                 // Catch and pipe any errors to the global error handler

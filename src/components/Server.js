@@ -353,10 +353,10 @@ class Server extends Router {
                 // Store route in routes object for structural tracking
                 this.#routes[method][pattern] = route;
 
-                // Bind uWS.method() route which passes incoming request/respone to our handler
-                return this.#uws_instance[method](pattern, (response, request) =>
-                    this._handle_uws_request(route, request, response, null)
-                );
+                // Bind the uWS route handler which pipes all incoming uWS requests to the HyperExpress request lifecycle
+                return this.#uws_instance[method](pattern, (response, request) => {
+                    this._handle_uws_request(route, request, response, null);
+                });
         }
     }
 
@@ -431,7 +431,7 @@ class Server extends Router {
         // This method will return false If the request body is larger than the max_body_length
         if (request._stream_with_limit(response, route.max_body_length)) {
             // Handle this request with the associated route
-            route.handle(request, response, 0);
+            route.handle(request, response);
 
             // If the response has not been completed yet, then it must cork before sending as required by uWS for asynchronous writes
             if (!response.completed) response._cork = true;

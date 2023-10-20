@@ -92,25 +92,27 @@ class Response {
         this.#wrapped_request = wrapped_request;
 
         // Bind the abort handler as required by uWebsockets.js for each uWS.HttpResponse to allow for async processing
-        raw_response.onAborted(() => {
-            // Mark this response as completed since the client has disconnected
-            this.completed = true;
-
-            // Stop streaming any further data from the client that may still be flowing to provide discarded access errors on the Request
-            this.#wrapped_request._stop_streaming();
-
-            // Ensure we have a writable/emitter instance to emit over
-            if (this._writable) {
-                // Emit an 'abort' event to signify that the client aborted the request
-                this.emit('abort', this.#wrapped_request, this);
-
-                // Emit an 'close' event to signify that the client has disconnected
-                this.emit('close', this.#wrapped_request, this);
-            }
-        });
+        raw_response.onAborted(this._on_aborted.bind(this));
     }
 
     /* HyperExpress Methods */
+
+    _on_aborted() {
+        // Mark this response as completed since the client has disconnected
+        this.completed = true;
+
+        // Stop streaming any further data from the client that may still be flowing to provide discarded access errors on the Request
+        this.#wrapped_request._stop_streaming();
+
+        // Ensure we have a writable/emitter instance to emit over
+        if (this._writable) {
+            // Emit an 'abort' event to signify that the client aborted the request
+            this.emit('abort', this.#wrapped_request, this);
+
+            // Emit an 'close' event to signify that the client has disconnected
+            this.emit('close', this.#wrapped_request, this);
+        }
+    }
 
     /**
      * Tracks middleware cursor position over a request's lifetime.
@@ -228,6 +230,7 @@ class Response {
             }
         }
 
+        // Make chainable
         return this;
     }
 
@@ -362,8 +365,8 @@ class Response {
         for (const name in this._headers) {
             const values = this._headers[name];
             if (Array.isArray(values)) {
+                // Write each header value to uWS
                 for (const value of values) {
-                    // Write each header value to uWS
                     this.#raw_response.writeHeader(name, value);
                 }
             } else {
@@ -508,19 +511,17 @@ class Response {
             // If the response has not been corked yet, cork it and wait for the next tick to send the response
             if (this._cork && !this.#corked) {
                 this.#corked = true;
-                return this.#raw_response.cork(() => this.send(body, close_connection));
+                return this.#raw_response.cork(this.send.bind(this, body, close_connection));
             }
 
             // Attempt to initiate the response to ensure status code & headers get written first
-            if (this._initiate_response()) {
-                // Stop downloading further body chunks as we are done with the response
-                this.#wrapped_request._stop_streaming();
-            }
+            // If we successfully initiated the response, stop streaming any further body chunks as we are done with the response
+            if (this._initiate_response()) this.#wrapped_request._stop_streaming();
 
-            // Wait for any expected request body data to be fully received / flushed to prevent an ECONNRESET error
+            // If the request has not been fully received yet, then we must wait as othewise an ECONNRESET error will be thrown
             if (!this.#wrapped_request.received)
                 return this.#wrapped_request.once('received', () =>
-                    this.#raw_response.cork(() => this.send(body, close_connection))
+                    this.#raw_response.cork(this.send.bind(this, body, close_connection))
                 );
 
             // Determine if we have a custom content length header and no body data and were not streaming the request body
@@ -542,6 +543,8 @@ class Response {
             // Emit the 'close' event to signify that the response has been completed
             if (this._writable) this.emit('close', this.#wrapped_request, this);
         }
+
+        // Make chainable
         return this;
     }
 
@@ -675,9 +678,7 @@ class Response {
                 }
 
                 // Stream the chunk to the client
-                if (chunk) {
-                    await this._stream_chunk(chunk, total_size);
-                }
+                if (chunk) await this._stream_chunk(chunk, total_size);
             }
 
             // If we had no total size and the response is still not completed, we need to end the response

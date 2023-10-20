@@ -4,6 +4,7 @@ const { test_request_multipart } = require('./scenarios/request_multipart.js');
 const { test_request_stream_pipe } = require('./scenarios/request_stream.js');
 const { test_request_body_echo_test } = require('./scenarios/request_body_echo_test.js');
 const { test_request_uncaught_rejections } = require('./scenarios/request_uncaught_rejections.js');
+const { test_request_router_paths_test } = require('./scenarios/request_router_paths_test.js');
 const crypto = require('crypto');
 const router = new HyperExpress.Router();
 const endpoint = '/tests/request/:param1/:param2';
@@ -251,6 +252,8 @@ async function test_request_object() {
 
     // Verify .path
     assert_log(group, candidate + '.path', () => path === body.path);
+
+    test_request_router_paths_test();
 
     // Verify .query
     assert_log(group, candidate + '.query', () => query.substring(1) === body.path_query);

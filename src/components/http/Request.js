@@ -68,8 +68,8 @@ class Request {
         this.#raw_response = raw_response;
 
         // Cache request properties from uWS.HttpRequest as it is stack allocated and will be deallocated after this function returns
-        this.#path = raw_request.getUrl();
         this.#query = raw_request.getQuery();
+        this.#path = route.path || raw_request.getUrl();
         this.#method = route.method === 'ANY' ? raw_request.getMethod() : route.method;
 
         // Cache request headers from uWS.HttpRequest as it is stack allocated and will be deallocated after this function returns
