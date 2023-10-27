@@ -1,6 +1,6 @@
 {
     "name": "hyper-express",
-    "version": "6.8.7",
+    "version": "6.9.0",
     "description": "High performance Node.js webserver with a simple-to-use API powered by uWebsockets.js under the hood.",
     "main": "index.js",
     "types": "./types/index.d.ts",
