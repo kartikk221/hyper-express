@@ -45,7 +45,7 @@
         "range-parser": "^1.2.1",
         "type-is": "^1.6.18",
         "typed-emitter": "^2.1.0",
-        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.32.0"
+        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.33.0"
     },
     "devDependencies": {
         "typescript": "^5.0.4"
