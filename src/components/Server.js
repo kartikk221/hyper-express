@@ -427,9 +427,9 @@ class Server extends Router {
         // Construct the wrapper Response around uWS.Response
         const response = new Response(route, request, uws_response, socket);
 
-        // Attempt to stream the request body to the response
+        // Attempt to start the body parser for this request
         // This method will return false If the request body is larger than the max_body_length
-        if (request._stream_with_limit(response, route.max_body_length)) {
+        if (request._body_parser_run(response, route.max_body_length)) {
             // Handle this request with the associated route
             route.handle(request, response);
 

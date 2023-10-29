@@ -101,8 +101,8 @@ class Response {
         // Mark this response as completed since the client has disconnected
         this.completed = true;
 
-        // Stop streaming any further data from the client that may still be flowing to provide discarded access errors on the Request
-        this.#wrapped_request._stop_streaming();
+        // Stop the body parser from accepting any more data
+        this.#wrapped_request._body_parser_stop();
 
         // Ensure we have a writable/emitter instance to emit over
         if (this._writable) {
@@ -515,8 +515,8 @@ class Response {
             }
 
             // Attempt to initiate the response to ensure status code & headers get written first
-            // If we successfully initiated the response, stop streaming any further body chunks as we are done with the response
-            if (this._initiate_response()) this.#wrapped_request._stop_streaming();
+            // If we successfully initiated the response, stop the body parser from accepting any more data
+            if (this._initiate_response()) this.#wrapped_request._body_parser_stop();
 
             // If the request has not been fully received yet, then we must wait as othewise an ECONNRESET error will be thrown
             if (!this.#wrapped_request.received)
@@ -699,8 +699,8 @@ class Response {
             // Ensure request is not paused and socket is in a flowing state
             this._resume_if_paused();
 
-            // Stop streaming any remaining body data
-            this.#wrapped_request._stop_streaming();
+            // Stop the body parser from accepting any more data
+            this.#wrapped_request._body_parser_stop();
 
             // Close the underlying uWS request
             this.#raw_response.close();
