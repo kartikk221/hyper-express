@@ -9,7 +9,11 @@ const signature = require('cookie-signature');
 const MultipartField = require('../plugins/MultipartField.js');
 const NodeRequest = require('../compatibility/NodeRequest.js');
 const ExpressRequest = require('../compatibility/ExpressRequest.js');
-const { inherit_prototype, array_buffer_to_string } = require('../../shared/operators.js');
+const {
+    inherit_prototype,
+    array_buffer_to_string,
+    copy_array_buffer_to_uint8array,
+} = require('../../shared/operators.js');
 
 class Request {
     #locals;
@@ -290,9 +294,7 @@ class Request {
                     // Awaiting mode - Awaiting the user to do something with the incoming body data
                     case 0:
                         // Buffer a COPIED Uint8Array chunk from the uWS volatile ArrayBuffer chunk
-                        this.#body_parser_buffered.push(
-                            new Uint8Array(chunk.slice(chunk.byteOffset, chunk.byteLength))
-                        );
+                        this.#body_parser_buffered.push(copy_array_buffer_to_uint8array(chunk));
 
                         // If we have exceeded the Server.options.max_body_buffer number of buffered bytes, then pause the request to prevent more buffering
                         if (this.#body_received_bytes > this.app._options.max_body_buffer) this.pause();
@@ -306,7 +308,7 @@ class Request {
                     case 2:
                         // Attempt to push a COPIED Uint8Array chunk from the uWS volatile ArrayBuffer chunk to the readable stream
                         // Pause the request if we have reached the highWaterMark to prevent backpressure
-                        if (!this.push(new Uint8Array(chunk.slice(chunk.byteOffset, chunk.byteLength)))) this.pause();
+                        if (!this.push(copy_array_buffer_to_uint8array(chunk))) this.pause();
 
                         // If this is the last chunk, push a null chunk to indicate the end of the stream
                         if (is_last) this.push(null);

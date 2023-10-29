@@ -53,6 +53,16 @@ function array_buffer_to_string(array_buffer, encoding = 'utf8') {
 }
 
 /**
+ * Copies an ArrayBuffer to a Uint8Array.
+ * Note! This method is supposed to be extremely performant as it is used by the Body parser.
+ * @param {ArrayBuffer} array_buffer
+ */
+function copy_array_buffer_to_uint8array(array_buffer) {
+    const source = new Uint8Array(array_buffer);
+    return new Uint8Array(source.subarray(0, source.length));
+}
+
+/**
  * Returns a promise which is resolved after provided delay in milliseconds.
  *
  * @param {Number} delay
@@ -183,4 +193,5 @@ module.exports = {
     inherit_prototype,
     merge_relative_paths,
     to_forward_slashes,
+    copy_array_buffer_to_uint8array,
 };
