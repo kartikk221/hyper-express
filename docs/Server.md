@@ -26,7 +26,7 @@ Below is a breakdown of the `Server` component which is an extended `Router` ins
 * `trust_proxy` [`Boolean`]: Specifies whether incoming request data from intermediate proxy(s) should be trusted.
   * **Default:** `false`
 * `max_body_buffer` [`Number`]: Maximum number of `bytes` to buffer in memory before the data is consumed. Behaves similar to `highWaterMark` in Node.js streams.
-  * **Default:** `16 * 1024` or **250kb**
+  * **Default:** `16 * 1024` or **16kb**
 * `max_body_length` [`Number`]: Maximum number of `bytes` allowed for incoming request body size. For reference, **1kb** = **1024 Bytes** and **1mb** = **1024kb**.
   * **Default:** `250 * 1024` or **250kb**
 * `streaming`[`Object`]: Specifies global constructor options for internal readable and writable streams.
