@@ -290,9 +290,9 @@ class Request {
                     // Awaiting mode - Awaiting the user to do something with the incoming body data
                     case 0:
                         // Buffer a COPIED Uint8Array chunk from the uWS volatile ArrayBuffer chunk
-                        const uint8_buffer = new Uint8Array(chunk.byteLength);
-                        uint8_buffer.set(new Uint8Array(chunk));
-                        this.#body_parser_buffered.push(uint8_buffer);
+                        this.#body_parser_buffered.push(
+                            new Uint8Array(chunk.slice(chunk.byteOffset, chunk.byteLength))
+                        );
 
                         // If we have exceeded the Server.options.max_body_buffer number of buffered bytes, then pause the request to prevent more buffering
                         if (this.#body_received_bytes > this.app._options.max_body_buffer) this.pause();
@@ -306,9 +306,7 @@ class Request {
                     case 2:
                         // Attempt to push a COPIED Uint8Array chunk from the uWS volatile ArrayBuffer chunk to the readable stream
                         // Pause the request if we have reached the highWaterMark to prevent backpressure
-                        const uint8_stream = new Uint8Array(chunk.byteLength);
-                        uint8_stream.set(new Uint8Array(chunk));
-                        if (!this.push(uint8_stream)) this.pause();
+                        if (!this.push(new Uint8Array(chunk.slice(chunk.byteOffset, chunk.byteLength)))) this.pause();
 
                         // If this is the last chunk, push a null chunk to indicate the end of the stream
                         if (is_last) this.push(null);
