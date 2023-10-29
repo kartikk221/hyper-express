@@ -52,7 +52,7 @@ class Request {
      * Returns request headers from incoming request.
      * @returns {Object.<string, string>}
      */
-    headers = {};
+    headers = Object.create(null);
 
     /**
      * Creates a new HyperExpress request instance that wraps a uWS.HttpRequest instance.
@@ -77,7 +77,7 @@ class Request {
 
         // Cache the path parameters from the route pattern if any as uWS.HttpRequest will be deallocated after this function returns
         if (route.path_parameters_key.length) {
-            this.#path_parameters = {};
+            this.#path_parameters = Object.create(null);
             for (let i = 0; i < route.path_parameters_key.length; i++) {
                 const [key, index] = route.path_parameters_key[i];
                 this.#path_parameters[key] = raw_request.getParameter(index);

@@ -43,7 +43,7 @@ class Response {
      * @private
      * @type {Record<string, string|string[]}
      */
-    _headers = {};
+    _headers = Object.create(null);
 
     /**
      * Contains underlying cookies for the response.
@@ -174,7 +174,7 @@ class Response {
      */
     type(mime_type) {
         // Remove leading dot from mime type if present
-        if (mime_type.startsWith('.')) mime_type = mime_type.substring(1);
+        if (mime_type[0] === '.') mime_type = mime_type.substring(1);
 
         // Determine proper mime type and send response
         this.header('content-type', mime_types.lookup(mime_type) || 'text/plain');
@@ -279,7 +279,7 @@ class Response {
         }
 
         // Initialize the cookies holder object if it does not exist
-        if (this._cookies == undefined) this._cookies = {};
+        if (this._cookies == undefined) this._cookies = Object.create(null);
 
         // Store the seralized cookie value to be written during response
         this._cookies[name] = cookie.serialize(name, value, options);
@@ -515,7 +515,7 @@ class Response {
                 );
 
             // Determine if we have a custom content length header and no body data and were not streaming the request body
-            if (body === undefined && !this.#streaming && this._custom_content_length() !== undefined) {
+            if (!(body !== undefined || this.#streaming || this._custom_content_length() === undefined)) {
                 // Send the response with the uWS.HttpResponse.endWithoutBody() method as we have no body data
                 // NOTE: This method is completely undocumented by uWS but exists in the source code to solve the problem of no body being sent with a custom content-length
                 this.#raw_response.endWithoutBody();
