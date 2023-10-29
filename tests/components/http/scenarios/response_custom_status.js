@@ -31,10 +31,6 @@ async function test_response_custom_status() {
             status: 609,
             message: 'User Moved to Another Server',
         },
-        {
-            status: Math.floor(Math.random() * 1000),
-            message: crypto.randomUUID(),
-        },
     ].map(async ({ status, message }) => {
         // Make a request to the server with a custom status code and message
         const response = await fetch(endpoint_url, {

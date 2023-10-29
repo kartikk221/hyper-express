@@ -133,16 +133,6 @@ class Response {
         );
     }
 
-    /**
-     * Resume the associated request if it is paused.
-     * @private
-     */
-    _resume_if_paused() {
-        // Unpause the request if it is paused
-        // Only do this if we have a readable stream which can be paused
-        if (this.#wrapped_request._readable && this.#wrapped_request.isPaused()) this.#wrapped_request.resume();
-    }
-
     /* Response Methods/Operators */
 
     /**
@@ -312,8 +302,8 @@ class Response {
                 )
             );
 
-        // Ensure our request is not paused to ensure socket is in a flowing state
-        this._resume_if_paused();
+        // Resume the request in case it was paused
+        this.#wrapped_request.resume();
 
         // Cork the response if it has not been corked yet
         if (this._cork && !this.#corked) {
@@ -352,8 +342,8 @@ class Response {
         // Mark the instance as initiated signifying that no more status/header based operations can be performed
         this.initiated = true;
 
-        // Ensure we are not in a paused state as uWS requires us to be a in a flowing state to be able to write status and headers
-        this._resume_if_paused();
+        // Resume the request in case it was paused
+        this.#wrapped_request.resume();
 
         // Write the appropriate status code to the response along with mapped status code message
         if (this._status_code || this._status_message)
@@ -537,7 +527,7 @@ class Response {
             // Emit the 'finish' event to signify that the response has been sent without streaming
             if (this._writable && !this.#streaming) this.emit('finish', this.#wrapped_request, this);
 
-            // Mark request as completed if we were able to send response properly
+            // Mark request as completed as it has been sent
             this.completed = true;
 
             // Emit the 'close' event to signify that the response has been completed
@@ -696,11 +686,11 @@ class Response {
             // Mark request as completed
             this.completed = true;
 
-            // Ensure request is not paused and socket is in a flowing state
-            this._resume_if_paused();
-
             // Stop the body parser from accepting any more data
             this.#wrapped_request._body_parser_stop();
+
+            // Resume the request in case it was paused
+            this.#wrapped_request.resume();
 
             // Close the underlying uWS request
             this.#raw_response.close();
