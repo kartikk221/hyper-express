@@ -102,7 +102,7 @@ class Request {
         if (!this.#paused) {
             this.#paused = true;
             this.#raw_response.pause();
-            return this._super_pause();
+            if (this._readable) return this._super_pause();
         }
         return this;
     }
@@ -117,7 +117,7 @@ class Request {
         if (this.#paused) {
             this.#paused = false;
             this.#raw_response.resume();
-            return this._super_resume();
+            if (this._readable) return this._super_resume();
         }
         return this;
     }
@@ -289,25 +289,26 @@ class Request {
                 switch (this.#body_parser_mode) {
                     // Awaiting mode - Awaiting the user to do something with the incoming body data
                     case 0:
-                        // Buffer the chunk as a copied Uint8Array chunk
-                        const temp = new Uint8Array(chunk.byteLength);
-                        temp.set(new Uint8Array(chunk));
-                        this.#body_parser_buffered.push(temp);
+                        // Buffer a COPIED Uint8Array chunk from the uWS volatile ArrayBuffer chunk
+                        const uint8_buffer = new Uint8Array(chunk.byteLength);
+                        uint8_buffer.set(new Uint8Array(chunk));
+                        this.#body_parser_buffered.push(uint8_buffer);
+
+                        // If we have exceeded the Server.options.max_body_buffer number of buffered bytes, then pause the request to prevent more buffering
+                        if (this.#body_received_bytes > this.app._options.max_body_buffer) this.pause();
                         break;
                     // Buffering mode - Internal use only
                     case 1:
-                        // Pass through the raw ArrayBuffer chunk to the passthrough callback
+                        // Pass through the uWS volatile ArrayBuffer chunk to the passthrough callback as a volatile Uint8Array chunk
                         this.#body_parser_passthrough(new Uint8Array(chunk), is_last);
                         break;
                     // Streaming mode - External use only
                     case 2:
-                        // Copy and convert the raw ArrayBuffer chunk into a Buffer chunk
-                        const temp2 = new Uint8Array(chunk.byteLength);
-                        temp2.set(new Uint8Array(chunk));
-                        const buffer = Buffer.from(temp2);
-
-                        // Try to push this buffer to the readable stream and pause the request if we encounter backpressure
-                        if (!this.push(buffer)) this.pause();
+                        // Attempt to push a COPIED Uint8Array chunk from the uWS volatile ArrayBuffer chunk to the readable stream
+                        // Pause the request if we have reached the highWaterMark to prevent backpressure
+                        const uint8_stream = new Uint8Array(chunk.byteLength);
+                        uint8_stream.set(new Uint8Array(chunk));
+                        if (!this.push(uint8_stream)) this.pause();
 
                         // If this is the last chunk, push a null chunk to indicate the end of the stream
                         if (is_last) this.push(null);
@@ -334,37 +335,43 @@ class Request {
      * @private
      */
     _body_parser_flush_buffered() {
-        // Determine the body parser mode to flush the buffered chunks to
-        switch (this.#body_parser_mode) {
-            // Buffering mode - Internal use only
-            case 1:
-                // Iterate over the buffered chunks and pass them to the passthrough callback
-                for (let i = 0; i < this.#body_parser_buffered.length; i++) {
-                    this.#body_parser_passthrough(
-                        this.#body_parser_buffered[i],
-                        i === this.#body_parser_buffered.length - 1 ? this.received : false
-                    );
-                }
-                break;
-            // Streaming mode - External use only
-            case 2:
-                // Iterate over the buffered chunks and push them to the readable stream
-                for (const chunk of this.#body_parser_buffered) {
-                    // Convert Uint8Array into a Buffer chunk
-                    const buffer = Buffer.from(chunk);
+        // Determine if we have any buffered chunks
+        if (this.#body_parser_buffered) {
+            // Determine the body parser mode to flush the buffered chunks to
+            switch (this.#body_parser_mode) {
+                // Buffering mode - Internal use only
+                case 1:
+                    // Iterate over the buffered chunks and pass them to the passthrough callback
+                    for (let i = 0; i < this.#body_parser_buffered.length; i++) {
+                        this.#body_parser_passthrough(
+                            this.#body_parser_buffered[i],
+                            i === this.#body_parser_buffered.length - 1 ? this.received : false
+                        );
+                    }
+                    break;
+                // Streaming mode - External use only
+                case 2:
+                    // Iterate over the buffered chunks and push them to the readable stream
+                    for (const chunk of this.#body_parser_buffered) {
+                        // Convert Uint8Array into a Buffer chunk
+                        const buffer = Buffer.from(chunk);
 
-                    // Push the buffer to the readable stream
-                    // We will ignore the return value as we are not handling backpressure here
-                    this.push(buffer);
-                }
+                        // Push the buffer to the readable stream
+                        // We will ignore the return value as we are not handling backpressure here
+                        this.push(buffer);
+                    }
 
-                // If the request has been received at this point already, we must also push a null chunk to indicate the end of the stream
-                if (this.received) this.push(null);
-                break;
+                    // If the request has been received at this point already, we must also push a null chunk to indicate the end of the stream
+                    if (this.received) this.push(null);
+                    break;
+            }
         }
 
         // Deallocate the buffered chunks array as they are no longer needed
         this.#body_parser_buffered = null;
+
+        // Resume the request in case we had paused the request due to having reached the max_body_buffer for this request
+        this.resume();
     }
 
     /**
@@ -380,7 +387,7 @@ class Request {
         this._readable._read = () => this.resume();
 
         // Flush the buffered chunks to the readable stream if we have any
-        if (this.#body_parser_buffered.length) this._body_parser_flush_buffered();
+        this._body_parser_flush_buffered();
     }
 
     #data_promise;
@@ -418,7 +425,7 @@ class Request {
             };
 
             // Flush the buffered chunks to the passthrough callback if we have any
-            if (this.#body_parser_buffered.length) this._body_parser_flush_buffered();
+            this._body_parser_flush_buffered();
         });
 
         // Return the data promise
