@@ -64,13 +64,11 @@ class Request {
      *
      * @param {import('../router/Route.js')} route
      * @param {import('uWebSockets.js').HttpRequest} raw_request
-     * @param {import('uWebSockets.js').HttpResponse} raw_response
      */
-    constructor(route, raw_request, raw_response) {
+    constructor(route, raw_request) {
         // Store reference to the route of this request and the raw uWS.HttpResponse instance for certain operations
         this.route = route;
         this._raw_request = raw_request;
-        this._raw_response = raw_response;
 
         // Cache request properties from uWS.HttpRequest as it is stack allocated and will be deallocated after this function returns
         this._query = raw_request.getQuery();
@@ -81,10 +79,12 @@ class Request {
         raw_request.forEach((key, value) => (this.headers[key] = value));
 
         // Cache the path parameters from the route pattern if any as uWS.HttpRequest will be deallocated after this function returns
-        const size = route.path_parameters_key.length;
-        for (let i = 0; i < size; i++) {
-            const [key, index] = route.path_parameters_key[i];
-            this.path_parameters[key] = raw_request.getParameter(index);
+        const num_path_parameters = route.path_parameters_key.length;
+        if (num_path_parameters) {
+            for (let i = 0; i < num_path_parameters; i++) {
+                const [key, index] = route.path_parameters_key[i];
+                this.path_parameters[key] = raw_request.getParameter(index);
+            }
         }
     }
 
@@ -187,8 +187,9 @@ class Request {
      * @returns {Boolean} Returns whether this request is within the bytes limit and should be handled further.
      */
     _body_parser_run(response, limit_bytes) {
-        // Ensure that we have some incoming body data to parse based on the content-length header
-        const content_length = +this.headers['content-length'];
+        // Parse the content length into a number to ensure we have some body data to parse
+        // Even though it can be NaN, the > 0 check will handle this case and ignore NaN
+        const content_length = Number(this.headers['content-length']);
         if (content_length > 0) {
             // Determine if this is a first run meaning we have not began parsing the body yet
             const is_first_run = this._body_expected_bytes === -1;
@@ -216,7 +217,7 @@ class Request {
             this._body_parser_enforce_limit(response);
         }
 
-        // Return if we are not flushing the body which would be the case If we were no longer handling the request
+        // Return whether the body parser is actively parsing the incoming body data
         return !this._body_parser_flushing;
     }
 

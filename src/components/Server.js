@@ -423,11 +423,15 @@ class Server extends Router {
      * @param {uWebSockets.us_socket_context_t=} socket
      */
     _handle_uws_request(route, uws_request, uws_response, socket) {
-        // Construct the wrapper Request around uWS.Request
-        const request = new Request(route, uws_request, uws_response);
+        // Construct the wrapper Request around uWS.HttpRequest
+        const request = new Request(route, uws_request);
+        request._raw_response = uws_response;
 
         // Construct the wrapper Response around uWS.Response
-        const response = new Response(route, request, uws_response, socket);
+        const response = new Response(uws_response);
+        response.route = route;
+        response._wrapped_request = request;
+        response._upgrade_socket = socket || null;
 
         // Attempt to start the body parser for this request
         // This method will return false If the request body is larger than the max_body_length
@@ -435,7 +439,7 @@ class Server extends Router {
             // Handle this request with the associated route
             route.handle(request, response);
 
-            // If the response has not been completed yet, then it must cork before sending as required by uWS for asynchronous writes
+            // If by this point the response has not been sent then this is request is being asynchronously handled hence we must cork when the response is sent
             if (!response.completed) response._cork = true;
         }
     }

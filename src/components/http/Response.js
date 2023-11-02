@@ -81,16 +81,10 @@ class Response {
     /**
      * Creates a new HyperExpress response instance that wraps a uWS.HttpResponse instance.
      *
-     * @param {import('../router/Route.js')} route
-     * @param {import('./Request.js')} wrapped_request
      * @param {import('uWebSockets.js').HttpResponse} raw_response
-     * @param {import('uWebSockets.js').us_socket_context_t=} socket
      */
-    constructor(route, wrapped_request, raw_response, socket) {
-        this.route = route;
+    constructor(raw_response) {
         this._raw_response = raw_response;
-        this._upgrade_socket = socket || null;
-        this._wrapped_request = wrapped_request;
 
         // Bind the abort handler as required by uWebsockets.js for each uWS.HttpResponse to allow for async processing
         raw_response.onAborted(() => {
@@ -573,7 +567,7 @@ class Response {
                 if (this.completed) return resolve();
 
                 // Initiate the response to ensure status code & headers get written first if they have not been written yet
-                if (!this.initiated) this._initiate_response();
+                this._initiate_response();
 
                 // Remember the initial write offset for future backpressure sliced chunks
                 // Write the chunk to the client using the appropriate uWS chunk writing method
