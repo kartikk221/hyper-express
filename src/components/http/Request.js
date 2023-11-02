@@ -16,20 +16,20 @@ const {
 } = require('../../shared/operators.js');
 
 class Request {
-    #locals;
-    #paused = false;
-    #request_ended = false;
-    #raw_request = null;
-    #raw_response = null;
-    #method = '';
-    #url = '';
-    #path = '';
-    #query = '';
-    #remote_ip = '';
-    #remote_proxy_ip = '';
-    #cookies;
-    #path_parameters;
-    #query_parameters;
+    _locals;
+    _paused = false;
+    _request_ended = false;
+    _raw_request = null;
+    _raw_response = null;
+    _method = '';
+    _url = '';
+    _path = '';
+    _query = '';
+    _remote_ip = '';
+    _remote_proxy_ip = '';
+    _cookies;
+    _path_parameters;
+    _query_parameters;
 
     /**
      * The route that this request is being handled by.
@@ -52,7 +52,7 @@ class Request {
      * Returns request headers from incoming request.
      * @returns {Object.<string, string>}
      */
-    headers = Object.create(null);
+    headers = {};
 
     /**
      * Creates a new HyperExpress request instance that wraps a uWS.HttpRequest instance.
@@ -64,23 +64,24 @@ class Request {
     constructor(route, raw_request, raw_response) {
         // Store reference to the route of this request and the raw uWS.HttpResponse instance for certain operations
         this.route = route;
-        this.#raw_request = raw_request;
-        this.#raw_response = raw_response;
+        this._raw_request = raw_request;
+        this._raw_response = raw_response;
 
         // Cache request properties from uWS.HttpRequest as it is stack allocated and will be deallocated after this function returns
-        this.#query = raw_request.getQuery();
-        this.#path = route.path || raw_request.getUrl();
-        this.#method = route.method === 'ANY' ? raw_request.getMethod() : route.method;
+        this._query = raw_request.getQuery();
+        this._path = route.path || raw_request.getUrl();
+        this._method = route.method !== 'ANY' ? route.method : raw_request.getMethod();
 
         // Cache request headers from uWS.HttpRequest as it is stack allocated and will be deallocated after this function returns
         raw_request.forEach((key, value) => (this.headers[key] = value));
 
         // Cache the path parameters from the route pattern if any as uWS.HttpRequest will be deallocated after this function returns
         if (route.path_parameters_key.length) {
-            this.#path_parameters = Object.create(null);
-            for (let i = 0; i < route.path_parameters_key.length; i++) {
+            this._path_parameters = {};
+            const size = route.path_parameters_key.length;
+            for (let i = 0; i < size; i++) {
                 const [key, index] = route.path_parameters_key[i];
-                this.#path_parameters[key] = raw_request.getParameter(index);
+                this._path_parameters[key] = raw_request.getParameter(index);
             }
         }
     }
@@ -93,7 +94,7 @@ class Request {
      * @returns {import('uWebSockets.js').HttpRequest}
      */
     get raw() {
-        return this.#raw_request;
+        return this._raw_request;
     }
 
     /**
@@ -103,9 +104,9 @@ class Request {
     pause() {
         // Ensure there is content being streamed before pausing
         // Ensure that the stream is currently not paused before pausing
-        if (!this.#paused) {
-            this.#paused = true;
-            this.#raw_response.pause();
+        if (!this._paused) {
+            this._paused = true;
+            this._raw_response.pause();
             if (this._readable) return this._super_pause();
         }
         return this;
@@ -118,9 +119,9 @@ class Request {
     resume() {
         // Ensure there is content being streamed before resuming
         // Ensure that the stream is currently paused before resuming
-        if (this.#paused) {
-            this.#paused = false;
-            this.#raw_response.resume();
+        if (this._paused) {
+            this._paused = false;
+            this._raw_response.resume();
             if (this._readable) return this._super_resume();
         }
         return this;
@@ -165,13 +166,13 @@ class Request {
     }
 
     /* Body Parsing */
-    #body_parser_mode = 0; // 0 = none (awaiting mode), 1 = buffering (internal use), 2 = streaming (external use)
-    #body_limit_bytes = 0;
-    #body_received_bytes = 0;
-    #body_expected_bytes = -1; // We initialize this to -1 as we will use this to ensure the uWS.HttpResponse.onData() is only called once
-    #body_parser_flushing = false;
-    #body_parser_buffered; // This will hold the buffered chunks until the user decides to internally or externally consume the body data
-    #body_parser_passthrough; // This will be a passthrough chunk acceptor callback used by internal body parsers
+    _body_parser_mode = 0; // 0 = none (awaiting mode), 1 = buffering (internal use), 2 = streaming (external use)
+    _body_limit_bytes = 0;
+    _body_received_bytes = 0;
+    _body_expected_bytes = -1; // We initialize this to -1 as we will use this to ensure the uWS.HttpResponse.onData() is only called once
+    _body_parser_flushing = false;
+    _body_parser_buffered; // This will hold the buffered chunks until the user decides to internally or externally consume the body data
+    _body_parser_passthrough; // This will be a passthrough chunk acceptor callback used by internal body parsers
 
     /**
      * Begins parsing the incoming request body data within the provided limit in bytes.
@@ -188,11 +189,11 @@ class Request {
         const content_length = +this.headers['content-length'] || 0;
         if (content_length > 0) {
             // Determine if this is a first run meaning we have not began parsing the body yet
-            const is_first_run = this.#body_expected_bytes === -1;
+            const is_first_run = this._body_expected_bytes === -1;
 
             // Update the limit and expected body bytes as these will be used to check if we are within the limit
-            this.#body_limit_bytes = limit_bytes;
-            this.#body_expected_bytes = content_length;
+            this._body_limit_bytes = limit_bytes;
+            this._body_expected_bytes = content_length;
 
             // Determine if this is a first time body parser run
             if (is_first_run) {
@@ -200,13 +201,13 @@ class Request {
                 this.received = false;
 
                 // Ensure future runs do not trigger the handling process
-                this.#body_received_bytes = 0;
+                this._body_received_bytes = 0;
 
                 // Initialize the array which will buffer the incoming chunks until a different parser mode is requested aka. user does something with the data
-                this.#body_parser_buffered = [];
+                this._body_parser_buffered = [];
 
                 // Bind the uWS.HttpResponse.onData() event handler to begin accepting incoming body data
-                this.#raw_response.onData((chunk, is_last) => this._body_parser_on_chunk(response, chunk, is_last));
+                this._raw_response.onData((chunk, is_last) => this._body_parser_on_chunk(response, chunk, is_last));
             }
 
             // Enforce the limit as we may have a different limit than the previous run
@@ -214,7 +215,7 @@ class Request {
         }
 
         // Return if we are not flushing the body which would be the case If we were no longer handling the request
-        return !this.#body_parser_flushing;
+        return !this._body_parser_flushing;
     }
 
     /**
@@ -222,11 +223,11 @@ class Request {
      * @private
      */
     _body_parser_stop() {
-        // Ensure the body parser is not flushing already
-        if (this.#body_parser_flushing) return;
+        // Return if we have no expected body length or already flushing the body
+        if (this._body_expected_bytes === -1 || this._body_parser_flushing) return;
 
-        // Mark the body parser as flushing as we will no longer be handling any more incoming body data
-        this.#body_parser_flushing = true;
+        // Mark the body parser as flushing to prevent any more incoming body data from being accepted
+        this._body_parser_flushing = true;
 
         // Determine if we have a readable stream
         if (this._readable) {
@@ -247,8 +248,8 @@ class Request {
      */
     _body_parser_enforce_limit(response) {
         // Determine if we have more incoming bytes than the limit allows for
-        const incoming_bytes = Math.max(this.#body_received_bytes, this.#body_expected_bytes);
-        if (incoming_bytes > this.#body_limit_bytes) {
+        const incoming_bytes = Math.max(this._body_received_bytes, this._body_expected_bytes);
+        if (incoming_bytes > this._body_limit_bytes) {
             // Stop the body parser from accepting any more incoming body data
             this._body_parser_stop();
 
@@ -282,27 +283,27 @@ class Request {
         if (!chunk.byteLength && !is_last) return;
 
         // Increment the received bytes counter by the byteLength of the incoming chunk
-        this.#body_received_bytes += chunk.byteLength;
+        this._body_received_bytes += chunk.byteLength;
 
         // Determine if the body parser is active / not flushing
-        if (!this.#body_parser_flushing) {
+        if (!this._body_parser_flushing) {
             // Enforce the body parser limit as the number of incoming bytes may have exceeded the limit
             const limited = this._body_parser_enforce_limit(response);
             if (!limited) {
                 // Process this chunk depending on the current body parser mode
-                switch (this.#body_parser_mode) {
+                switch (this._body_parser_mode) {
                     // Awaiting mode - Awaiting the user to do something with the incoming body data
                     case 0:
                         // Buffer a COPIED Uint8Array chunk from the uWS volatile ArrayBuffer chunk
-                        this.#body_parser_buffered.push(copy_array_buffer_to_uint8array(chunk));
+                        this._body_parser_buffered.push(copy_array_buffer_to_uint8array(chunk));
 
                         // If we have exceeded the Server.options.max_body_buffer number of buffered bytes, then pause the request to prevent more buffering
-                        if (this.#body_received_bytes > this.app._options.max_body_buffer) this.pause();
+                        if (this._body_received_bytes > this.app._options.max_body_buffer) this.pause();
                         break;
                     // Buffering mode - Internal use only
                     case 1:
                         // Pass through the uWS volatile ArrayBuffer chunk to the passthrough callback as a volatile Uint8Array chunk
-                        this.#body_parser_passthrough(new Uint8Array(chunk), is_last);
+                        this._body_parser_passthrough(new Uint8Array(chunk), is_last);
                         break;
                     // Streaming mode - External use only
                     case 2:
@@ -323,10 +324,10 @@ class Request {
             this.received = true;
 
             // Emit the 'received' event that indicates how many bytes were received in total from the incoming body
-            if (this._readable) this.emit('received', this.#body_received_bytes);
+            if (this._readable) this.emit('received', this._body_received_bytes);
 
             // Enforce the body parser limit one last time in case the request is waiting for the body to be flushed before sending a response
-            if (this.#body_parser_flushing) this._body_parser_enforce_limit(response);
+            if (this._body_parser_flushing) this._body_parser_enforce_limit(response);
         }
     }
 
@@ -336,23 +337,23 @@ class Request {
      */
     _body_parser_flush_buffered() {
         // Determine if we have any buffered chunks
-        if (this.#body_parser_buffered) {
+        if (this._body_parser_buffered) {
             // Determine the body parser mode to flush the buffered chunks to
-            switch (this.#body_parser_mode) {
+            switch (this._body_parser_mode) {
                 // Buffering mode - Internal use only
                 case 1:
                     // Iterate over the buffered chunks and pass them to the passthrough callback
-                    for (let i = 0; i < this.#body_parser_buffered.length; i++) {
-                        this.#body_parser_passthrough(
-                            this.#body_parser_buffered[i],
-                            i === this.#body_parser_buffered.length - 1 ? this.received : false
+                    for (let i = 0; i < this._body_parser_buffered.length; i++) {
+                        this._body_parser_passthrough(
+                            this._body_parser_buffered[i],
+                            i === this._body_parser_buffered.length - 1 ? this.received : false
                         );
                     }
                     break;
                 // Streaming mode - External use only
                 case 2:
                     // Iterate over the buffered chunks and push them to the readable stream
-                    for (const chunk of this.#body_parser_buffered) {
+                    for (const chunk of this._body_parser_buffered) {
                         // Convert Uint8Array into a Buffer chunk
                         const buffer = Buffer.from(chunk);
 
@@ -368,7 +369,7 @@ class Request {
         }
 
         // Deallocate the buffered chunks array as they are no longer needed
-        this.#body_parser_buffered = null;
+        this._body_parser_buffered = null;
 
         // Resume the request in case we had paused the request due to having reached the max_body_buffer for this request
         this.resume();
@@ -380,7 +381,7 @@ class Request {
      */
     _body_parser_stream_init() {
         // Set the body parser mode to stream mode
-        this.#body_parser_mode = 2;
+        this._body_parser_mode = 2;
 
         // Overwrite the underlying readable _read handler to resume the request when more chunks are requested
         // This will properly handle backpressure and prevent the request from being paused forever
@@ -390,7 +391,7 @@ class Request {
         this._body_parser_flush_buffered();
     }
 
-    #data_promise;
+    _data_promise;
     /**
      * Returns a single Uint8Array buffer which contains all incoming body data.
      * @private
@@ -398,22 +399,22 @@ class Request {
      */
     _body_parser_get_received_data() {
         // Return the current promise if it exists
-        if (this.#data_promise) return this.#data_promise;
+        if (this._data_promise) return this._data_promise;
 
         // If we have no expected body length, we will return an empty buffer
-        if (this.#body_expected_bytes <= 0) return Promise.resolve(new Uint8Array(0));
+        if (this._body_expected_bytes <= 0) return Promise.resolve(new Uint8Array(0));
 
         // Create a new promise which will be resolved once all incoming body data has been received
-        this.#data_promise = new Promise((resolve) => {
+        this._data_promise = new Promise((resolve) => {
             // Initialize the body Uint8Array buffer based on the expected body length
-            const buffer = new Uint8Array(this.#body_expected_bytes);
+            const buffer = new Uint8Array(this._body_expected_bytes);
 
             // Set the body parser mode to buffering mode
-            this.#body_parser_mode = 1;
+            this._body_parser_mode = 1;
 
             // Define a passthrough callback which will be called for each incoming chunk
             let offset = 0;
-            this.#body_parser_passthrough = (chunk, is_last) => {
+            this._body_parser_passthrough = (chunk, is_last) => {
                 // Write the chunk into the body buffer at the current offset
                 buffer.set(chunk, offset);
 
@@ -429,38 +430,38 @@ class Request {
         });
 
         // Return the data promise
-        return this.#data_promise;
+        return this._data_promise;
     }
 
-    #body_buffer;
-    #buffer_promise;
+    _body_buffer;
+    _buffer_promise;
     /**
      * Returns the incoming request body as a Buffer.
      * @returns {Promise<Buffer>}
      */
     buffer() {
         // Check cache and return if body has already been parsed
-        if (this.#body_buffer) return Promise.resolve(this.#body_buffer);
+        if (this._body_buffer) return Promise.resolve(this._body_buffer);
 
         // We have no expected body length, hence we will return an empty buffer
-        if (this.#body_expected_bytes <= 0) {
-            this.#body_buffer = Buffer.from('');
-            return Promise.resolve(this.#body_buffer);
+        if (this._body_expected_bytes <= 0) {
+            this._body_buffer = Buffer.from('');
+            return Promise.resolve(this._body_buffer);
         }
 
         // Initialize the buffer promise if it does not exist
-        this.#buffer_promise = new Promise((resolve) =>
+        this._buffer_promise = new Promise((resolve) =>
             this._body_parser_get_received_data().then((raw) => {
                 // Convert the Uint8Array buffer into a Buffer
-                this.#body_buffer = Buffer.from(raw);
+                this._body_buffer = Buffer.from(raw);
 
                 // Resolve the buffer promise with the body buffer
-                resolve(this.#body_buffer);
+                resolve(this._body_buffer);
             })
         );
 
         // Return the buffer promise
-        return this.#buffer_promise;
+        return this._buffer_promise;
     }
 
     /**
@@ -475,39 +476,39 @@ class Request {
         return decoder.decode(uint8);
     }
 
-    #body_text;
-    #text_promise;
+    _body_text;
+    _text_promise;
     /**
      * Downloads and parses the request body as a String.
      * @returns {Promise<string>}
      */
     text() {
         // Resolve from cache if available
-        if (this.#body_text) return Promise.resolve(this.#body_text);
+        if (this._body_text) return Promise.resolve(this._body_text);
 
         // If we have no expected body length, we will return an empty string
-        if (this.#body_expected_bytes <= 0) {
-            this.#body_text = '';
-            return Promise.resolve(this.#body_text);
+        if (this._body_expected_bytes <= 0) {
+            this._body_text = '';
+            return Promise.resolve(this._body_text);
         }
 
         // Initialize the text promise if it does not exist
-        this.#text_promise = new Promise((resolve) =>
+        this._text_promise = new Promise((resolve) =>
             this._body_parser_get_received_data().then((raw) => {
                 // Decode the Uint8Array buffer into a String
-                this.#body_text = this._uint8_to_string(raw);
+                this._body_text = this._uint8_to_string(raw);
 
                 // Resolve the text promise with the body text
-                resolve(this.#body_text);
+                resolve(this._body_text);
             })
         );
 
         // Return the text promise
-        return this.#text_promise;
+        return this._text_promise;
     }
 
-    #body_json;
-    #json_promise;
+    _body_json;
+    _json_promise;
     /**
      * Downloads and parses the request body as a JSON object.
      * Passing default_value as undefined will lead to the function throwing an exception if invalid JSON is received.
@@ -517,75 +518,75 @@ class Request {
      */
     json(default_value = {}) {
         // Return from cache if available
-        if (this.#body_json) return Promise.resolve(this.#body_json);
+        if (this._body_json) return Promise.resolve(this._body_json);
 
         // If we have no expected body length, we will return the default value
-        if (this.#body_expected_bytes <= 0) {
-            this.#body_json = default_value;
-            return Promise.resolve(this.#body_json);
+        if (this._body_expected_bytes <= 0) {
+            this._body_json = default_value;
+            return Promise.resolve(this._body_json);
         }
 
         // Initialize the json promise if it does not exist
-        this.#json_promise = new Promise((resolve) =>
+        this._json_promise = new Promise((resolve) =>
             this._body_parser_get_received_data().then((raw) => {
                 // Decode the Uint8Array buffer into a String
                 const text = this._uint8_to_string(raw);
                 try {
                     // Parse the text as JSON
-                    this.#body_json = JSON.parse(text);
+                    this._body_json = JSON.parse(text);
                 } catch (error) {
                     if (default_value) {
                         // Use the default value if provided
-                        this.#body_json = default_value;
+                        this._body_json = default_value;
                     } else {
                         throw error;
                     }
                 }
 
                 // Resolve the json promise with the body json
-                resolve(this.#body_json);
+                resolve(this._body_json);
             })
         );
 
         // Return the json promise
-        return this.#json_promise;
+        return this._json_promise;
     }
 
-    #body_urlencoded;
-    #urlencoded_promise;
+    _body_urlencoded;
+    _urlencoded_promise;
     /**
      * Parses and resolves an Object of urlencoded values from body.
      * @returns {Promise<Record>}
      */
     urlencoded() {
         // Return from cache if available
-        if (this.#body_urlencoded) return Promise.resolve(this.#body_urlencoded);
+        if (this._body_urlencoded) return Promise.resolve(this._body_urlencoded);
 
         // If we have no expected body length, we will return an empty object
-        if (this.#body_expected_bytes <= 0) {
-            this.#body_urlencoded = {};
-            return Promise.resolve(this.#body_urlencoded);
+        if (this._body_expected_bytes <= 0) {
+            this._body_urlencoded = {};
+            return Promise.resolve(this._body_urlencoded);
         }
 
         // Initialize the urlencoded promise if it does not exist
-        this.#urlencoded_promise = new Promise((resolve) =>
+        this._urlencoded_promise = new Promise((resolve) =>
             this._body_parser_get_received_data().then((raw) => {
                 // Decode the Uint8Array buffer into a String
                 const text = this._uint8_to_string(raw);
 
                 // Parse the text as urlencoded
-                this.#body_urlencoded = querystring.parse(text);
+                this._body_urlencoded = querystring.parse(text);
 
                 // Resolve the urlencoded promise with the body urlencoded
-                resolve(this.#body_urlencoded);
+                resolve(this._body_urlencoded);
             })
         );
 
         // Return the urlencoded promise
-        return this.#urlencoded_promise;
+        return this._urlencoded_promise;
     }
 
-    #multipart_promise;
+    _multipart_promise;
     /**
      * Handles incoming multipart fields from uploader and calls user specified handler with MultipartField.
      *
@@ -600,12 +601,12 @@ class Request {
         const field = new MultipartField(name, value, info);
 
         // Check if a field is being handled by the user across a different exeuction
-        if (this.#multipart_promise instanceof Promise) {
+        if (this._multipart_promise instanceof Promise) {
             // Pause the request to prevent more fields from being received
             this.pause();
 
             // Wait for this field to be handled
-            await this.#multipart_promise;
+            await this._multipart_promise;
 
             // Resume the request to accept more fields
             this.resume();
@@ -615,13 +616,13 @@ class Request {
         const output = handler(field);
         if (output instanceof Promise) {
             // Store the promise, so concurrent multipart fields can wait for it
-            this.#multipart_promise = output;
+            this._multipart_promise = output;
 
             // Hold the current exectution context until the promise resolves
-            await this.#multipart_promise;
+            await this._multipart_promise;
 
             // Clear the promise reference
-            this.#multipart_promise = null;
+            this._multipart_promise = null;
         }
 
         // Flush this field's file stream if it has not been consumed by the user in the handler execution
@@ -737,10 +738,10 @@ class Request {
             // Bind a 'finish' event handler to resolve the upload promise
             uploader.once('close', () => {
                 // Wait for any pending multipart handler exeuction to complete
-                if (reference.#multipart_promise) {
+                if (reference._multipart_promise) {
                     // Wait for the pending promise to resolve
                     // Use an anonymous callback for the .then() to prevent finish() from receving a resolved value which would lead to an error finish
-                    reference.#multipart_promise.then(() => finish()).catch(finish);
+                    reference._multipart_promise.then(() => finish()).catch(finish);
                 } else {
                     finish();
                 }
@@ -759,8 +760,8 @@ class Request {
      */
     get locals() {
         // Initialize locals object if it does not exist
-        if (!this.#locals) this.#locals = {};
-        return this.#locals;
+        if (!this._locals) this._locals = {};
+        return this._locals;
     }
 
     /**
@@ -776,7 +777,7 @@ class Request {
      * @returns {Boolean}
      */
     get paused() {
-        return this.#paused;
+        return this._paused;
     }
 
     /**
@@ -785,7 +786,7 @@ class Request {
      */
     get method() {
         // Enforce uppercase for the returned method value
-        const uppercase = this.#method.toUpperCase();
+        const uppercase = this._method.toUpperCase();
 
         // For some reason, uWebsockets.js populates DELETE requests as DEL hence this translation
         return uppercase === 'DEL' ? 'DELETE' : uppercase;
@@ -797,13 +798,13 @@ class Request {
      */
     get url() {
         // Return from cache if available
-        if (this.#url) return this.#url;
+        if (this._url) return this._url;
 
         // Parse the incoming request url
-        this.#url = this.#path + (this.#query ? '?' + this.#query : '');
+        this._url = this._path + (this._query ? '?' + this._query : '');
 
         // Return the url
-        return this.#url;
+        return this._url;
     }
 
     /**
@@ -811,7 +812,7 @@ class Request {
      * @returns {String}
      */
     get path() {
-        return this.#path;
+        return this._path;
     }
 
     /**
@@ -819,7 +820,7 @@ class Request {
      * @returns {String}
      */
     get path_query() {
-        return this.#query;
+        return this._query;
     }
 
     /**
@@ -828,14 +829,14 @@ class Request {
      */
     get cookies() {
         // Return from cache if already parsed once
-        if (this.#cookies) return this.#cookies;
+        if (this._cookies) return this._cookies;
 
         // Parse cookies from Cookie header and cache results
         const header = this.headers['cookie'];
-        this.#cookies = header ? cookie.parse(header) : {};
+        this._cookies = header ? cookie.parse(header) : {};
 
         // Return the cookies
-        return this.#cookies;
+        return this._cookies;
     }
 
     /**
@@ -843,7 +844,7 @@ class Request {
      * @returns {Object.<string, string>}
      */
     get path_parameters() {
-        return this.#path_parameters;
+        return this._path_parameters;
     }
 
     /**
@@ -852,11 +853,11 @@ class Request {
      */
     get query_parameters() {
         // Return from cache if already parsed once
-        if (this.#query_parameters) return this.#query_parameters;
+        if (this._query_parameters) return this._query_parameters;
 
         // Parse query using querystring and cache results
-        this.#query_parameters = querystring.parse(this.#query);
-        return this.#query_parameters;
+        this._query_parameters = querystring.parse(this._query);
+        return this._query_parameters;
     }
 
     /**
@@ -866,10 +867,10 @@ class Request {
      */
     get ip() {
         // Resolve IP from cache if already resolved
-        if (this.#remote_ip) return this.#remote_ip;
+        if (this._remote_ip) return this._remote_ip;
 
         // Ensure request has not ended yet
-        if (this.#request_ended)
+        if (this._request_ended)
             throw new Error('HyperExpress.Request.ip cannot be consumed after the Request/Response has ended.');
 
         // Determine if we can trust intermediary proxy servers and have a x-forwarded-for header
@@ -877,14 +878,14 @@ class Request {
         const trust_proxy = this.route.app._options.trust_proxy;
         if (trust_proxy && x_forwarded_for) {
             // The first IP in the x-forwarded-for header is the client IP if we trust proxies
-            this.#remote_ip = x_forwarded_for.split(',')[0];
+            this._remote_ip = x_forwarded_for.split(',')[0];
         } else {
             // Use the uWS detected connection IP address as a fallback
-            this.#remote_ip = array_buffer_to_string(this.#raw_response.getRemoteAddressAsText());
+            this._remote_ip = array_buffer_to_string(this._raw_response.getRemoteAddressAsText());
         }
 
         // Return Remote IP
-        return this.#remote_ip;
+        return this._remote_ip;
     }
 
     /**
@@ -894,17 +895,17 @@ class Request {
      */
     get proxy_ip() {
         // Resolve IP from cache if already resolved
-        if (this.#remote_proxy_ip) return this.#remote_proxy_ip;
+        if (this._remote_proxy_ip) return this._remote_proxy_ip;
 
         // Ensure request has not ended yet
-        if (this.#request_ended)
+        if (this._request_ended)
             throw new Error('HyperExpress.Request.proxy_ip cannot be consumed after the Request/Response has ended.');
 
         // Parse and cache remote proxy IP from uWS
-        this.#remote_proxy_ip = array_buffer_to_string(this.#raw_response.getProxiedRemoteAddressAsText());
+        this._remote_proxy_ip = array_buffer_to_string(this._raw_response.getProxiedRemoteAddressAsText());
 
         // Return Remote Proxy IP
-        return this.#remote_proxy_ip;
+        return this._remote_proxy_ip;
     }
 
     /**

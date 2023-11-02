@@ -14,15 +14,15 @@ const LiveFile = require('../plugins/LiveFile.js');
 const SSEventStream = require('../plugins/SSEventStream.js');
 
 class Response {
-    #sse;
-    #locals;
+    _sse;
+    _locals;
     route = null;
-    #corked = false;
-    #streaming = false;
-    #middleware_cursor;
-    #wrapped_request = null;
-    #upgrade_socket = null;
-    #raw_response = null;
+    _corked = false;
+    _streaming = false;
+    _middleware_cursor;
+    _wrapped_request = null;
+    _upgrade_socket = null;
+    _raw_response = null;
 
     /**
      * Returns the custom HTTP underlying status code of the response.
@@ -43,7 +43,7 @@ class Response {
      * @private
      * @type {Record<string, string|string[]}
      */
-    _headers = Object.create(null);
+    _headers = {};
 
     /**
      * Contains underlying cookies for the response.
@@ -85,34 +85,32 @@ class Response {
      * @param {import('uWebSockets.js').HttpResponse} raw_response
      * @param {import('uWebSockets.js').us_socket_context_t=} socket
      */
-    constructor(route, wrapped_request, raw_response, socket = null) {
+    constructor(route, wrapped_request, raw_response, socket) {
         this.route = route;
-        this.#upgrade_socket = socket;
-        this.#raw_response = raw_response;
-        this.#wrapped_request = wrapped_request;
+        this._raw_response = raw_response;
+        this._upgrade_socket = socket || null;
+        this._wrapped_request = wrapped_request;
 
         // Bind the abort handler as required by uWebsockets.js for each uWS.HttpResponse to allow for async processing
-        raw_response.onAborted(this._on_aborted.bind(this));
+        raw_response.onAborted(() => {
+            // Mark this response as completed since the client has disconnected
+            this.completed = true;
+
+            // Stop the body parser from accepting any more data
+            this._wrapped_request._body_parser_stop();
+
+            // Ensure we have a writable/emitter instance to emit over
+            if (this._writable) {
+                // Emit an 'abort' event to signify that the client aborted the request
+                this.emit('abort', this._wrapped_request, this);
+
+                // Emit an 'close' event to signify that the client has disconnected
+                this.emit('close', this._wrapped_request, this);
+            }
+        });
     }
 
     /* HyperExpress Methods */
-
-    _on_aborted() {
-        // Mark this response as completed since the client has disconnected
-        this.completed = true;
-
-        // Stop the body parser from accepting any more data
-        this.#wrapped_request._body_parser_stop();
-
-        // Ensure we have a writable/emitter instance to emit over
-        if (this._writable) {
-            // Emit an 'abort' event to signify that the client aborted the request
-            this.emit('abort', this.#wrapped_request, this);
-
-            // Emit an 'close' event to signify that the client has disconnected
-            this.emit('close', this.#wrapped_request, this);
-        }
-    }
 
     /**
      * Tracks middleware cursor position over a request's lifetime.
@@ -122,8 +120,8 @@ class Response {
      */
     _track_middleware_cursor(position) {
         // Track and ensure each middleware cursor value is greater than previously tracked value for sequential progression
-        if (this.#middleware_cursor === undefined || position > this.#middleware_cursor)
-            return (this.#middleware_cursor = position);
+        if (this._middleware_cursor === undefined || position > this._middleware_cursor)
+            return (this._middleware_cursor = position);
 
         // If position is not greater than last cursor then we likely have a double middleware execution
         this.throw(
@@ -148,7 +146,7 @@ class Response {
             this.throw(new Error('HyperExpress: atomic(handler) -> handler must be a Javascript function'));
 
         // Cork the provided handler
-        if (!this.completed) this.#raw_response.cork(handler);
+        if (!this.completed) this._raw_response.cork(handler);
         return this;
     }
 
@@ -162,7 +160,7 @@ class Response {
     status(code, message) {
         // Set the numeric status code. Status text is appended before writing status to uws
         this._status_code = code;
-        if (message) this._status_message = message;
+        this._status_message = message;
         return this;
     }
 
@@ -189,35 +187,31 @@ class Response {
      * @param {Boolean=} overwrite If true, overwrites existing header value with same name
      * @returns {Response} Response (Chainable)
      */
-    header(name, value, overwrite = true) {
-        // Enforce header names to be lowercase
-        name = name.toLowerCase();
-
+    header(name, value, overwrite) {
         // Determine if this operation is an overwrite onto any existing header values
         if (overwrite) {
             // Overwrite the header value
             this._headers[name] = value;
-        } else {
+
             // Check if some value(s) already exist for this header name
-            if (this._headers[name]) {
-                // Check if there are multiple current values for this header name
-                if (Array.isArray(this._headers[name])) {
-                    // Check if the provided value is an array
-                    if (Array.isArray(value)) {
-                        // Concatenate the current and provided header values
-                        this._headers[name] = this._headers[name].concat(value);
-                    } else {
-                        // Push the provided header value to the current header values array
-                        this._headers[name].push(value);
-                    }
+        } else if (this._headers[name]) {
+            // Check if there are multiple current values for this header name
+            if (Array.isArray(this._headers[name])) {
+                // Check if the provided value is an array
+                if (Array.isArray(value)) {
+                    // Concatenate the current and provided header values
+                    this._headers[name] = this._headers[name].concat(value);
                 } else {
-                    // Convert the current header value to an array
-                    this._headers[name] = [this._headers[name], value];
+                    // Push the provided header value to the current header values array
+                    this._headers[name].push(value);
                 }
             } else {
-                // Write the header value
-                this._headers[name] = value;
+                // Convert the current header value to an array
+                this._headers[name] = [this._headers[name], value];
             }
+        } else {
+            // Write the header value
+            this._headers[name] = value;
         }
 
         // Make chainable
@@ -279,7 +273,7 @@ class Response {
         }
 
         // Initialize the cookies holder object if it does not exist
-        if (this._cookies == undefined) this._cookies = Object.create(null);
+        if (this._cookies == undefined) this._cookies = {};
 
         // Store the seralized cookie value to be written during response
         this._cookies[name] = cookie.serialize(name, value, options);
@@ -295,7 +289,7 @@ class Response {
         if (this.completed) return;
 
         // Ensure a upgrade_socket exists before upgrading ensuring only upgrade handler requests are handled
-        if (this.#upgrade_socket == null)
+        if (this._upgrade_socket == null)
             this.throw(
                 new Error(
                     'HyperExpress: You cannot upgrade a request that does not come from an upgrade handler. No upgrade socket was found.'
@@ -303,24 +297,24 @@ class Response {
             );
 
         // Resume the request in case it was paused
-        this.#wrapped_request.resume();
+        this._wrapped_request.resume();
 
         // Cork the response if it has not been corked yet
-        if (this._cork && !this.#corked) {
-            this.#corked = true;
-            return this.#raw_response.cork(this.upgrade.bind(this, context));
+        if (this._cork && !this._corked) {
+            this._corked = true;
+            return this._raw_response.cork(this.upgrade.bind(this, context));
         }
 
         // Call uWS.Response.upgrade() method with user data, protocol headers and uWS upgrade socket
-        const headers = this.#wrapped_request.headers;
-        this.#raw_response.upgrade(
+        const headers = this._wrapped_request.headers;
+        this._raw_response.upgrade(
             {
                 context,
             },
             headers['sec-websocket-key'],
             headers['sec-websocket-protocol'],
             headers['sec-websocket-extensions'],
-            this.#upgrade_socket
+            this._upgrade_socket
         );
 
         // Mark request as complete so no more operations can be performed
@@ -337,17 +331,17 @@ class Response {
         if (this.initiated) return false;
 
         // Emit the 'prepare' event to allow for any last minute response modifications
-        if (this._writable) this.emit('prepare', this.#wrapped_request, this);
+        if (this._writable) this.emit('prepare', this._wrapped_request, this);
 
         // Mark the instance as initiated signifying that no more status/header based operations can be performed
         this.initiated = true;
 
         // Resume the request in case it was paused
-        this.#wrapped_request.resume();
+        this._wrapped_request.resume();
 
         // Write the appropriate status code to the response along with mapped status code message
         if (this._status_code || this._status_message)
-            this.#raw_response.writeStatus(
+            this._raw_response.writeStatus(
                 this._status_code + ' ' + (this._status_message || status_codes[this._status_code])
             );
 
@@ -357,18 +351,18 @@ class Response {
             if (Array.isArray(values)) {
                 // Write each header value to uWS
                 for (const value of values) {
-                    this.#raw_response.writeHeader(name, value);
+                    this._raw_response.writeHeader(name, value);
                 }
             } else {
                 // Write the single header value to uWS
-                this.#raw_response.writeHeader(name, values);
+                this._raw_response.writeHeader(name, values);
             }
         }
 
         // Iterate through all cookies and write them to uWS
         if (this._cookies) {
             for (const name in this._cookies) {
-                this.#raw_response.writeHeader('set-cookie', this._cookies[name]);
+                this._raw_response.writeHeader('set-cookie', this._cookies[name]);
             }
         }
 
@@ -376,7 +370,7 @@ class Response {
         return true;
     }
 
-    #drain_handler = null;
+    _drain_handler = null;
     /**
      * Binds a drain handler which gets called with a byte offset that can be used to try a failed chunk write.
      * You MUST perform a write call inside the handler for uWS chunking to work properly.
@@ -387,16 +381,16 @@ class Response {
      */
     drain(handler) {
         // Determine if this is the first time the drain handler is being set
-        const is_first_time = this.#drain_handler === null;
+        const is_first_time = this._drain_handler === null;
 
         // Store the handler which will be used to provide drain events to uWS
-        this.#drain_handler = handler;
+        this._drain_handler = handler;
 
         // Bind a writable handler with a fallback return value to true as uWS expects a Boolean
         if (is_first_time)
-            this.#raw_response.onWritable((offset) => {
+            this._raw_response.onWritable((offset) => {
                 // Retrieve the write result from the handler
-                const output = this.#drain_handler(offset);
+                const output = this._drain_handler(offset);
 
                 // Throw an exception if the handler did not return a boolean value as that is an improper implementation
                 if (typeof output !== 'boolean')
@@ -435,8 +429,8 @@ class Response {
         // Ensure this request has not been completed yet
         if (!this.completed) {
             // If this response has not be marked as an active stream, mark it as one and bind a 'finish' event handler to send response once a piped stream has completed
-            if (!this.#streaming) {
-                this.#streaming = true;
+            if (!this._streaming) {
+                this._streaming = true;
                 this.once('finish', () => this.send());
             }
 
@@ -477,18 +471,6 @@ class Response {
     }
 
     /**
-     * Returns the custom content length header value if one was set.
-     *
-     * @private
-     * @returns {Number=}
-     */
-    _custom_content_length() {
-        const header = this._headers['content-length'];
-        const length = parseInt(Array.isArray(header) ? header[header.length - 1] : header);
-        if (!isNaN(length) && length > 0) return length;
-    }
-
-    /**
      * This method is used to end the current request and send response with specified body and headers.
      *
      * @param {String|Buffer|ArrayBuffer=} body Optional
@@ -499,39 +481,39 @@ class Response {
         // Ensure response connection is still active
         if (!this.completed) {
             // If the response has not been corked yet, cork it and wait for the next tick to send the response
-            if (this._cork && !this.#corked) {
-                this.#corked = true;
-                return this.#raw_response.cork(this.send.bind(this, body, close_connection));
+            if (this._cork && !this._corked) {
+                this._corked = true;
+                return this._raw_response.cork(() => this.send(body, close_connection));
             }
 
             // Attempt to initiate the response to ensure status code & headers get written first
             // If we successfully initiated the response, stop the body parser from accepting any more data
-            if (this._initiate_response()) this.#wrapped_request._body_parser_stop();
+            if (this._initiate_response()) this._wrapped_request._body_parser_stop();
 
             // If the request has not been fully received yet, then we must wait as othewise an ECONNRESET error will be thrown
-            if (!this.#wrapped_request.received)
-                return this.#wrapped_request.once('received', () =>
-                    this.#raw_response.cork(this.send.bind(this, body, close_connection))
+            if (!this._wrapped_request.received)
+                return this._wrapped_request.once('received', () =>
+                    this._raw_response.cork(() => this.send(body, close_connection))
                 );
 
             // Determine if we have a custom content length header and no body data and were not streaming the request body
-            if (!(body !== undefined || this.#streaming || this._custom_content_length() === undefined)) {
+            if (!(body !== undefined || this._streaming || this._headers['content-length'])) {
                 // Send the response with the uWS.HttpResponse.endWithoutBody() method as we have no body data
                 // NOTE: This method is completely undocumented by uWS but exists in the source code to solve the problem of no body being sent with a custom content-length
-                this.#raw_response.endWithoutBody();
+                this._raw_response.endWithoutBody();
             } else {
                 // Send the response with the uWS.HttpResponse.end(body, close_connection) method as we have some body data
-                this.#raw_response.end(body, close_connection);
+                this._raw_response.end(body, close_connection);
             }
 
             // Emit the 'finish' event to signify that the response has been sent without streaming
-            if (this._writable && !this.#streaming) this.emit('finish', this.#wrapped_request, this);
+            if (this._writable && !this._streaming) this.emit('finish', this._wrapped_request, this);
 
             // Mark request as completed as it has been sent
             this.completed = true;
 
             // Emit the 'close' event to signify that the response has been completed
-            if (this._writable) this.emit('close', this.#wrapped_request, this);
+            if (this._writable) this.emit('close', this._wrapped_request, this);
         }
 
         // Make chainable
@@ -553,12 +535,12 @@ class Response {
         let sent, finished;
         if (total_size) {
             // Attempt to stream the current chunk using uWS.tryEnd with a total size
-            const [ok, done] = this.#raw_response.tryEnd(chunk, total_size);
+            const [ok, done] = this._raw_response.tryEnd(chunk, total_size);
             sent = ok;
             finished = done;
         } else {
             // Attempt to stream the current chunk uWS.write()
-            sent = this.#raw_response.write(chunk);
+            sent = this._raw_response.write(chunk);
 
             // Since we are streaming without a total size, we are not finished
             finished = false;
@@ -585,7 +567,7 @@ class Response {
 
         // Return a Promise which resolves once the chunk has been fully sent to the client
         return new Promise((resolve) =>
-            this.#raw_response.cork(() => {
+            this._raw_response.cork(() => {
                 // Ensure the client is still connected
                 if (this.completed) return resolve();
 
@@ -687,13 +669,13 @@ class Response {
             this.completed = true;
 
             // Stop the body parser from accepting any more data
-            this.#wrapped_request._body_parser_stop();
+            this._wrapped_request._body_parser_stop();
 
             // Resume the request in case it was paused
-            this.#wrapped_request.resume();
+            this._wrapped_request.resume();
 
             // Close the underlying uWS request
-            this.#raw_response.close();
+            this._raw_response.close();
         }
     }
 
@@ -728,7 +710,7 @@ class Response {
      * @returns {Boolean} Boolean
      */
     jsonp(body, name) {
-        let query_parameters = this.#wrapped_request.query_parameters;
+        let query_parameters = this._wrapped_request.query_parameters;
         let method_name = query_parameters['callback'] || name;
         return this.type('js').send(`${method_name}(${JSON.stringify(body)})`);
     }
@@ -831,7 +813,7 @@ class Response {
         if (!(error instanceof Error)) error = new Error(`ERR_CAUGHT_NON_ERROR_TYPE: ${error}`);
 
         // Trigger the global error handler
-        this.route.app.handlers.on_error(this.#wrapped_request, this, error);
+        this.route.app.handlers.on_error(this._wrapped_request, this, error);
 
         // Return this response instance
         return this;
@@ -845,8 +827,8 @@ class Response {
      */
     get locals() {
         // Initialize locals object if it does not exist
-        if (!this.#locals) this.#locals = {};
-        return this.#locals;
+        if (!this._locals) this._locals = {};
+        return this._locals;
     }
 
     /**
@@ -855,7 +837,7 @@ class Response {
      * @returns {import('uWebSockets.js').Response}
      */
     get raw() {
-        return this.#raw_response;
+        return this._raw_response;
     }
 
     /**
@@ -880,7 +862,7 @@ class Response {
      * @returns {import('uWebSockets.js').ux_socket_context}
      */
     get upgrade_socket() {
-        return this.#upgrade_socket;
+        return this._upgrade_socket;
     }
 
     /**
@@ -891,10 +873,10 @@ class Response {
      */
     get sse() {
         // Return a new SSE instance if one has not been created yet
-        if (this.#wrapped_request.method === 'GET') {
+        if (this._wrapped_request.method === 'GET') {
             // Create new SSE instance if one has not been created yet
-            if (this.#sse === undefined) this.#sse = new SSEventStream(this);
-            return this.#sse;
+            if (this._sse === undefined) this._sse = new SSEventStream(this);
+            return this._sse;
         }
     }
 
@@ -905,7 +887,7 @@ class Response {
      * @returns {Number}
      */
     get write_offset() {
-        return this.completed ? -1 : this.#raw_response.getWriteOffset();
+        return this.completed ? -1 : this._raw_response.getWriteOffset();
     }
 
     /**

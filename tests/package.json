@@ -1,22 +1,21 @@
 {
-  "name": "hyper-express-tests",
-  "version": "1.0.0",
-  "description": "Unit/API Tests For HyperExpress",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "abort-controller": "^3.0.0",
-    "eventsource": "^2.0.0",
-    "form-data": "^4.0.0",
-    "i": "^0.3.7",
-    "node-fetch": "^2.6.6",
-    "npm": "^8.5.5",
-    "time-cost": "^1.0.0",
-    "ws": "^8.2.3",
-    "zlib": "^1.0.5"
-  }
+    "name": "hyper-express-tests",
+    "version": "1.0.0",
+    "description": "Unit/API Tests For HyperExpress",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "abort-controller": "^3.0.0",
+        "eventsource": "^2.0.0",
+        "form-data": "^4.0.0",
+        "i": "^0.3.7",
+        "node-fetch": "^2.6.6",
+        "npm": "^8.5.5",
+        "ws": "^8.2.3",
+        "zlib": "^1.0.5"
+    }
 }

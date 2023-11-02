@@ -57,7 +57,24 @@ async function test_response_headers_behavior() {
 
     // Parse the last written header as the expected value
     const EXPECTED_HEADERS = {};
-    RAW_HEADERS.forEach((header) => (EXPECTED_HEADERS[header.name] = header.value));
+    RAW_HEADERS.forEach((header) => {
+        if (EXPECTED_HEADERS[header.name]) {
+            if (Array.isArray(EXPECTED_HEADERS[header.name])) {
+                EXPECTED_HEADERS[header.name].push(header.value);
+            } else {
+                EXPECTED_HEADERS[header.name] = [EXPECTED_HEADERS[header.name], header.value];
+            }
+        } else {
+            EXPECTED_HEADERS[header.name] = header.value;
+        }
+    });
+
+    // Join all multi headers with comma whitespaces
+    for (const name in EXPECTED_HEADERS) {
+        if (Array.isArray(EXPECTED_HEADERS[name])) {
+            EXPECTED_HEADERS[name] = EXPECTED_HEADERS[name].join(', ');
+        }
+    }
 
     // Parse the last written cookie as the expected value
     const EXPECTED_COOKIES = {};

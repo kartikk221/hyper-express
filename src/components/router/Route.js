@@ -4,9 +4,9 @@ const { parse_path_parameters } = require('../../shared/operators.js');
 class Route {
     id = null;
     app = null;
-    path = null;
-    method = null;
-    pattern = null;
+    path = '';
+    method = '';
+    pattern = '';
     handler = null;
     options = null;
     streaming = null;
