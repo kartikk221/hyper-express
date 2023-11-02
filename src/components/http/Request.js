@@ -28,7 +28,6 @@ class Request {
     _remote_ip = '';
     _remote_proxy_ip = '';
     _cookies;
-    _path_parameters;
     _query_parameters;
 
     /**
@@ -55,6 +54,12 @@ class Request {
     headers = {};
 
     /**
+     * Returns path parameters from incoming request.
+     * @returns {Object.<string, string>}
+     */
+    path_parameters = {};
+
+    /**
      * Creates a new HyperExpress request instance that wraps a uWS.HttpRequest instance.
      *
      * @param {import('../router/Route.js')} route
@@ -76,13 +81,10 @@ class Request {
         raw_request.forEach((key, value) => (this.headers[key] = value));
 
         // Cache the path parameters from the route pattern if any as uWS.HttpRequest will be deallocated after this function returns
-        if (route.path_parameters_key.length) {
-            this._path_parameters = {};
-            const size = route.path_parameters_key.length;
-            for (let i = 0; i < size; i++) {
-                const [key, index] = route.path_parameters_key[i];
-                this._path_parameters[key] = raw_request.getParameter(index);
-            }
+        const size = route.path_parameters_key.length;
+        for (let i = 0; i < size; i++) {
+            const [key, index] = route.path_parameters_key[i];
+            this.path_parameters[key] = raw_request.getParameter(index);
         }
     }
 
@@ -186,7 +188,7 @@ class Request {
      */
     _body_parser_run(response, limit_bytes) {
         // Ensure that we have some incoming body data to parse based on the content-length header
-        const content_length = +this.headers['content-length'] || 0;
+        const content_length = +this.headers['content-length'];
         if (content_length > 0) {
             // Determine if this is a first run meaning we have not began parsing the body yet
             const is_first_run = this._body_expected_bytes === -1;
@@ -234,7 +236,7 @@ class Request {
             // Push an empty chunk to indicate the end of the stream
             this.push(null);
 
-            // Resume the readable stream to ensure in case it was paused
+            // Resume the readable stream to ensure in case it was paused to flush the buffered chunks
             this.resume();
         }
     }
@@ -837,14 +839,6 @@ class Request {
 
         // Return the cookies
         return this._cookies;
-    }
-
-    /**
-     * Returns path parameters from incoming request.
-     * @returns {Object.<string, string>}
-     */
-    get path_parameters() {
-        return this._path_parameters;
     }
 
     /**

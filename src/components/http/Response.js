@@ -1,4 +1,5 @@
 'use strict';
+const crypto = require('crypto');
 const cookie = require('cookie');
 const signature = require('cookie-signature');
 const status_codes = require('http').STATUS_CODES;
@@ -562,17 +563,17 @@ class Response {
      * @returns {Promise}
      */
     _stream_chunk(chunk, total_size) {
-        // Ensure this request has not been completed yet
+        // If the request has already been completed, we can resolve the promise immediately as we cannot write to the client anymore
         if (this.completed) return Promise.resolve();
 
         // Return a Promise which resolves once the chunk has been fully sent to the client
         return new Promise((resolve) =>
             this._raw_response.cork(() => {
-                // Ensure the client is still connected
+                // Ensure the client is still connected after the cork
                 if (this.completed) return resolve();
 
-                // Initiate the response to ensure status code & headers get written first
-                this._initiate_response();
+                // Initiate the response to ensure status code & headers get written first if they have not been written yet
+                if (!this.initiated) this._initiate_response();
 
                 // Remember the initial write offset for future backpressure sliced chunks
                 // Write the chunk to the client using the appropriate uWS chunk writing method
@@ -630,7 +631,7 @@ class Response {
                 // Attempt to read a chunk from the readable stream
                 let chunk = readable.read();
                 if (!chunk) {
-                    // Wait for the readable stream to emit a 'readable' event if no chunk was available
+                    // Wait for the readable stream to emit a 'readable' event if no chunk was available in our initial read attempt
                     await new Promise((resolve) => {
                         // Bind a 'end' handler in case the readable stream ends before emitting a 'readable' event
                         readable.once('end', resolve);
@@ -654,7 +655,8 @@ class Response {
             }
 
             // If we had no total size and the response is still not completed, we need to end the response
-            if (!this.completed && total_size === undefined) this.send();
+            // This is because no total size means we served with chunked encoding and we need to end the response as it is a unbounded stream
+            if (!this.completed && !total_size) this.send();
         }
     }
 
