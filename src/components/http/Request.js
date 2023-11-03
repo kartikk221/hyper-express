@@ -82,8 +82,8 @@ class Request {
         const num_path_parameters = route.path_parameters_key.length;
         if (num_path_parameters) {
             for (let i = 0; i < num_path_parameters; i++) {
-                const [key, index] = route.path_parameters_key[i];
-                this.path_parameters[key] = raw_request.getParameter(index);
+                const parts = route.path_parameters_key[i];
+                this.path_parameters[parts[0]] = raw_request.getParameter(parts[1]);
             }
         }
     }
