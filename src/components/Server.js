@@ -194,7 +194,7 @@ class Server extends Router {
 
     #routes_locked = false;
     #handlers = {
-        on_not_found: null,
+        on_not_found: (request, response) => response.status(404).send(),
         on_error: (request, response, error) => {
             // Log the error to the console
             console.error(error);
