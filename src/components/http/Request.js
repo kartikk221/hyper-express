@@ -28,6 +28,7 @@ class Request {
     _remote_ip = '';
     _remote_proxy_ip = '';
     _cookies;
+    _path_parameters;
     _query_parameters;
 
     /**
@@ -54,12 +55,6 @@ class Request {
     headers = {};
 
     /**
-     * Returns path parameters from incoming request.
-     * @returns {Object.<string, string>}
-     */
-    path_parameters = {};
-
-    /**
      * Creates a new HyperExpress request instance that wraps a uWS.HttpRequest instance.
      *
      * @param {import('../router/Route.js')} route
@@ -81,9 +76,10 @@ class Request {
         // Cache the path parameters from the route pattern if any as uWS.HttpRequest will be deallocated after this function returns
         const num_path_parameters = route.path_parameters_key.length;
         if (num_path_parameters) {
+            this._path_parameters = {};
             for (let i = 0; i < num_path_parameters; i++) {
                 const parts = route.path_parameters_key[i];
-                this.path_parameters[parts[0]] = raw_request.getParameter(parts[1]);
+                this._path_parameters[parts[0]] = raw_request.getParameter(parts[1]);
             }
         }
     }
@@ -840,6 +836,14 @@ class Request {
 
         // Return the cookies
         return this._cookies;
+    }
+
+    /**
+     * Returns path parameters from incoming request.
+     * @returns {Object.<string, string>}
+     */
+    get path_parameters() {
+        return this._path_parameters || {};
     }
 
     /**

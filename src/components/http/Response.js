@@ -88,6 +88,9 @@ class Response {
 
         // Bind the abort handler as required by uWebsockets.js for each uWS.HttpResponse to allow for async processing
         raw_response.onAborted(() => {
+            // If this request has already been initiated, as the request cannot be aborted after it has been initiated
+            if (this.initiated) return;
+
             // Mark this response as completed since the client has disconnected
             this.completed = true;
 
@@ -481,15 +484,19 @@ class Response {
                 return this._raw_response.cork(() => this.send(body, close_connection));
             }
 
-            // Attempt to initiate the response to ensure status code & headers get written first
-            // If we successfully initiated the response, stop the body parser from accepting any more data
-            if (this._initiate_response()) this._wrapped_request._body_parser_stop();
+            // Initiate the response to begin writing the status code and headers
+            this._initiate_response();
 
-            // If the request has not been fully received yet, then we must wait as othewise an ECONNRESET error will be thrown
-            if (!this._wrapped_request.received)
+            // Determine if the request still has not fully received the whole request body yet
+            if (!this._wrapped_request.received) {
+                // Instruct the request to stop accepting any more data as a response is being sent
+                this._wrapped_request._body_parser_stop();
+
+                // Wait for the request to fully receive the whole request body before sending the response
                 return this._wrapped_request.once('received', () =>
                     this._raw_response.cork(() => this.send(body, close_connection))
                 );
+            }
 
             // Determine if we have a custom content length header and no body data and were not streaming the request body
             if (!(body !== undefined || this._streaming || this._headers['content-length'])) {

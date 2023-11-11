@@ -67,7 +67,7 @@ class Route {
      * @param {Number=} cursor The middleware cursor.
      */
     handle(request, response, cursor = 0) {
-        // Do not handle the request if the response has been aborted
+        // Do not handle the request if the response has been sent aka. the request is no longer active
         if (response.completed) return;
 
         // Retrieve the middleware for the current cursor, track the cursor if there is a valid middleware
