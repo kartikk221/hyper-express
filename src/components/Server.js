@@ -60,6 +60,7 @@ class Server extends Router {
 
         // Initialize extended Router instance
         super();
+        super._is_app(true);
 
         // Store options locally for access throughout processing
         wrap_object(this.#options, options);
@@ -116,11 +117,26 @@ class Server extends Router {
     /**
      * Starts HyperExpress webserver on specified port and host.
      *
-     * @param {Number} port
-     * @param {String=} host Optional. Default: 0.0.0.0
-     * @returns {Promise} Promise
+     * @param {Number} port Required. Port to listen on. Example: 80
+     * @param {(String|function(import('uWebSockets.js').listen_socket):void)=} second Optional. Host or callback to be called when the server is listening. Default: "0.0.0.0"
+     * @param {(function(import('uWebSockets.js').us_listen_socket):void)=} third Optional. Callback to be called when the server is listening.
+     * @returns {Promise<import('uWebSockets.js').us_listen_socket>} Promise
      */
-    async listen(port, host = '0.0.0.0') {
+    async listen(port, second, third) {
+        let host = '0.0.0.0'; // Host by default is 0.0.0.0
+        let callback; // Callback may be optionally provided as second or third argument
+        if (second) {
+            // If second argument is a function then it is the callback or else it is the host
+            if (typeof second === 'function') {
+                callback = second;
+            } else {
+                host = second;
+
+                // If we have a third argument and it is a function then it is the callback
+                if (third && typeof third === 'function') callback = third;
+            }
+        }
+
         // Validate that the key and cert files exist if SSL is enabled
         if (this.#options.is_ssl) {
             // Destructure the cert and key file names from options
@@ -160,7 +176,8 @@ class Server extends Router {
                     // Bind the auto close handler if enabled from constructor options
                     if (reference.#options.auto_close) reference._bind_auto_close();
 
-                    // Resolve the listen socket
+                    // Resolve the listen socket to the promise and the callback if provided
+                    if (callback) callback(listen_socket);
                     resolve(listen_socket);
                 } else {
                     reject(
@@ -310,7 +327,7 @@ class Server extends Router {
         // We make an exception for 'upgrade' routes as they must replace the default route added by WebsocketRoute
         if (method !== 'upgrade' && this.#routes[method][pattern])
             throw new Error(
-                `HyperExpress: Failed to create route as duplicate routes are not allowed. Ensure that you do not have any routers or routes that try to handle requests at the same pattern. [${method.toUpperCase()} ${pattern}]`
+                `HyperExpress: Failed to create route as duplicate routes are not allowed. Ensure that you do not have any routers or routes that try to handle requests with the same pattern. [${method.toUpperCase()} ${pattern}]`
             );
 
         // Create a Route object to contain route information through handling process
