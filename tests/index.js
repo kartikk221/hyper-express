@@ -10,9 +10,12 @@ const { test_websocket_component } = require('./components/ws/Websocket.js');
 // const { test_body_parser_middleware } = require('./middlewares/hyper-express-body-parser/index.js');
 
 const { server } = require('./configuration.js');
-const { TEST_SERVER } = require('./components/Server.js');
+const { TEST_SERVER, not_found_handler } = require('./components/Server.js');
 (async () => {
     try {
+        // While this is effectively doing the same thing as the not_found_handler, we do not want HyperExpress to also bind its own not found handler which would throw a duplicate route error
+        TEST_SERVER.all('*', not_found_handler);
+
         // Initiate Test API Webserver
         const group = 'Server';
         const start_time = Date.now();

@@ -415,9 +415,11 @@ class Server extends Router {
      * @private
      */
     _compile() {
-        // Bind the not found handler as a catchall route
-        if (this.#handlers.on_not_found)
-            this.any('/*', (request, response) => this.#handlers.on_not_found(request, response));
+        // Bind the not found handler as a catchall route if the user did not already bind a global ANY catchall route
+        if (this.#handlers.on_not_found) {
+            const exists = this.#routes.any['/*'] !== undefined;
+            if (!exists) this.any('/*', (request, response) => this.#handlers.on_not_found(request, response));
+        }
 
         // Iterate through all routes
         Object.keys(this.#routes).forEach((method) =>
