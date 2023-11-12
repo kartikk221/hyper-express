@@ -15,29 +15,34 @@ const { merge_relative_paths } = require('../../shared/operators.js');
 
 class Router {
     #is_app = false;
+    #context_pattern;
     #subscribers = [];
     #records = {
         routes: [],
         middlewares: [],
     };
 
-    constructor() {
-        // Determine if Router is extended thus a Server instance
-        this.#is_app = this.constructor.name === 'Server';
+    constructor() {}
+
+    /**
+     * Used by the server to declare self as an app instance.
+     *
+     * @private
+     * @param {Boolean} value
+     */
+    _is_app(value) {
+        this.#is_app = value;
     }
 
     /**
-     * Returns default route options based on method.
-     *
+     * Sets context pattern for this router which will auto define the pattern of each route called on this router.
+     * This is called by the .route() returned Router instance which allows for omission of pattern to be passed to route() method.
+     * Example: Router.route('/something/else').get().post().delete() etc will all be bound to pattern '/something/else'
      * @private
-     * @param {String} method
-     * @returns {Object}
+     * @param {string} path
      */
-    _default_options(method) {
-        return {
-            streaming: {},
-            middlewares: [],
-        };
+    _set_context_pattern(path) {
+        this.#context_pattern = path;
     }
 
     /**
@@ -48,32 +53,64 @@ class Router {
      * @param {String} pattern Example: "/api/v1"
      * @param {Object} options Route processor options (Optional)
      * @param {Function} handler Example: (request, response) => {}
+     * @returns {Router} Chainable Router instance
      */
     _register_route() {
-        // Initialize property holders for building a route record
-        let method = arguments[0]; // First argument will always be the method (in lowercase)
-        let pattern = arguments[1]; // Second argument will always be the pattern
-        let options, handler;
+        // The first argument will always be the method (in lowercase)
+        const method = arguments[0];
 
-        // Look for object/function types to parse route options, potential middlewares and route handler from remaining arguments
+        // The pattern, options and handler must be dynamically parsed depending on the arguments provided and router behavior
+        let pattern, options, handler;
+
+        // Iterate through the remaining arguments to find the above values and also build an Array of middleware / handler callbacks
+        // The route handler will be the last one in the array
         const callbacks = [];
-        for (let i = 2; i < arguments.length; i++) {
-            const parameter = arguments[i];
-            if (typeof parameter == 'function') {
+        for (let i = 1; i < arguments.length; i++) {
+            const argument = arguments[i];
+
+            // The second argument should be the pattern. If it is a string, it is the pattern. If it is anything else and we do not have a context pattern, throw an error as that means we have no pattern.
+            if (i === 1) {
+                if (typeof argument === 'string') {
+                    if (this.#context_pattern) {
+                        // merge the provided pattern with the context pattern
+                        pattern = merge_relative_paths(this.#context_pattern, argument);
+                    } else {
+                        // The path is as is
+                        pattern = argument;
+                    }
+
+                    // Continue to the next argument as this is not the pattern but we have a context pattern
+                    continue;
+                } else if (!this.#context_pattern) {
+                    throw new Error(
+                        'HyperExpress.Router: Route pattern is required unless created from a chainable route instance using Route.route() method.'
+                    );
+                } else {
+                    // The path is the context pattern
+                    pattern = this.#context_pattern;
+                }
+            }
+
+            // Look for options, middlewares and handler in the remaining arguments
+            if (typeof argument == 'function') {
                 // Scenario: Single function
-                callbacks.push(parameter);
-            } else if (Array.isArray(parameter)) {
+                callbacks.push(argument);
+            } else if (Array.isArray(argument)) {
                 // Scenario: Array of functions
-                callbacks.push(...parameter);
-            } else if (parameter && typeof parameter == 'object') {
+                callbacks.push(...argument);
+            } else if (argument && typeof argument == 'object') {
                 // Scenario: Route options object
-                options = parameter;
+                options = argument;
             }
         }
 
         // Write the route handler and route options object with fallback to the default options
         handler = callbacks.pop();
-        options = options || this._default_options(method);
+        options = {
+            streaming: {},
+            middlewares: [],
+            ...(options || {}),
+        };
 
         // Make a shallow copy of the options object to avoid mutating the original
         options = Object.assign({}, options);
@@ -110,6 +147,9 @@ class Router {
 
         // Alert all subscribers of the new route that was created
         this.#subscribers.forEach((subscriber) => subscriber('route', record));
+
+        // Return this to make the Router chainable
+        return this;
     }
 
     /**
@@ -203,8 +243,15 @@ class Router {
      * If no pattern is specified, the middleware/router instance will be mounted on the '/' root path by default of this instance.
      *
      * @param {...(String|MiddlewareHandler|Router)} args (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
+     * @returns {Router} Chainable Router instance
      */
     use() {
+        // If we have a context pattern, then this is a contextual chainable router and should not allow middlewares or routers to be bound to it
+        if (this.#context_pattern)
+            throw new Error(
+                'HyperExpress.Router.use() -> Cannot bind middlewares or routers to a contextual router created using Router.route() method.'
+            );
+
         // Parse a pattern for this use call with a fallback to the local-global scope aka. '/' pattern
         const pattern = arguments[0] && typeof arguments[0] == 'string' ? arguments[0] : '/';
 
@@ -227,10 +274,13 @@ class Router {
                 // Scenario: Router instance
                 this._register_router(pattern, candidate);
             } else if (candidate && typeof candidate == 'object' && typeof candidate.middleware == 'function') {
-                // Scenario: Inferred middleware
+                // Scenario: Inferred middleware for third-party middlewares which support the Middleware.middleware property
                 this._register_middleware(pattern, candidate.middleware);
             }
         }
+
+        // Return this to make the Router chainable
+        return this;
     }
 
     /**
@@ -241,6 +291,27 @@ class Router {
      * @property {import('stream').ReadableOptions} streaming.readable Global content streaming options for Readable streams.
      * @property {import('stream').WritableOptions} streaming.writable Global content streaming options for Writable streams.
      */
+
+    /**
+     * Returns a chainable Router instance which can be used to bind multiple method routes or middlewares on the same path easily.
+     * Example: `Router.route('/api/v1').get(getHandler).post(postHandler).delete(destroyHandler)`
+     * Example: `Router.route('/api/v1').use(middleware).user(middleware2)`
+     * @param {String} pattern
+     * @returns {Router} A chainable Router instance with a context pattern set to this router's pattern.
+     */
+    route(pattern) {
+        // Ensure that the pattern is a string
+        if (!pattern || typeof pattern !== 'string')
+            throw new Error('HyperExpress.Router.route(pattern) -> pattern must be a string.');
+
+        // Create a new router instance with the context pattern set to the provided pattern
+        const router = new Router();
+        router._set_context_pattern(pattern);
+        this.use(router);
+
+        // Return the router instance to allow for chainable bindings
+        return router;
+    }
 
     /**
      * Creates an HTTP route that handles any HTTP method requests.

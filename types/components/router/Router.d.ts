@@ -29,13 +29,32 @@ export interface RouteRecord {
     handler: UserRouteHandler;
 }
 
+// Defines the type for internal middleware records
 export interface MiddlewareRecord {
     pattern: string;
     middleware: MiddlewareHandler;
 }
 
+type UsableSpreadableArguments = (string | Router | MiddlewareHandler | MiddlewareHandler[])[];
+type RouteSpreadableArguments = (
+    | string
+    | UserRouteOptions
+    | UserRouteHandler
+    | MiddlewareHandler
+    | MiddlewareHandler[]
+)[];
+
 export class Router {
     constructor();
+
+    /**
+     * Returns a chainable Router instance which can be used to bind multiple method routes or middlewares on the same path easily.
+     * Example: `Router.route('/api/v1').get(getHandler).post(postHandler).delete(destroyHandler)`
+     * Example: `Router.route('/api/v1').use(middleware).user(middleware2)`
+     * @param {String} pattern
+     * @returns {Router} A chainable Router instance with a context pattern set to this router's pattern.
+     */
+    route(pattern: string): Router;
 
     /**
      * Registers middlewares and router instances on the specified pattern if specified.
@@ -43,12 +62,7 @@ export class Router {
      *
      * @param {...(String|MiddlewareHandler|Router)} args (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
      */
-    use(router: Router): void;
-    use(...routers: Router[]): void;
-    use(...middlewares: MiddlewareHandler[]): void;
-    use(pattern: string, router: Router): void;
-    use(pattern: string, ...routers: Router[]): void;
-    use(pattern: string, ...middlewares: MiddlewareHandler[]): void;
+    use(...args: UsableSpreadableArguments): Router;
 
     /**
      * Creates an HTTP route that handles any HTTP method requests.
@@ -57,13 +71,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    any(pattern: string, handler: UserRouteHandler): void;
-    any(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    any(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    any(...args: RouteSpreadableArguments): Router;
 
     /**
      * Alias of any() method.
@@ -73,13 +81,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    all(pattern: string, handler: UserRouteHandler): void;
-    all(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    all(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    all(...args: RouteSpreadableArguments): Router;
 
     /**
      * Creates an HTTP route that handles GET method requests.
@@ -87,13 +89,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    get(pattern: string, handler: UserRouteHandler): void;
-    get(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    get(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    get(...args: RouteSpreadableArguments): Router;
 
     /**
      * Creates an HTTP route that handles POST method requests.
@@ -101,13 +97,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    post(pattern: string, handler: UserRouteHandler): void;
-    post(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    post(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    post(...args: RouteSpreadableArguments): Router;
 
     /**
      * Creates an HTTP route that handles PUT method requests.
@@ -115,13 +105,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    put(pattern: string, handler: UserRouteHandler): void;
-    put(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    put(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    put(...args: RouteSpreadableArguments): Router;
 
     /**
      * Creates an HTTP route that handles DELETE method requests.
@@ -129,13 +113,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    delete(pattern: string, handler: UserRouteHandler): void;
-    delete(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    delete(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    delete(...args: RouteSpreadableArguments): Router;
 
     /**
      * Creates an HTTP route that handles HEAD method requests.
@@ -143,13 +121,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    head(pattern: string, handler: UserRouteHandler): void;
-    head(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    head(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    head(...args: RouteSpreadableArguments): Router;
 
     /**
      * Creates an HTTP route that handles OPTIONS method requests.
@@ -157,13 +129,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    options(pattern: string, handler: UserRouteHandler): void;
-    options(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    options(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    options(...args: RouteSpreadableArguments): Router;
 
     /**
      * Creates an HTTP route that handles PATCH method requests.
@@ -171,13 +137,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    patch(pattern: string, handler: UserRouteHandler): void;
-    patch(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    patch(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    patch(...args: RouteSpreadableArguments): Router;
 
     /**
      * Creates an HTTP route that handles TRACE method requests.
@@ -185,13 +145,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    trace(pattern: string, handler: UserRouteHandler): void;
-    trace(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    trace(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    trace(...args: RouteSpreadableArguments): Router;
 
     /**
      * Creates an HTTP route that handles CONNECT method requests.
@@ -199,13 +153,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    connect(pattern: string, handler: UserRouteHandler): void;
-    connect(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    connect(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    connect(...args: RouteSpreadableArguments): Router;
 
     /**
      * Intercepts and handles upgrade requests for incoming websocket connections.
@@ -214,21 +162,15 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    upgrade(pattern: string, handler: UserRouteHandler): void;
-    upgrade(pattern: string, ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]): void;
-    upgrade(
-        pattern: string,
-        options: UserRouteOptions | MiddlewareHandler,
-        ...handlers: [MiddlewareHandler | MiddlewareHandler[], UserRouteHandler]
-    ): void;
+    upgrade(...args: RouteSpreadableArguments): Router;
 
     /**
      * @param {String} pattern
      * @param {WSRouteOptions|WSRouteHandler} options
      * @param {WSRouteHandler} handler
      */
-    ws<TUserData = unknown>(pattern: string, handler: WSRouteHandler<TUserData>): void;
-    ws<TUserData = unknown>(pattern: string, options: WSRouteOptions, handler: WSRouteHandler<TUserData>): void;
+    ws<TUserData = unknown>(pattern: string, handler: WSRouteHandler<TUserData>): Router;
+    ws<TUserData = unknown>(pattern: string, options: WSRouteOptions, handler: WSRouteHandler<TUserData>): Router;
 
     /**
      * Returns All routes in this router in the order they were registered.

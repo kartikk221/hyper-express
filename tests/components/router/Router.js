@@ -1,5 +1,6 @@
 const { log, assert_log } = require('../../scripts/operators.js');
 const { HyperExpress, fetch, server } = require('../../configuration.js');
+const { test_router_chainable_route } = require('./scenarios/chainable_routes.js');
 const { TEST_SERVER } = require('../Server.js');
 const endpoint_base = '/tests/router/echo-';
 
@@ -102,6 +103,9 @@ async function test_router_object() {
             });
         })
     );
+
+    // Test the chainable route scenario
+    await test_router_chainable_route();
 
     log(group, `Finished Testing ${candidate} In ${Date.now() - start_time}ms\n`);
 }
