@@ -5,7 +5,7 @@ import { Websocket } from '../ws/Websocket';
 import { MiddlewareHandler } from '../middleware/MiddlewareHandler';
 
 // Define types for HTTP Route Creators
-export type UserRouteHandler = (request: Request, response: Response) => any;
+export type UserRouteHandler = (request: Request, response: Response) => void;
 export interface UserRouteOptions {
     middlewares?: Array<MiddlewareHandler>;
     stream_options?: ReadableOptions;
@@ -39,7 +39,7 @@ type UsableSpreadableArguments = (string | Router | MiddlewareHandler | Middlewa
 type RouteSpreadableArguments = (
     | string
     | UserRouteOptions
-    | UserRouteHandler
+    // | UserRouteHandler - Temporarily disabled because Typescript cannot do "UserRouteHandler | MiddlewareHandler" due to the next parameter confusing it
     | MiddlewareHandler
     | MiddlewareHandler[]
 )[];
