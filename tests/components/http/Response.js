@@ -141,11 +141,11 @@ async function test_response_object() {
     // Verify .send()
     assert_log(group, candidate + '.send()', () => body1 === test_html_placeholder);
 
-    // Verify .send() with no body and custom content-length
-    await test_response_send_no_body();
-
     // Verify .send() with custom content-length header specified body
     await test_response_custom_content_length();
+
+    // Verify .send() with no body and custom content-length
+    await test_response_send_no_body();
 
     // Test Response.sse (Server-Sent Events) support
     await test_response_sse();

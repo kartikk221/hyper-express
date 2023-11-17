@@ -27,7 +27,7 @@ async function test_response_custom_content_length() {
     const received = await response.text();
 
     // Assert that the received headers all match the expected headers
-    assert_log(group, `${candidate} Custom Content-Length Body Test`, () => received === payload);
+    assert_log(group, `${candidate} Custom Content-Length With Body Test`, () => received === payload);
 }
 
 module.exports = {

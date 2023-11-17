@@ -508,15 +508,13 @@ class Response {
             // If we have no body and are not streaming and have a custom content-length header, we need to send a response without a body with the custom content-length header
             const custom_length = this._headers['content-length'];
             if (!(body !== undefined || this._streaming || !custom_length)) {
-                // Write the custom content-length header to the response
                 // We can only use one of the content-lengths, so we will use the last one if there are multiple
                 const content_length =
                     typeof custom_length == 'string' ? custom_length : custom_length[custom_length.length - 1];
-                this._raw_response.writeHeader('content-length', content_length);
 
                 // Send the response with the uWS.HttpResponse.endWithoutBody() method as we have no body data
                 // NOTE: This method is completely undocumented by uWS but exists in the source code to solve the problem of no body being sent with a custom content-length
-                this._raw_response.endWithoutBody();
+                this._raw_response.endWithoutBody(content_length, close_connection);
             } else {
                 // Send the response with the uWS.HttpResponse.end(body, close_connection) method as we have some body data
                 this._raw_response.end(body, close_connection);
