@@ -8,6 +8,7 @@ const { test_response_stream_method } = require('./scenarios/response_stream.js'
 const { test_response_chunked_write } = require('./scenarios/response_chunked_write.js');
 const { test_response_piped_write } = require('./scenarios/response_piped.js');
 const { test_response_events } = require('./scenarios/response_hooks.js');
+const { test_response_custom_content_length } = require('./scenarios/response_custom_content_length.js');
 const { test_response_sse } = require('./scenarios/response_sse.js');
 const router = new HyperExpress.Router();
 const endpoint = '/tests/response/operators';
@@ -142,6 +143,9 @@ async function test_response_object() {
 
     // Verify .send() with no body and custom content-length
     await test_response_send_no_body();
+
+    // Verify .send() with custom content-length header specified body
+    await test_response_custom_content_length();
 
     // Test Response.sse (Server-Sent Events) support
     await test_response_sse();

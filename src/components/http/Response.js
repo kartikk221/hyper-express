@@ -186,6 +186,9 @@ class Response {
      * @returns {Response} Response (Chainable)
      */
     header(name, value, overwrite) {
+        // Enforce lowercase for header name
+        name = name.toLowerCase();
+
         // Determine if this operation is an overwrite onto any existing header values
         if (overwrite) {
             // Overwrite the header value
@@ -345,9 +348,13 @@ class Response {
 
         // Iterate through all headers and write them to uWS
         for (const name in this._headers) {
+            // If this is a custom content-length header, we need to skip it as we will write it later during the response send
+            if (name == 'content-length') continue;
+
+            // Write the header value to uWS
             const values = this._headers[name];
             if (Array.isArray(values)) {
-                // Write each header value to uWS
+                // Write each individual header value to uWS as there are multiple headers
                 for (const value of values) {
                     this._raw_response.writeHeader(name, value);
                 }
@@ -498,8 +505,15 @@ class Response {
                 );
             }
 
-            // Determine if we have a custom content length header and no body data and were not streaming the request body
-            if (!(body !== undefined || this._streaming || this._headers['content-length'])) {
+            // If we have no body and are not streaming and have a custom content-length header, we need to send a response without a body with the custom content-length header
+            const custom_length = this._headers['content-length'];
+            if (!(body !== undefined || this._streaming || !custom_length)) {
+                // Write the custom content-length header to the response
+                // We can only use one of the content-lengths, so we will use the last one if there are multiple
+                const content_length =
+                    typeof custom_length == 'string' ? custom_length : custom_length[custom_length.length - 1];
+                this._raw_response.writeHeader('content-length', content_length);
+
                 // Send the response with the uWS.HttpResponse.endWithoutBody() method as we have no body data
                 // NOTE: This method is completely undocumented by uWS but exists in the source code to solve the problem of no body being sent with a custom content-length
                 this._raw_response.endWithoutBody();
