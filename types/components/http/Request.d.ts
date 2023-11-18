@@ -1,13 +1,19 @@
-import { ParsedQs } from 'qs';
 import { Readable } from 'stream';
 import { Server } from '../Server';
 import { BusboyConfig } from 'busboy';
 import { HttpRequest } from 'uWebSockets.js';
 import { Options, Ranges, Result } from 'range-parser';
-import { ParamsDictionary } from 'express-serve-static-core';
 import { MultipartHandler } from '../plugins/MultipartField';
 
 type default_value = any;
+
+interface ParamsDictionary {
+    [key: string]: string;
+}
+
+interface ParsedQs {
+    [key: string]: undefined | string | string[] | ParsedQs | ParsedQs[];
+}
 
 type DefaultRequestLocals = {
     [key: string]: any;
