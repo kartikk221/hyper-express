@@ -53,7 +53,7 @@ class Router {
      * @param {String} pattern Example: "/api/v1"
      * @param {Object} options Route processor options (Optional)
      * @param {Function} handler Example: (request, response) => {}
-     * @returns {Router} Chainable Router instance
+     * @returns {this} Chainable instance
      */
     _register_route() {
         // The first argument will always be the method (in lowercase)
@@ -180,7 +180,7 @@ class Router {
      *
      * @private
      * @param {String} pattern
-     * @param {Router} router
+     * @param {this} router
      */
     _register_router(pattern, router) {
         const reference = this;
@@ -243,10 +243,10 @@ class Router {
      * If no pattern is specified, the middleware/router instance will be mounted on the '/' root path by default of this instance.
      *
      * @param {...(String|MiddlewareHandler|Router)} args (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
-     * @returns {Router} Chainable Router instance
+     * @returns {this} Chainable instance
      */
     use() {
-        // If we have a context pattern, then this is a contextual chainable router and should not allow middlewares or routers to be bound to it
+        // If we have a context pattern, then this is a contextual Chainable and should not allow middlewares or routers to be bound to it
         if (this.#context_pattern)
             throw new Error(
                 'HyperExpress.Router.use() -> Cannot bind middlewares or routers to a contextual router created using Router.route() method.'
@@ -293,11 +293,11 @@ class Router {
      */
 
     /**
-     * Returns a chainable Router instance which can be used to bind multiple method routes or middlewares on the same path easily.
+     * Returns a Chainable instance which can be used to bind multiple method routes or middlewares on the same path easily.
      * Example: `Router.route('/api/v1').get(getHandler).post(postHandler).delete(destroyHandler)`
      * Example: `Router.route('/api/v1').use(middleware).user(middleware2)`
      * @param {String} pattern
-     * @returns {Router} A chainable Router instance with a context pattern set to this router's pattern.
+     * @returns {this} A Chainable instance with a context pattern set to this router's pattern.
      */
     route(pattern) {
         // Ensure that the pattern is a string
