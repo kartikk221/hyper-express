@@ -54,7 +54,7 @@ export class Router {
      * @param {String} pattern
      * @returns {Router} A chainable Router instance with a context pattern set to this router's pattern.
      */
-    route(pattern: string): Router;
+    route(pattern: string): this;
 
     /**
      * Registers middlewares and router instances on the specified pattern if specified.
@@ -62,7 +62,7 @@ export class Router {
      *
      * @param {...(String|MiddlewareHandler|Router)} args (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
      */
-    use(...args: UsableSpreadableArguments): Router;
+    use(...args: UsableSpreadableArguments): this;
 
     /**
      * Creates an HTTP route that handles any HTTP method requests.
@@ -71,7 +71,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    any(...args: RouteSpreadableArguments): Router;
+    any(...args: RouteSpreadableArguments): this;
 
     /**
      * Alias of any() method.
@@ -81,7 +81,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    all(...args: RouteSpreadableArguments): Router;
+    all(...args: RouteSpreadableArguments): this;
 
     /**
      * Creates an HTTP route that handles GET method requests.
@@ -89,7 +89,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    get(...args: RouteSpreadableArguments): Router;
+    get(...args: RouteSpreadableArguments): this;
 
     /**
      * Creates an HTTP route that handles POST method requests.
@@ -97,7 +97,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    post(...args: RouteSpreadableArguments): Router;
+    post(...args: RouteSpreadableArguments): this;
 
     /**
      * Creates an HTTP route that handles PUT method requests.
@@ -105,7 +105,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    put(...args: RouteSpreadableArguments): Router;
+    put(...args: RouteSpreadableArguments): this;
 
     /**
      * Creates an HTTP route that handles DELETE method requests.
@@ -113,7 +113,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    delete(...args: RouteSpreadableArguments): Router;
+    delete(...args: RouteSpreadableArguments): this;
 
     /**
      * Creates an HTTP route that handles HEAD method requests.
@@ -121,7 +121,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    head(...args: RouteSpreadableArguments): Router;
+    head(...args: RouteSpreadableArguments): this;
 
     /**
      * Creates an HTTP route that handles OPTIONS method requests.
@@ -129,7 +129,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    options(...args: RouteSpreadableArguments): Router;
+    options(...args: RouteSpreadableArguments): this;
 
     /**
      * Creates an HTTP route that handles PATCH method requests.
@@ -137,7 +137,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    patch(...args: RouteSpreadableArguments): Router;
+    patch(...args: RouteSpreadableArguments): this;
 
     /**
      * Creates an HTTP route that handles TRACE method requests.
@@ -145,7 +145,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    trace(...args: RouteSpreadableArguments): Router;
+    trace(...args: RouteSpreadableArguments): this;
 
     /**
      * Creates an HTTP route that handles CONNECT method requests.
@@ -153,7 +153,7 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    connect(...args: RouteSpreadableArguments): Router;
+    connect(...args: RouteSpreadableArguments): this;
 
     /**
      * Intercepts and handles upgrade requests for incoming websocket connections.
@@ -162,15 +162,15 @@ export class Router {
      * @param {String} pattern
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
-    upgrade(...args: RouteSpreadableArguments): Router;
+    upgrade(...args: RouteSpreadableArguments): this;
 
     /**
      * @param {String} pattern
      * @param {WSRouteOptions|WSRouteHandler} options
      * @param {WSRouteHandler} handler
      */
-    ws<TUserData = unknown>(pattern: string, handler: WSRouteHandler<TUserData>): Router;
-    ws<TUserData = unknown>(pattern: string, options: WSRouteOptions, handler: WSRouteHandler<TUserData>): Router;
+    ws<TUserData = unknown>(pattern: string, handler: WSRouteHandler<TUserData>): this;
+    ws<TUserData = unknown>(pattern: string, options: WSRouteOptions, handler: WSRouteHandler<TUserData>): this;
 
     /**
      * Returns All routes in this router in the order they were registered.
