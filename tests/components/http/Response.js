@@ -99,7 +99,11 @@ async function test_response_object() {
     assert_log(group, candidate + '.status()', () => test_status_code === response1.status);
 
     // Verify .type()
-    assert_log(group, candidate + '.type()', () => response1.headers.get('content-type') === 'text/html');
+    assert_log(
+        group,
+        candidate + '.type()',
+        () => response1.headers.get('content-type') === 'text/html; charset=utf-8'
+    );
 
     // Verify .header()
     assert_log(group, candidate + '.header()', () => response1.headers.get(header_test_name) === header_test_value);

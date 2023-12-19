@@ -173,7 +173,7 @@ class Response {
         if (mime_type[0] === '.') mime_type = mime_type.substring(1);
 
         // Determine proper mime type and send response
-        this.header('content-type', mime_types.lookup(mime_type) || 'text/plain');
+        this.header('content-type', mime_types.contentType(mime_type) || 'text/plain');
         return this;
     }
 
