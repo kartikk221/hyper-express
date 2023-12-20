@@ -30,7 +30,7 @@ async function test_livefile_object() {
     const content_length = headers['content-length'];
     assert_log(group, candidate + '.file()', () => {
         return (
-            content_type == 'text/html' &&
+            content_type == 'text/html; charset=utf-8' &&
             content_length == test_file_string.length.toString() &&
             body.length == test_file_string.length
         );

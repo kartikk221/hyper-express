@@ -1,4 +1,5 @@
 'use strict';
+const util = require('util');
 const cookie = require('cookie');
 const stream = require('stream');
 const busboy = require('busboy');
@@ -8,32 +9,31 @@ const signature = require('cookie-signature');
 const MultipartField = require('../plugins/MultipartField.js');
 const NodeRequest = require('../compatibility/NodeRequest.js');
 const ExpressRequest = require('../compatibility/ExpressRequest.js');
-const { inherit_prototype, array_buffer_to_string } = require('../../shared/operators.js');
+const {
+    inherit_prototype,
+    array_buffer_to_string,
+    copy_array_buffer_to_uint8array,
+} = require('../../shared/operators.js');
 
 class Request {
-    #locals;
-    #paused = false;
-    #request_ended = false;
-    #stream_flushing = false;
-    #stream_raw_chunks = false;
-    #raw_request = null;
-    #raw_response = null;
-    #method = '';
-    #url = '';
-    #path = '';
-    #query = '';
-    #remote_ip = '';
-    #remote_proxy_ip = '';
-    #cookies;
-    #path_parameters;
-    #query_parameters;
-    #body_limit_bytes = 0;
-    #body_expected_bytes;
-    #body_received_bytes;
-    #body_buffer;
-    #body_text;
-    #body_json;
-    #body_urlencoded;
+    _locals;
+    _paused = false;
+    _request_ended = false;
+    _raw_request = null;
+    _raw_response = null;
+    _method = '';
+    _url = '';
+    _path = '';
+    _query = '';
+    _remote_ip = '';
+    _remote_proxy_ip = '';
+    _cookies;
+    _path_parameters;
+    _query_parameters;
+
+    /**
+     * The route that this request is being handled by.
+     */
     route = null;
 
     /**
@@ -59,28 +59,27 @@ class Request {
      *
      * @param {import('../router/Route.js')} route
      * @param {import('uWebSockets.js').HttpRequest} raw_request
-     * @param {import('uWebSockets.js').HttpResponse} raw_response
      */
-    constructor(route, raw_request, raw_response) {
+    constructor(route, raw_request) {
         // Store reference to the route of this request and the raw uWS.HttpResponse instance for certain operations
         this.route = route;
-        this.#raw_request = raw_request;
-        this.#raw_response = raw_response;
+        this._raw_request = raw_request;
 
         // Cache request properties from uWS.HttpRequest as it is stack allocated and will be deallocated after this function returns
-        this.#path = raw_request.getUrl();
-        this.#query = raw_request.getQuery();
-        this.#method = route.method === 'ANY' ? raw_request.getMethod() : route.method;
+        this._query = raw_request.getQuery();
+        this._path = route.path || raw_request.getUrl();
+        this._method = route.method !== 'ANY' ? route.method : raw_request.getMethod();
 
         // Cache request headers from uWS.HttpRequest as it is stack allocated and will be deallocated after this function returns
         raw_request.forEach((key, value) => (this.headers[key] = value));
 
         // Cache the path parameters from the route pattern if any as uWS.HttpRequest will be deallocated after this function returns
-        if (route.path_parameters_key.length) {
-            this.#path_parameters = {};
-            for (let i = 0; i < route.path_parameters_key.length; i++) {
-                const [key, index] = route.path_parameters_key[i];
-                this.#path_parameters[key] = raw_request.getParameter(index);
+        const num_path_parameters = route.path_parameters_key.length;
+        if (num_path_parameters) {
+            this._path_parameters = {};
+            for (let i = 0; i < num_path_parameters; i++) {
+                const parts = route.path_parameters_key[i];
+                this._path_parameters[parts[0]] = raw_request.getParameter(parts[1]);
             }
         }
     }
@@ -93,7 +92,7 @@ class Request {
      * @returns {import('uWebSockets.js').HttpRequest}
      */
     get raw() {
-        return this.#raw_request;
+        return this._raw_request;
     }
 
     /**
@@ -103,10 +102,10 @@ class Request {
     pause() {
         // Ensure there is content being streamed before pausing
         // Ensure that the stream is currently not paused before pausing
-        if (!this.#paused && !this._stream_forbidden()) {
-            this.#paused = true;
-            this.#raw_response.pause();
-            return this._super_pause();
+        if (!this._paused) {
+            this._paused = true;
+            this._raw_response.pause();
+            if (this._readable) return this._super_pause();
         }
         return this;
     }
@@ -118,10 +117,10 @@ class Request {
     resume() {
         // Ensure there is content being streamed before resuming
         // Ensure that the stream is currently paused before resuming
-        if (this.#paused && !this._stream_forbidden()) {
-            this.#paused = false;
-            this.#raw_response.resume();
-            return this._super_resume();
+        if (this._paused) {
+            this._paused = false;
+            this._raw_response.resume();
+            if (this._readable) return this._super_resume();
         }
         return this;
     }
@@ -164,363 +163,429 @@ class Request {
         if (unsigned_value !== false) return unsigned_value;
     }
 
-    /**
-     * Handles ending of the Response if limit is reached.
-     *
-     * @private
-     * @param {import('./Response.js')} response
-     * @param {Boolean} flushed
-     */
-    _on_limit_response(response, flushed) {
-        // Determine if the response has not been initiated yet
-        if (!response.initiated) {
-            // Abort the request instantly as user has specified usage of fast abort
-            if (this.route.app._options.fast_abort) {
-                response.close();
-            } else if (flushed) {
-                // Send a 413 response if the incoming data has been flushed
-                response.status(413).send();
-            }
-        }
-    }
+    /* Body Parsing */
+    _body_parser_mode = 0; // 0 = none (awaiting mode), 1 = buffering (internal use), 2 = streaming (external use)
+    _body_limit_bytes = 0;
+    _body_received_bytes = 0;
+    _body_expected_bytes = -1; // We initialize this to -1 as we will use this to ensure the uWS.HttpResponse.onData() is only called once
+    _body_parser_flushing = false;
+    _body_parser_buffered; // This will hold the buffered chunks until the user decides to internally or externally consume the body data
+    _body_parser_passthrough; // This will be a passthrough chunk acceptor callback used by internal body parsers
 
     /**
-     * Returns whether body streaming is forbidden for this request.
-     *
-     * @private
-     * @returns {Boolean}
-     */
-    _stream_forbidden() {
-        return this.#request_ended || this.#stream_flushing;
-    }
-
-    /**
-     * Returns whether the incoming body stream has exceeded the allowed limit in received data bytes.
-     *
-     * @private
-     * @returns {Boolean}
-     */
-    _stream_limit_exhausted() {
-        return this.#body_limit_bytes && this.#body_received_bytes > this.#body_limit_bytes;
-    }
-
-    /**
-     * Streams the incoming request body with a limit of the provided bytes.
+     * Begins parsing the incoming request body data within the provided limit in bytes.
      * NOTE: This method will be a no-op if there is no expected body based on the content-length header.
-     * NOTE: This method will mark this request to emit the 'limit' event when the bytes limit is reached.
-     * NOTE: This method can be called multiple times to update the bytes limit during the streaming process.
+     * NOTE: This method can be called multiple times to update the bytes limit during the parsing process process.
      *
      * @private
      * @param {import('./Response.js')} response
      * @param {Number} bytes
-     * @returns {Boolean} Returns whether this request will be providing viable body data.
+     * @returns {Boolean} Returns whether this request is within the bytes limit and should be handled further.
      */
-    _stream_with_limit(response, bytes) {
-        // Ensure body streaming is not forbidden for this request
-        if (!this._stream_forbidden()) {
-            // Set the body limit in bytes
-            this.#body_limit_bytes = bytes;
+    _body_parser_run(response, limit_bytes) {
+        // Parse the content length into a number to ensure we have some body data to parse
+        // Even though it can be NaN, the > 0 check will handle this case and ignore NaN
+        const content_length = Number(this.headers['content-length']);
+        if (content_length > 0) {
+            // Determine if this is a first run meaning we have not began parsing the body yet
+            const is_first_run = this._body_expected_bytes === -1;
 
-            // Initialize the expected body size if it hasn't been yet
-            if (this.#body_expected_bytes === undefined)
-                this.#body_expected_bytes = +this.headers['content-length'] || 0;
+            // Update the limit and expected body bytes as these will be used to check if we are within the limit
+            this._body_limit_bytes = limit_bytes;
+            this._body_expected_bytes = content_length;
 
-            // Determine if we have some expected body bytes to stream
-            if (this.#body_expected_bytes > 0) {
-                // Initialize the body flushed to false as we are expecting some data
+            // Determine if this is a first time body parser run
+            if (is_first_run) {
+                // Set the request body to not received as we have some body data to parse
                 this.received = false;
 
-                // Determine if the expected body bytes is greater than the specified body limit in bytes
-                if (this.#body_expected_bytes > this.#body_limit_bytes) {
-                    // Mark the incoming body data to be flushed
-                    this.#stream_flushing = true;
-                    if (this._readable) this.emit('limit', this.#body_received_bytes, this.received);
-                    this._on_limit_response(response, this.received);
-                    this._stop_streaming();
+                // Ensure future runs do not trigger the handling process
+                this._body_received_bytes = 0;
+
+                // Initialize the array which will buffer the incoming chunks until a different parser mode is requested aka. user does something with the data
+                this._body_parser_buffered = [];
+
+                // Bind the uWS.HttpResponse.onData() event handler to begin accepting incoming body data
+                this._raw_response.onData((chunk, is_last) => this._body_parser_on_chunk(response, chunk, is_last));
+            }
+
+            // Enforce the limit as we may have a different limit than the previous run
+            this._body_parser_enforce_limit(response);
+        }
+
+        // Return whether the body parser is actively parsing the incoming body data
+        return !this._body_parser_flushing;
+    }
+
+    /**
+     * Stops the body parser from accepting any more incoming body data.
+     * @private
+     */
+    _body_parser_stop() {
+        // Return if we have no expected body length or already flushing the body
+        if (this._body_expected_bytes === -1 || this._body_parser_flushing) return;
+
+        // Mark the body parser as flushing to prevent any more incoming body data from being accepted
+        this._body_parser_flushing = true;
+
+        // Determine if we have a readable stream
+        if (this._readable) {
+            // Push an empty chunk to indicate the end of the stream
+            this.push(null);
+
+            // Resume the readable stream to ensure in case it was paused to flush the buffered chunks
+            this.resume();
+        }
+    }
+
+    /**
+     * Checks if the body parser so far is within the bytes limit and triggers the limit handling if reached.
+     *
+     * @private
+     * @param {import('./Response.js')} response
+     * @returns {Boolean} Returns `true` when the body limit has been reached.
+     */
+    _body_parser_enforce_limit(response) {
+        // Determine if we have more incoming bytes than the limit allows for
+        const incoming_bytes = Math.max(this._body_received_bytes, this._body_expected_bytes);
+        if (incoming_bytes > this._body_limit_bytes) {
+            // Stop the body parser from accepting any more incoming body data
+            this._body_parser_stop();
+
+            // Determine if we have not began sending a response yet and hence must send a response as soon as we can
+            if (!response.initiated) {
+                // If the server is instructed to do fast aborts, we will close the request immediately
+                if (this.route.app._options.fast_abort) {
+                    response.close();
+                } else if (this.received) {
+                    // Otherwise, we will send a HTTP 413 Payload Too Large response once the request body has been fully flushed aka. received
+                    response.status(413).send();
                 }
+            }
 
-                // Begin streaming incoming body chunks if we have not initialized a body received bytes counter yet
-                if (this.#body_received_bytes == undefined && !this.readableEnded) {
-                    // Initialize the body received bytes counter
-                    this.#body_received_bytes = 0;
+            return true;
+        }
 
-                    // Overwrite the underlying readable _read handler to resume the request when more chunks are requested
-                    this._readable._read = () => this.resume();
+        return false;
+    }
 
-                    // Bind a uWS.Response.onData() handler which will provide incoming raw body chunks from uWS
-                    this.#raw_response.onData((array_buffer, is_last) => {
-                        // Determine if this is the last chunk from uWS
-                        if (is_last) {
-                            // Mark the request body as flushed
-                            this.received = true;
+    /**
+     * Processes incoming raw body data chunks from the uWS HttpResponse.
+     *
+     * @private
+     * @param {import('./Response.js')} response
+     * @param {ArrayBuffer} chunk
+     * @param {Boolean} is_last
+     */
+    _body_parser_on_chunk(response, chunk, is_last) {
+        // If this chunk has no length and is not the last chunk, we will ignore it
+        if (!chunk.byteLength && !is_last) return;
 
-                            // Emit a final 'limit' event if we have crossed the body limit in bytes or the stream flushing
-                            if (this._stream_limit_exhausted() || this.#stream_flushing) {
-                                // Emit the 'limit' event with the body flushed flag
-                                this.emit('limit', this.#body_received_bytes, this.received);
-                                this._on_limit_response(response, this.received);
-                                this._stop_streaming();
-                            } else {
-                                // Emit a 'received' event that indicates the request body has been fully received
-                                this.emit('received', this.#body_received_bytes);
-                            }
-                        }
+        // Increment the received bytes counter by the byteLength of the incoming chunk
+        this._body_received_bytes += chunk.byteLength;
 
-                        // Determine if streaming is still allowed for this request
-                        if (!this._stream_forbidden()) {
-                            // Determine if we have direct consumers from the 'data' event
-                            const raw_listeners = this.listenerCount('data');
+        // Determine if the body parser is active / not flushing
+        if (!this._body_parser_flushing) {
+            // Enforce the body parser limit as the number of incoming bytes may have exceeded the limit
+            const limited = this._body_parser_enforce_limit(response);
+            if (!limited) {
+                // Process this chunk depending on the current body parser mode
+                switch (this._body_parser_mode) {
+                    // Awaiting mode - Awaiting the user to do something with the incoming body data
+                    case 0:
+                        // Buffer a COPIED Uint8Array chunk from the uWS volatile ArrayBuffer chunk
+                        this._body_parser_buffered.push(copy_array_buffer_to_uint8array(chunk));
 
-                            // Convert the incoming temporary ArrayBuffer to a Buffer
-                            let buffer;
-                            if (raw_listeners > 0 && this.#stream_raw_chunks) {
-                                // Store a direct Buffer reference as we have some consumer requesting raw chunks
-                                buffer = Buffer.from(array_buffer);
-                            } else {
-                                // Store a copy of the array_buffer as we have no immediate consumer yet
-                                // If we do not copy, this chunk will be lost in stream queue as it will be deallocated by uWS
-                                buffer = Buffer.concat([Buffer.from(array_buffer)]);
-                            }
+                        // If we have exceeded the Server.options.max_body_buffer number of buffered bytes, then pause the request to prevent more buffering
+                        if (this._body_received_bytes > this.app._options.max_body_buffer) this.pause();
+                        break;
+                    // Buffering mode - Internal use only
+                    case 1:
+                        // Pass through the uWS volatile ArrayBuffer chunk to the passthrough callback as a volatile Uint8Array chunk
+                        this._body_parser_passthrough(new Uint8Array(chunk), is_last);
+                        break;
+                    // Streaming mode - External use only
+                    case 2:
+                        // Attempt to push a COPIED Uint8Array chunk from the uWS volatile ArrayBuffer chunk to the readable stream
+                        // Pause the request if we have reached the highWaterMark to prevent backpressure
+                        if (!this.push(copy_array_buffer_to_uint8array(chunk))) this.pause();
 
-                            // Increment the body received bytes counter
-                            this.#body_received_bytes += buffer.byteLength;
-
-                            // Push the incoming chunk into readable stream for consumption
-                            // Pause the uWS request if our stream is backed up
-                            if (!this.push(buffer)) this.pause();
-
-                            // Determine if this is the last chunk from uWS
-                            if (is_last) {
-                                // Push a null chunk signaling an EOF to the stream to end
-                                this.push(null);
-
-                                // Determine if we have crossed the body limit in bytes
-                            } else if (this._stream_limit_exhausted()) {
-                                // Emit the 'limit' event with the body flushed flag
-                                this.emit('limit', this.#body_received_bytes, this.received);
-                                this._on_limit_response(response, this.received);
-                                this._stop_streaming();
-                            }
-                        }
-                    });
+                        // If this is the last chunk, push a null chunk to indicate the end of the stream
+                        if (is_last) this.push(null);
+                        break;
                 }
             }
         }
 
-        // Return whether an active stream is processing incoming body data
-        return !this.#stream_flushing;
+        // Determine if this is the last chunk of the incoming body data to perform final closing operations
+        if (is_last) {
+            // Mark the request as fully received as we have flushed all incoming body data
+            this.received = true;
+
+            // Emit the 'received' event that indicates how many bytes were received in total from the incoming body
+            if (this._readable) this.emit('received', this._body_received_bytes);
+
+            // Enforce the body parser limit one last time in case the request is waiting for the body to be flushed before sending a response
+            if (this._body_parser_flushing) this._body_parser_enforce_limit(response);
+        }
     }
 
     /**
-     * Marks the request to flush any remaining body data from the client.
+     * Flushes the buffered chunks to the appropriate body parser mode.
      * @private
      */
-    _stream_flush() {
-        // Ensure the request stream is not already foridden
-        if (this._stream_forbidden()) return;
+    _body_parser_flush_buffered() {
+        // Determine if we have any buffered chunks
+        if (this._body_parser_buffered) {
+            // Determine the body parser mode to flush the buffered chunks to
+            switch (this._body_parser_mode) {
+                // Buffering mode - Internal use only
+                case 1:
+                    // Iterate over the buffered chunks and pass them to the passthrough callback
+                    for (let i = 0; i < this._body_parser_buffered.length; i++) {
+                        this._body_parser_passthrough(
+                            this._body_parser_buffered[i],
+                            i === this._body_parser_buffered.length - 1 ? this.received : false
+                        );
+                    }
+                    break;
+                // Streaming mode - External use only
+                case 2:
+                    // Iterate over the buffered chunks and push them to the readable stream
+                    for (const chunk of this._body_parser_buffered) {
+                        // Convert Uint8Array into a Buffer chunk
+                        const buffer = Buffer.from(chunk);
 
-        // Mark this request stream to be flushed
-        this.#stream_flushing = true;
+                        // Push the buffer to the readable stream
+                        // We will ignore the return value as we are not handling backpressure here
+                        this.push(buffer);
+                    }
 
-        // Resume the request and body stream stream if paused
+                    // If the request has been received at this point already, we must also push a null chunk to indicate the end of the stream
+                    if (this.received) this.push(null);
+                    break;
+            }
+        }
+
+        // Deallocate the buffered chunks array as they are no longer needed
+        this._body_parser_buffered = null;
+
+        // Resume the request in case we had paused the request due to having reached the max_body_buffer for this request
         this.resume();
     }
 
     /**
-     * Marks the request to end the body stream.
+     * This method is called when the underlying Readable stream is initialized and begins expecting incoming data.
      * @private
-     * @returns {Request}
      */
-    _stop_streaming() {
-        // Push an EOF chunk to the body stream signifying the end of the stream
-        if (this._readable && !this.readableEnded) this.push(null);
+    _body_parser_stream_init() {
+        // Set the body parser mode to stream mode
+        this._body_parser_mode = 2;
 
-        // Mark the stream as ended so all incoming chunks will be ignored from uWS.HttpResponse.onData() handler
-        this.#request_ended = true;
-        return this;
+        // Overwrite the underlying readable _read handler to resume the request when more chunks are requested
+        // This will properly handle backpressure and prevent the request from being paused forever
+        this._readable._read = () => this.resume();
+
+        // Flush the buffered chunks to the readable stream if we have any
+        this._body_parser_flush_buffered();
     }
 
-    #buffer_promise;
-
+    _data_promise;
     /**
-     * Initiates body buffer download process by consuming the request readable stream.
-     *
+     * Returns a single Uint8Array buffer which contains all incoming body data.
      * @private
-     * @param {Number} content_length
-     * @returns {Promise}
+     * @returns {Promise<Uint8Array>}
      */
-    _download_buffer(content_length) {
-        // Return pending buffer promise if in flight already
-        if (this.#buffer_promise) return this.#buffer_promise;
+    _body_parser_get_received_data() {
+        // Return the current promise if it exists
+        if (this._data_promise) return this._data_promise;
 
-        // Resolve an empty buffer instantly if we have no readable body stream
-        if (this.readableEnded) {
-            this.#body_buffer = Buffer.from('');
-            return Promise.resolve(this.#body_buffer);
-        }
+        // If we have no expected body length, we will return an empty buffer
+        if (this._body_expected_bytes <= 0) return Promise.resolve(new Uint8Array(0));
 
-        // Mark this instance to provide raw buffers through readable stream
-        // Note! Only do this if we are not using the alien uWS mode in which uWebsocket.js will run on a faster event loop
-        this.#stream_raw_chunks = process.env['ALIEN_UWS'] === undefined;
+        // Create a new promise which will be resolved once all incoming body data has been received
+        this._data_promise = new Promise((resolve) => {
+            // Initialize the body Uint8Array buffer based on the expected body length
+            const buffer = new Uint8Array(this._body_expected_bytes);
 
-        // Initiate a buffer promise with chunk retrieval process
-        const reference = this;
-        this.#buffer_promise = new Promise((resolve) => {
-            // Allocate an empty body buffer to store all incoming chunks depending on buffering scheme
-            const use_fast_buffers = reference.route.app._options.fast_buffers;
-            const body = {
-                cursor: 0,
-                buffer: Buffer[use_fast_buffers ? 'allocUnsafe' : 'alloc'](content_length),
+            // Set the body parser mode to buffering mode
+            this._body_parser_mode = 1;
+
+            // Define a passthrough callback which will be called for each incoming chunk
+            let offset = 0;
+            this._body_parser_passthrough = (chunk, is_last) => {
+                // Write the chunk into the body buffer at the current offset
+                buffer.set(chunk, offset);
+
+                // Increment the offset by the byteLength of the incoming chunk
+                offset += chunk.byteLength;
+
+                // If this is the last chunk, call the callback with the body buffer
+                if (is_last) resolve(buffer);
             };
 
-            // Drain any previously buffered data from the readable request stream
-            if (reference.readableLength > 0) {
-                // Copy the buffered chunk from stream into our body buffer
-                const chunk = reference.read(reference.readableLength);
-                chunk.copy(body.buffer, body.cursor, 0, chunk.byteLength);
-
-                // Increment the cursor by the byteLength to remember our write position
-                body.cursor += chunk.byteLength;
-            }
-
-            // Resolve our body buffer if we have no more future chunks to read
-            if (reference.readableEnded) return resolve(body.buffer);
-
-            // Begin consuming future chunks from the readable request stream
-            let downloaded = false;
-            reference.on('data', (chunk) => {
-                // Copy the temporary chunk from uWS into our body buffer
-                chunk.copy(body.buffer, body.cursor, 0, chunk.byteLength);
-
-                // Increment the cursor by the byteLength to remember our write position
-                body.cursor += chunk.byteLength;
-            });
-
-            // Resolve an empty buffer if we hit the body limit in bytes
-            reference.once('limit', (received_bytes, flushed) => {
-                // Ensure a buffer has not been downloaded yet
-                if (flushed && !downloaded) {
-                    // Mark the buffer as downloaded
-                    downloaded = true;
-
-                    // Cache and resolve an empty buffer
-                    reference.#body_buffer = Buffer.from('');
-                    resolve(reference.#body_buffer);
-                }
-            });
-
-            // Resolve the filled body buffer once the readable stream has finished
-            reference.once('end', () => {
-                // Ensure a buffer has not been downloaded yet
-                if (!reference._stream_limit_exhausted() && !downloaded) {
-                    // Mark the buffer as downloaded
-                    downloaded = true;
-
-                    // Resolve the body buffer
-                    resolve(body.buffer);
-                }
-            });
-
-            // We must directly resume the readable stream to make it begin accepting data
-            this._super_resume();
+            // Flush the buffered chunks to the passthrough callback if we have any
+            this._body_parser_flush_buffered();
         });
 
-        // Bind a then handler for caching the downloaded buffer
-        this.#buffer_promise.then((buffer) => (this.#body_buffer = buffer));
-
-        // Return the buffer promise
-        return this.#buffer_promise;
+        // Return the data promise
+        return this._data_promise;
     }
 
+    _body_buffer;
+    _buffer_promise;
     /**
-     * Downloads and returns request body as a Buffer.
+     * Returns the incoming request body as a Buffer.
      * @returns {Promise<Buffer>}
      */
     buffer() {
         // Check cache and return if body has already been parsed
-        if (this.#body_buffer) return Promise.resolve(this.#body_buffer);
+        if (this._body_buffer) return Promise.resolve(this._body_buffer);
 
-        // Resolve empty if invalid content-length header detected
-        const content_length = +this.headers['content-length'];
-        if (isNaN(content_length) || content_length < 1) {
-            this.#body_buffer = Buffer.from('');
-            return Promise.resolve(this.#body_buffer);
+        // We have no expected body length, hence we will return an empty buffer
+        if (this._body_expected_bytes <= 0) {
+            this._body_buffer = Buffer.from('');
+            return Promise.resolve(this._body_buffer);
         }
 
-        // Initiate buffer download
-        return this._download_buffer(content_length);
+        // Initialize the buffer promise if it does not exist
+        this._buffer_promise = new Promise((resolve) =>
+            this._body_parser_get_received_data().then((raw) => {
+                // Convert the Uint8Array buffer into a Buffer
+                this._body_buffer = Buffer.from(raw);
+
+                // Resolve the buffer promise with the body buffer
+                resolve(this._body_buffer);
+            })
+        );
+
+        // Return the buffer promise
+        return this._buffer_promise;
     }
 
+    /**
+     * Decodes the incoming request body as a String.
+     * @private
+     * @param {Uint8Array} uint8
+     * @param {string} encoding
+     * @returns {string}
+     */
+    _uint8_to_string(uint8, encoding = 'utf-8') {
+        const decoder = new util.TextDecoder(encoding);
+        return decoder.decode(uint8);
+    }
+
+    _body_text;
+    _text_promise;
     /**
      * Downloads and parses the request body as a String.
      * @returns {Promise<string>}
      */
-    async text() {
+    text() {
         // Resolve from cache if available
-        if (this.#body_text) return this.#body_text;
+        if (this._body_text) return Promise.resolve(this._body_text);
 
-        // Retrieve body buffer, convert to string, cache and resolve
-        this.#body_text = (this.#body_buffer || (await this.buffer())).toString();
-        return this.#body_text;
-    }
-
-    /**
-     * Parses JSON from provided string.
-     * Resolves default_value or throws exception on failure.
-     *
-     * @private
-     * @param {String} string
-     * @param {Any} default_value
-     * @returns {Any}
-     */
-    _parse_json(string, default_value) {
-        // Unsafely parse JSON as we do not have a default_value
-        if (default_value == undefined) return JSON.parse(string);
-
-        // Safely parse JSON as we have a default_value
-        let json;
-        try {
-            json = JSON.parse(string);
-        } catch (error) {
-            return default_value;
+        // If we have no expected body length, we will return an empty string
+        if (this._body_expected_bytes <= 0) {
+            this._body_text = '';
+            return Promise.resolve(this._body_text);
         }
-        return json;
+
+        // Initialize the text promise if it does not exist
+        this._text_promise = new Promise((resolve) =>
+            this._body_parser_get_received_data().then((raw) => {
+                // Decode the Uint8Array buffer into a String
+                this._body_text = this._uint8_to_string(raw);
+
+                // Resolve the text promise with the body text
+                resolve(this._body_text);
+            })
+        );
+
+        // Return the text promise
+        return this._text_promise;
     }
 
+    _body_json;
+    _json_promise;
     /**
      * Downloads and parses the request body as a JSON object.
      * Passing default_value as undefined will lead to the function throwing an exception if invalid JSON is received.
      *
      * @param {Any=} default_value Default: {}
-     * @returns {Promise}
+     * @returns {Promise<Record>}
      */
-    async json(default_value = {}) {
+    json(default_value = {}) {
         // Return from cache if available
-        if (this.#body_json) return this.#body_json;
+        if (this._body_json) return Promise.resolve(this._body_json);
 
-        // Retrieve body as text, safely parse json, cache and resolve
-        let text = this.#body_text || (await this.text());
-        this.#body_json = this._parse_json(text, default_value);
-        return this.#body_json;
+        // If we have no expected body length, we will return the default value
+        if (this._body_expected_bytes <= 0) {
+            this._body_json = default_value;
+            return Promise.resolve(this._body_json);
+        }
+
+        // Initialize the json promise if it does not exist
+        this._json_promise = new Promise((resolve) =>
+            this._body_parser_get_received_data().then((raw) => {
+                // Decode the Uint8Array buffer into a String
+                const text = this._uint8_to_string(raw);
+                try {
+                    // Parse the text as JSON
+                    this._body_json = JSON.parse(text);
+                } catch (error) {
+                    if (default_value) {
+                        // Use the default value if provided
+                        this._body_json = default_value;
+                    } else {
+                        throw error;
+                    }
+                }
+
+                // Resolve the json promise with the body json
+                resolve(this._body_json);
+            })
+        );
+
+        // Return the json promise
+        return this._json_promise;
     }
 
+    _body_urlencoded;
+    _urlencoded_promise;
     /**
      * Parses and resolves an Object of urlencoded values from body.
-     * @returns {Promise}
+     * @returns {Promise<Record>}
      */
-    async urlencoded() {
+    urlencoded() {
         // Return from cache if available
-        if (this.#body_urlencoded) return this.#body_urlencoded;
+        if (this._body_urlencoded) return Promise.resolve(this._body_urlencoded);
 
-        // Retrieve text body, parse as a query string, cache and resolve
-        this.#body_urlencoded = querystring.parse(this.#body_text || (await this.text()));
+        // If we have no expected body length, we will return an empty object
+        if (this._body_expected_bytes <= 0) {
+            this._body_urlencoded = {};
+            return Promise.resolve(this._body_urlencoded);
+        }
 
-        // Return the cached urlencoded body
-        return this.#body_urlencoded;
+        // Initialize the urlencoded promise if it does not exist
+        this._urlencoded_promise = new Promise((resolve) =>
+            this._body_parser_get_received_data().then((raw) => {
+                // Decode the Uint8Array buffer into a String
+                const text = this._uint8_to_string(raw);
+
+                // Parse the text as urlencoded
+                this._body_urlencoded = querystring.parse(text);
+
+                // Resolve the urlencoded promise with the body urlencoded
+                resolve(this._body_urlencoded);
+            })
+        );
+
+        // Return the urlencoded promise
+        return this._urlencoded_promise;
     }
 
-    #multipart_promise;
-
+    _multipart_promise;
     /**
      * Handles incoming multipart fields from uploader and calls user specified handler with MultipartField.
      *
@@ -531,19 +596,16 @@ class Request {
      * @param {Object} info
      */
     async _on_multipart_field(handler, name, value, info) {
-        // Do not handle fields if streaming is forbidden
-        if (this._stream_forbidden()) return;
-
         // Create a MultipartField instance with the incoming information
         const field = new MultipartField(name, value, info);
 
         // Check if a field is being handled by the user across a different exeuction
-        if (this.#multipart_promise instanceof Promise) {
+        if (this._multipart_promise instanceof Promise) {
             // Pause the request to prevent more fields from being received
             this.pause();
 
             // Wait for this field to be handled
-            await this.#multipart_promise;
+            await this._multipart_promise;
 
             // Resume the request to accept more fields
             this.resume();
@@ -553,13 +615,13 @@ class Request {
         const output = handler(field);
         if (output instanceof Promise) {
             // Store the promise, so concurrent multipart fields can wait for it
-            this.#multipart_promise = output;
+            this._multipart_promise = output;
 
             // Hold the current exectution context until the promise resolves
-            await this.#multipart_promise;
+            await this._multipart_promise;
 
             // Clear the promise reference
-            this.#multipart_promise = null;
+            this._multipart_promise = null;
         }
 
         // Flush this field's file stream if it has not been consumed by the user in the handler execution
@@ -641,8 +703,8 @@ class Request {
                     resolve();
                 }
 
-                // Stop streaming the request body
-                reference._stop_streaming();
+                // Stop the body parser from accepting any more incoming body data
+                reference._body_parser_stop();
 
                 // Destroy the uploader instance
                 uploader.destroy();
@@ -675,10 +737,10 @@ class Request {
             // Bind a 'finish' event handler to resolve the upload promise
             uploader.once('close', () => {
                 // Wait for any pending multipart handler exeuction to complete
-                if (reference.#multipart_promise) {
+                if (reference._multipart_promise) {
                     // Wait for the pending promise to resolve
                     // Use an anonymous callback for the .then() to prevent finish() from receving a resolved value which would lead to an error finish
-                    reference.#multipart_promise.then(() => finish()).catch(finish);
+                    reference._multipart_promise.then(() => finish()).catch(finish);
                 } else {
                     finish();
                 }
@@ -697,8 +759,8 @@ class Request {
      */
     get locals() {
         // Initialize locals object if it does not exist
-        if (!this.#locals) this.#locals = {};
-        return this.#locals;
+        if (!this._locals) this._locals = {};
+        return this._locals;
     }
 
     /**
@@ -714,7 +776,7 @@ class Request {
      * @returns {Boolean}
      */
     get paused() {
-        return this.#paused;
+        return this._paused;
     }
 
     /**
@@ -723,7 +785,7 @@ class Request {
      */
     get method() {
         // Enforce uppercase for the returned method value
-        const uppercase = this.#method.toUpperCase();
+        const uppercase = this._method.toUpperCase();
 
         // For some reason, uWebsockets.js populates DELETE requests as DEL hence this translation
         return uppercase === 'DEL' ? 'DELETE' : uppercase;
@@ -735,13 +797,13 @@ class Request {
      */
     get url() {
         // Return from cache if available
-        if (this.#url) return this.#url;
+        if (this._url) return this._url;
 
         // Parse the incoming request url
-        this.#url = this.#path + (this.#query ? '?' + this.#query : '');
+        this._url = this._path + (this._query ? '?' + this._query : '');
 
         // Return the url
-        return this.#url;
+        return this._url;
     }
 
     /**
@@ -749,7 +811,7 @@ class Request {
      * @returns {String}
      */
     get path() {
-        return this.#path;
+        return this._path;
     }
 
     /**
@@ -757,7 +819,7 @@ class Request {
      * @returns {String}
      */
     get path_query() {
-        return this.#query;
+        return this._query;
     }
 
     /**
@@ -766,14 +828,14 @@ class Request {
      */
     get cookies() {
         // Return from cache if already parsed once
-        if (this.#cookies) return this.#cookies;
+        if (this._cookies) return this._cookies;
 
         // Parse cookies from Cookie header and cache results
         const header = this.headers['cookie'];
-        this.#cookies = header ? cookie.parse(header) : {};
+        this._cookies = header ? cookie.parse(header) : {};
 
         // Return the cookies
-        return this.#cookies;
+        return this._cookies;
     }
 
     /**
@@ -781,7 +843,7 @@ class Request {
      * @returns {Object.<string, string>}
      */
     get path_parameters() {
-        return this.#path_parameters;
+        return this._path_parameters || {};
     }
 
     /**
@@ -790,11 +852,11 @@ class Request {
      */
     get query_parameters() {
         // Return from cache if already parsed once
-        if (this.#query_parameters) return this.#query_parameters;
+        if (this._query_parameters) return this._query_parameters;
 
         // Parse query using querystring and cache results
-        this.#query_parameters = querystring.parse(this.#query);
-        return this.#query_parameters;
+        this._query_parameters = querystring.parse(this._query);
+        return this._query_parameters;
     }
 
     /**
@@ -804,10 +866,10 @@ class Request {
      */
     get ip() {
         // Resolve IP from cache if already resolved
-        if (this.#remote_ip) return this.#remote_ip;
+        if (this._remote_ip) return this._remote_ip;
 
         // Ensure request has not ended yet
-        if (this.#request_ended)
+        if (this._request_ended)
             throw new Error('HyperExpress.Request.ip cannot be consumed after the Request/Response has ended.');
 
         // Determine if we can trust intermediary proxy servers and have a x-forwarded-for header
@@ -815,14 +877,14 @@ class Request {
         const trust_proxy = this.route.app._options.trust_proxy;
         if (trust_proxy && x_forwarded_for) {
             // The first IP in the x-forwarded-for header is the client IP if we trust proxies
-            this.#remote_ip = x_forwarded_for.split(',')[0];
+            this._remote_ip = x_forwarded_for.split(',')[0];
         } else {
             // Use the uWS detected connection IP address as a fallback
-            this.#remote_ip = array_buffer_to_string(this.#raw_response.getRemoteAddressAsText());
+            this._remote_ip = array_buffer_to_string(this._raw_response.getRemoteAddressAsText());
         }
 
         // Return Remote IP
-        return this.#remote_ip;
+        return this._remote_ip;
     }
 
     /**
@@ -832,17 +894,17 @@ class Request {
      */
     get proxy_ip() {
         // Resolve IP from cache if already resolved
-        if (this.#remote_proxy_ip) return this.#remote_proxy_ip;
+        if (this._remote_proxy_ip) return this._remote_proxy_ip;
 
         // Ensure request has not ended yet
-        if (this.#request_ended)
+        if (this._request_ended)
             throw new Error('HyperExpress.Request.proxy_ip cannot be consumed after the Request/Response has ended.');
 
         // Parse and cache remote proxy IP from uWS
-        this.#remote_proxy_ip = array_buffer_to_string(this.#raw_response.getProxiedRemoteAddressAsText());
+        this._remote_proxy_ip = array_buffer_to_string(this._raw_response.getProxiedRemoteAddressAsText());
 
         // Return Remote Proxy IP
-        return this.#remote_proxy_ip;
+        return this._remote_proxy_ip;
     }
 
     /**
@@ -877,8 +939,14 @@ inherit_prototype({
     method: (type, name, original) => {
         // Initialize a pass through method
         const passthrough = function () {
-            // Lazy initialize the readable stream on local scope
-            if (this._readable === null) this._readable = new stream.Readable(this.route.streaming.readable);
+            // Determine if the underlying readable stream has not been initialized yet
+            if (this._readable === null) {
+                // Initialize the readable stream with the route's streaming configuration
+                this._readable = new stream.Readable(this.route.streaming.readable);
+
+                // Trigger the readable stream initialization event
+                this._body_parser_stream_init();
+            }
 
             // Return the original function with the readable stream as the context
             return original.apply(this._readable, arguments);

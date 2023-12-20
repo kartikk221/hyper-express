@@ -1,7 +1,4 @@
-const path = require('path');
-const FormData = require('form-data');
 const crypto = require('crypto');
-const fs = require('fs');
 const { assert_log } = require('../../../scripts/operators.js');
 const { HyperExpress, fetch, server } = require('../../../configuration.js');
 const router = new HyperExpress.Router();

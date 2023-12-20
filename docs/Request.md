@@ -52,3 +52,8 @@ Below is a breakdown of the `Request` component which is an extended `Readable` 
     * **Note** the body parser uses the global `Server.max_body_length` by default. You can **override** this property on a route by specifying a higher `max_body_length` in the route options when creating that route.
     * **Note** HyperExpress currently **does not support** chunked transfer requests.
 * See [ExpressJS](https://github.com/expressjs/express) documentation for more properties/methods that are also implemented for compatibility.
+
+#### Request Events
+The `Request` component extends an `EventEmitter`/`Readable` stream meaning your application can listen for the following lifecycle events.
+- [`received`]: This event will get emitted when `Request` has completely received all of the incoming body data.
+- See the official [`> [stream.Readable]`](https://nodejs.org/api/stream.html#readable-streams) Node.js documentation for more information.

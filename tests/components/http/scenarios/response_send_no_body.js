@@ -35,7 +35,7 @@ async function test_response_send_no_body() {
     });
 
     // Assert that the received headers all match the expected headers
-    assert_log(group, `${candidate} Without Body With Custom Content-Length Test`, () => {
+    assert_log(group, `${candidate} Custom Content-Length Without Body Test`, () => {
         let verdict = true;
         response_headers.forEach(([key, value]) => {
             if (response.headers.get(key) !== value) verdict = false;

@@ -28,11 +28,16 @@ server.get<{Params : { wrong : number}}>('/:id', (req, res) => { // ERROR : Argu
 	console.log(req.params.id); // ERROR : Property 'id' does not exist on type '{ wrong : string; }'.
 });
 
-
 // HTTP methods with a Body like POST can be customized with a Body property in the generic
 server.post<{Body : { test : string }}>('/', (req, res) => {
 	console.log(req.body.test);
 	console.log(req.body.wrong); // ERROR : Property 'wrong' does not exist on type '{ test : string }'.
+});
+
+
+// You are also able to type JSON response
+server.get<{Response : string}>('/', (req, res) => {
+	res.json(2) // ERROR : json() method argument must be a string
 });
 
 ```

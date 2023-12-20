@@ -23,7 +23,8 @@ class Server extends Router {
         fast_abort: false,
         trust_proxy: false,
         fast_buffers: false,
-        max_body_length: 250 * 1000,
+        max_body_buffer: 16 * 1024,
+        max_body_length: 250 * 1024,
         streaming: {},
     };
 
@@ -43,7 +44,8 @@ class Server extends Router {
      * @param {Boolean=} options.fast_buffers Buffer.allocUnsafe is used when set to true for faster performance.
      * @param {Boolean=} options.fast_abort Determines whether HyperExpress will abrubptly close bad requests. This can be much faster but the client does not receive an HTTP status code as it is a premature connection closure.
      * @param {Boolean=} options.trust_proxy Specifies whether to trust incoming request data from intermediate proxy(s)
-     * @param {Number=} options.max_body_length Maximum body content length allowed in bytes. For Reference: 1kb = 1000 bytes and 1mb = 1000kb.
+     * @param {Number=} options.max_body_buffer Maximum body content to buffer in memory before a request data is handled. Behaves similar to `highWaterMark` in Node.js streams.
+     * @param {Number=} options.max_body_length Maximum body content length allowed in bytes. For Reference: 1kb = 1024 bytes and 1mb = 1024kb.
      * @param {Boolean=} options.auto_close Whether to automatically close the server instance when the process exits. Default: true
      * @param {Object} options.streaming Global content streaming options.
      * @param {import('stream').ReadableOptions=} options.streaming.readable Global content streaming options for Readable streams.
@@ -58,6 +60,7 @@ class Server extends Router {
 
         // Initialize extended Router instance
         super();
+        super._is_app(true);
 
         // Store options locally for access throughout processing
         wrap_object(this.#options, options);
@@ -114,11 +117,26 @@ class Server extends Router {
     /**
      * Starts HyperExpress webserver on specified port and host.
      *
-     * @param {Number} port
-     * @param {String=} host Optional. Default: 0.0.0.0
-     * @returns {Promise} Promise
+     * @param {Number} port Required. Port to listen on. Example: 80
+     * @param {(String|function(import('uWebSockets.js').listen_socket):void)=} second Optional. Host or callback to be called when the server is listening. Default: "0.0.0.0"
+     * @param {(function(import('uWebSockets.js').us_listen_socket):void)=} third Optional. Callback to be called when the server is listening.
+     * @returns {Promise<import('uWebSockets.js').us_listen_socket>} Promise
      */
-    async listen(port, host = '0.0.0.0') {
+    async listen(port, second, third) {
+        let host = '0.0.0.0'; // Host by default is 0.0.0.0
+        let callback; // Callback may be optionally provided as second or third argument
+        if (second) {
+            // If second argument is a function then it is the callback or else it is the host
+            if (typeof second === 'function') {
+                callback = second;
+            } else {
+                host = second;
+
+                // If we have a third argument and it is a function then it is the callback
+                if (third && typeof third === 'function') callback = third;
+            }
+        }
+
         // Validate that the key and cert files exist if SSL is enabled
         if (this.#options.is_ssl) {
             // Destructure the cert and key file names from options
@@ -158,7 +176,8 @@ class Server extends Router {
                     // Bind the auto close handler if enabled from constructor options
                     if (reference.#options.auto_close) reference._bind_auto_close();
 
-                    // Resolve the listen socket
+                    // Resolve the listen socket to the promise and the callback if provided
+                    if (callback) callback(listen_socket);
                     resolve(listen_socket);
                 } else {
                     reject(
@@ -192,7 +211,7 @@ class Server extends Router {
 
     #routes_locked = false;
     #handlers = {
-        on_not_found: null,
+        on_not_found: (request, response) => response.status(404).send(),
         on_error: (request, response, error) => {
             // Log the error to the console
             console.error(error);
@@ -308,7 +327,7 @@ class Server extends Router {
         // We make an exception for 'upgrade' routes as they must replace the default route added by WebsocketRoute
         if (method !== 'upgrade' && this.#routes[method][pattern])
             throw new Error(
-                `HyperExpress: Failed to create route as duplicate routes are not allowed. Ensure that you do not have any routers or routes that try to handle requests at the same pattern. [${method.toUpperCase()} ${pattern}]`
+                `HyperExpress: Failed to create route as duplicate routes are not allowed. Ensure that you do not have any routers or routes that try to handle requests with the same pattern. [${method.toUpperCase()} ${pattern}]`
             );
 
         // Create a Route object to contain route information through handling process
@@ -353,10 +372,10 @@ class Server extends Router {
                 // Store route in routes object for structural tracking
                 this.#routes[method][pattern] = route;
 
-                // Bind uWS.method() route which passes incoming request/respone to our handler
-                return this.#uws_instance[method](pattern, (response, request) =>
-                    this._handle_uws_request(route, request, response, null)
-                );
+                // Bind the uWS route handler which pipes all incoming uWS requests to the HyperExpress request lifecycle
+                return this.#uws_instance[method](pattern, (response, request) => {
+                    this._handle_uws_request(route, request, response, null);
+                });
         }
     }
 
@@ -396,9 +415,11 @@ class Server extends Router {
      * @private
      */
     _compile() {
-        // Bind the not found handler as a catchall route
-        if (this.#handlers.on_not_found)
-            this.any('/*', (request, response) => this.#handlers.on_not_found(request, response));
+        // Bind the not found handler as a catchall route if the user did not already bind a global ANY catchall route
+        if (this.#handlers.on_not_found) {
+            const exists = this.#routes.any['/*'] !== undefined;
+            if (!exists) this.any('/*', (request, response) => this.#handlers.on_not_found(request, response));
+        }
 
         // Iterate through all routes
         Object.keys(this.#routes).forEach((method) =>
@@ -421,19 +442,23 @@ class Server extends Router {
      * @param {uWebSockets.us_socket_context_t=} socket
      */
     _handle_uws_request(route, uws_request, uws_response, socket) {
-        // Construct the wrapper Request around uWS.Request
-        const request = new Request(route, uws_request, uws_response);
+        // Construct the wrapper Request around uWS.HttpRequest
+        const request = new Request(route, uws_request);
+        request._raw_response = uws_response;
 
         // Construct the wrapper Response around uWS.Response
-        const response = new Response(route, request, uws_response, socket);
+        const response = new Response(uws_response);
+        response.route = route;
+        response._wrapped_request = request;
+        response._upgrade_socket = socket || null;
 
-        // Attempt to stream the request body to the response
+        // Attempt to start the body parser for this request
         // This method will return false If the request body is larger than the max_body_length
-        if (request._stream_with_limit(response, route.max_body_length)) {
+        if (request._body_parser_run(response, route.max_body_length)) {
             // Handle this request with the associated route
-            route.handle(request, response, 0);
+            route.handle(request, response);
 
-            // If the response has not been completed yet, then it must cork before sending as required by uWS for asynchronous writes
+            // If by this point the response has not been sent then this is request is being asynchronously handled hence we must cork when the response is sent
             if (!response.completed) response._cork = true;
         }
     }

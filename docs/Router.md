@@ -11,7 +11,7 @@ api_v1_router.post('/register', async (request, response) => {
     // Destructure request body and register an account asynchronously
     const { email, password, captcha } = await request.json();
     const id = await register_account(email, password, captcha);
-    
+
     // Respond with the user's account id
     return response.json({
         id
@@ -31,6 +31,8 @@ webserver.use('/api/v1', api_v1_router);
 | `middlewares` | `Array` | Middlewares contained in this router in proper execution order. |
 
 ### Router Instance Methods
+* `route(String: pattern)`: Returns a chainable `Router` instance which can be used to chain calls for the same route.
+    * **Example**: `Router.route('/api/v1').get(getApiV1Handler).post(postApiV1Handler)`
 * `use(...2 Overloads)`: Binds middlewares and mounts `Router` instances on the optionally specified pattern hierarchy.
     * **Overload Types**:
       * `use(Function | Router: ...handler)`: Binds the specified functions as middlewares and mounts the `Router` instances on the `/` pattern.
@@ -65,7 +67,7 @@ webserver.use('/api/v1', api_v1_router);
           * See the official [`> [WritableOptions]`](https://nodejs.org/api/stream.html#new-streamwritableoptions) Node.js documentation for more information.
     * **Note** `pattern` is treated as a **strict** match and trailing-slashes will be treated as different paths.
     * **Supports** both synchronous and asynchronous route `handler` functions.
-    * **Supports** path parameters with `:param` prefix. 
+    * **Supports** path parameters with `:param` prefix.
         * **Example:** `/api/v1/users/:action/:id` will populate `Request.path_parameters` with `id` value from path.
 * `ws(String: pattern, Object: options, Function: handler)`: Creates a **websocket** listening route allowing for websocket connections.
     * **Example Handler**: `(Websocket: ws) => { /* A websocket connection has opened */ }`

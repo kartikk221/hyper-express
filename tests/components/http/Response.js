@@ -8,6 +8,7 @@ const { test_response_stream_method } = require('./scenarios/response_stream.js'
 const { test_response_chunked_write } = require('./scenarios/response_chunked_write.js');
 const { test_response_piped_write } = require('./scenarios/response_piped.js');
 const { test_response_events } = require('./scenarios/response_hooks.js');
+const { test_response_custom_content_length } = require('./scenarios/response_custom_content_length.js');
 const { test_response_sse } = require('./scenarios/response_sse.js');
 const router = new HyperExpress.Router();
 const endpoint = '/tests/response/operators';
@@ -98,7 +99,11 @@ async function test_response_object() {
     assert_log(group, candidate + '.status()', () => test_status_code === response1.status);
 
     // Verify .type()
-    assert_log(group, candidate + '.type()', () => response1.headers.get('content-type') === 'text/html');
+    assert_log(
+        group,
+        candidate + '.type()',
+        () => response1.headers.get('content-type') === 'text/html; charset=utf-8'
+    );
 
     // Verify .header()
     assert_log(group, candidate + '.header()', () => response1.headers.get(header_test_name) === header_test_value);
@@ -139,6 +144,9 @@ async function test_response_object() {
 
     // Verify .send()
     assert_log(group, candidate + '.send()', () => body1 === test_html_placeholder);
+
+    // Verify .send() with custom content-length header specified body
+    await test_response_custom_content_length();
 
     // Verify .send() with no body and custom content-length
     await test_response_send_no_body();

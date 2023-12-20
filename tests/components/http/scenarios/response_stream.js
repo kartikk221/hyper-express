@@ -57,7 +57,19 @@ async function test_response_stream_method() {
     assert_log(
         group,
         `${candidate} Chunked Transfer Streamed Buffer/Hash Comparison Test - ${expected_hash} - ${test_file_stats.size} bytes`,
-        () => expected_buffer.equals(received_buffer) && expected_hash === received_hash
+        () => {
+            const matches = expected_buffer.equals(received_buffer) && expected_hash === received_hash;
+            if (!matches) {
+                console.log({
+                    expected_buffer,
+                    received_buffer,
+                    expected_hash,
+                    received_hash,
+                });
+            }
+
+            return matches;
+        }
     );
 
     // Perform handled response based fetch request to download streamed buffer for test file from server

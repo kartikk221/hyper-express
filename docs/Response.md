@@ -1,5 +1,5 @@
 # Response
-Below is a breakdown of the `Response` component which is an **extended** `Writable` **stream** matching official Node.js network specification. 
+Below is a breakdown of the `Response` component which is an **extended** `Writable` **stream** matching official Node.js network specification.
 * See [`> [ExpressJS]`](https://expressjs.com/en/4x/api.html#res) for more information on additional compatibility methods and properties.
 * See [`> [Stream.Writable]`](https://nodejs.org/api/stream.html#new-streamwritableoptions) for more information on additional native methods and properties.
 
@@ -42,7 +42,7 @@ Below is a breakdown of the `Response` component which is an **extended** `Writa
     * **Note** this method can only be used inside an `upgrade` route handler.
 * `redirect(String: url)`: Writes 302 header to redirect incoming request to specified url.
 * `write(String|Buffer|ArrayBuffer: chunk, String?: encoding, Function?: callback)`: Writes specified chunk using chunked transfer. Use this method to stream large amounts of data.
-    * **Returns** a `Boolean` in which `false` signifies chunk was not fully sent due to built up backpressure. 
+    * **Returns** a `Boolean` in which `false` signifies chunk was not fully sent due to built up backpressure.
     * **Note** the `send()` must still be called in the end after writing all chunks to end the chunked transfer.
     * **Note** this method mimics `Writable.write()` method thus you may use direct piping by piping from a `Readable` stream.
 * `drain(Function: handler)`: Binds a one-time handler which is called once the built up backpressure from a failed `write()` call has been drained.
@@ -75,4 +75,4 @@ The `Response` component extends an `EventEmitter`/`Writable` stream meaning you
 - [`finish`]: This event will get emitted when the response has been sent by HyperExpress. This does not mean the client has received anything yet.
 - [`close`]: This event will get emitted when the underlying connection has closed.
 - **Note!** you should utilize the [`close`] event to detect the absolute end of a request as it signifies connection closure.
-- See the official [`> [http.ServerResponse]`](https://nodejs.org/api/http.html#class-httpserverresponse) Node.js documentation for more information.
+- See the official [`> [stream.Writable]`](https://nodejs.org/api/stream.html#writable-streams) Node.js documentation for more information.

@@ -19,14 +19,16 @@ Below is a breakdown of the `Server` component which is an extended `Router` ins
 * `auto_close` [`Boolean`]: Specifies whether the `Server` instance should automatically be closed when process exits.
   * **Default:** `true`
 * `fast_buffers` [`Boolean`]: Specifies HyperExpress to use `Buffer.allocUnsafe` for storing incoming request body data for faster performance.
-  * **Default:** `false` 
+  * **Default:** `false`
   * **Note!** Any data in the unsafely allocated buffer will always be written over thus this option is provided for those working with strict regulatory requirements.
 * `fast_abort` [`Boolean`]: Specifies HyperExpress to forcefully/abruptly close incoming request connections with bad conditions such as payload too large. This can significantly improve performance but at the cost of no HTTP status code being received by the sender.
   * **Default:** `false`
 * `trust_proxy` [`Boolean`]: Specifies whether incoming request data from intermediate proxy(s) should be trusted.
   * **Default:** `false`
-* `max_body_length` [`Number`]: Maximum number of `bytes` allowed for incoming request body size. For reference, **1kb** = **1000 Bytes** and **1mb** = **1000kb**.
-  * **Default:** `250 * 1000` or **250kb**
+* `max_body_buffer` [`Number`]: Maximum number of `bytes` to buffer in memory before the data is consumed. Behaves similar to `highWaterMark` in Node.js streams.
+  * **Default:** `16 * 1024` or **16kb**
+* `max_body_length` [`Number`]: Maximum number of `bytes` allowed for incoming request body size. For reference, **1kb** = **1024 Bytes** and **1mb** = **1024kb**.
+  * **Default:** `250 * 1024` or **250kb**
 * `streaming`[`Object`]: Specifies global constructor options for internal readable and writable streams.
   * `readable`[`stream.ReadableOptions`]: Constructor options for `Request` body readable streams.
     * See the official [`> [ReadableOptions]`](https://nodejs.org/api/stream.html#new-streamreadableoptions) Node.js documentation for more information.
