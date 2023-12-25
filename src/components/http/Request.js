@@ -605,7 +605,7 @@ class Request {
             this.pause();
 
             // Wait for this field to be handled
-            await this._multipart_promise;
+            if (this._multipart_promise) await this._multipart_promise;
 
             // Resume the request to accept more fields
             this.resume();
@@ -618,7 +618,7 @@ class Request {
             this._multipart_promise = output;
 
             // Hold the current exectution context until the promise resolves
-            await this._multipart_promise;
+            if (this._multipart_promise) await this._multipart_promise;
 
             // Clear the promise reference
             this._multipart_promise = null;
@@ -681,7 +681,7 @@ class Request {
 
             // Create a function to finish the uploading process
             let finished = false;
-            const finish = (error) => {
+            const finish = async (error) => {
                 // Ensure we are not already finished
                 if (finished) return;
                 finished = true;
@@ -699,6 +699,9 @@ class Request {
                     // Reject the promise if an error occurred
                     reject(error);
                 } else {
+                    // Wait for any pending multipart handler exeuction to complete
+                    if (reference._multipart_promise) await reference._multipart_promise;
+
                     // Resolve the promise if no error occurred
                     resolve();
                 }
