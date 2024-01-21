@@ -31,6 +31,7 @@ const test_data = [
 ];
 
 // Create Backend HTTP Route to serve test data
+let sse_closed = false;
 router.get(scenario_endpoint, async (request, response) => {
     // Ensure SSE is available for this request
     if (response.sse) {
@@ -53,8 +54,9 @@ router.get(scenario_endpoint, async (request, response) => {
             if (!output) console.log(`Failed to send SSE message: ${id}, ${event}, ${data}`);
         });
 
-        // Close the SSE connection
-        setTimeout(() => response.sse.close(), 5);
+        // Listen for the client to close the connection
+        response.once('abort', () => (sse_closed = true));
+        response.once('close', () => (sse_closed = true));
     }
 });
 
@@ -96,15 +98,29 @@ async function test_response_sse() {
     sse.onmessage = record_event;
 
     // Wait for the connection to initially open and disconnect
-    await new Promise((resolve) => (sse.onopen = resolve));
-    await new Promise((resolve) => (sse.onerror = resolve));
+    let interval;
+    await new Promise((resolve, reject) => {
+        sse.onerror = reject;
+
+        // Wait for all test data to be received
+        interval = setInterval(() => {
+            if (recorded_data.length >= test_data.length) resolve();
+        }, 100);
+    });
+    clearInterval(interval);
+
+    // Close the connection
     sse.close();
+
+    // Let the server propogate the boolean value
+    await async_wait(5);
 
     // Assert that all test data was received successfully
     assert_log(
         group,
         `${candidate} - Server-Sent Events Communiciation Test`,
         () =>
+            sse_closed &&
             test_data.find(
                 (test) =>
                     recorded_data.find(

@@ -88,10 +88,8 @@ class Response {
 
         // Bind the abort handler as required by uWebsockets.js for each uWS.HttpResponse to allow for async processing
         raw_response.onAborted(() => {
-            // If this request has already been initiated, as the request cannot be aborted after it has been initiated
-            if (this.initiated) return;
-
-            // Mark this response as completed since the client has disconnected
+            // If this request has already been completed then this request cannot be aborted again
+            if (this.completed) return;
             this.completed = true;
 
             // Stop the body parser from accepting any more data
