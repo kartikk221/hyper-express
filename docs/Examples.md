@@ -34,7 +34,7 @@ webserver.post('/api/v1/delete_user/:id', async (request, response) => {
 webserver.post('/api/v1/delete_user/:id', async (request, response) => {
    // Some bad stuff happened and this request is now forbidden
     
-   // All methods EXCEPT "response ending methods" such as send(), json(), upgrade() support chaining
+   // Send a Response and use chainable methods to customize the response
    response
        .status(403) // Set the response HTTP status code
        .header('x-app-id', 'some-app-id') // Sets some random header
