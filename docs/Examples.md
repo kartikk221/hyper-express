@@ -33,22 +33,19 @@ webserver.post('/api/v1/delete_user/:id', async (request, response) => {
 ```javascript
 webserver.post('/api/v1/delete_user/:id', async (request, response) => {
    // Some bad stuff happened and this request is now forbidden
-   
-   // We wrap multiple response network calls in atomic callback for best performance
-   response.atomic(() => {
-        // All methods EXCEPT "response ending methods" such as send(), json(), upgrade() support chaining
-       response
-           .status(403) // Set the response HTTP status code
-           .header('x-app-id', 'some-app-id') // Sets some random header
-           .header('x-upstream-location', 'some_location') // Sets some random header
-           .cookie('frontend_timeout', 'v1/delete_user', 1000 * 60 * 30, {
-               secure: true,
-               httpOnly: true
-           }) // Sets some frontend cookie for enforcing front-end timeout
-           .cookie('some_sess_id', null) // Deletes some session id cookie
-           .type('html') // Sets content-type header according to 'html'
-           .send(rendered_html) // Sends response with some rendered_html as the body
-   })
+    
+   // All methods EXCEPT "response ending methods" such as send(), json(), upgrade() support chaining
+   response
+       .status(403) // Set the response HTTP status code
+       .header('x-app-id', 'some-app-id') // Sets some random header
+       .header('x-upstream-location', 'some_location') // Sets some random header
+       .cookie('frontend_timeout', 'v1/delete_user', 1000 * 60 * 30, {
+           secure: true,
+           httpOnly: true
+       }) // Sets some frontend cookie for enforcing front-end timeout
+       .cookie('some_sess_id', null) // Deletes some session id cookie
+       .type('html') // Sets content-type header according to 'html'
+       .send(rendered_html) // Sends response with some rendered_html as the body
 });
 ```
 
