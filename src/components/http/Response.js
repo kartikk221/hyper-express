@@ -130,19 +130,17 @@ class Response {
     /* Response Methods/Operators */
 
     /**
-     * This method can be used to improve Network IO performance by executing
-     * all network operations in a singular atomic structure.
+     * Alias of `uWS.HttpResponse.cork()` which allows for manual corking of the response.
+     * This is required by `uWebsockets.js` to maximize network performance with batched writes.
      *
      * @param {Function} handler
      * @returns {Response} Response (Chainable)
      */
     atomic(handler) {
-        // Ensure handler is a function
-        if (typeof handler !== 'function')
-            this.throw(new Error('HyperExpress: atomic(handler) -> handler must be a Javascript function'));
-
-        // Cork the provided handler
+        // Cork the provided handler if the response is not finished yet
         if (!this.completed) this._raw_response.cork(handler);
+
+        // Make this chainable
         return this;
     }
 
@@ -298,10 +296,10 @@ class Response {
         // Resume the request in case it was paused
         this._wrapped_request.resume();
 
-        // Cork the response if it has not been corked yet
+        // Cork the response if it has not been corked yet for when this was handled asynchonously
         if (this._cork && !this._corked) {
             this._corked = true;
-            return this._raw_response.cork(this.upgrade.bind(this, context));
+            return this.atomic(() => this.upgrade(context));
         }
 
         // Call uWS.Response.upgrade() method with user data, protocol headers and uWS upgrade socket
@@ -486,7 +484,7 @@ class Response {
             // If the response has not been corked yet, cork it and wait for the next tick to send the response
             if (this._cork && !this._corked) {
                 this._corked = true;
-                return this._raw_response.cork(() => this.send(body, close_connection));
+                return this.atomic(() => this.send(body, close_connection));
             }
 
             // Initiate the response to begin writing the status code and headers
@@ -499,7 +497,8 @@ class Response {
 
                 // Wait for the request to fully receive the whole request body before sending the response
                 return this._wrapped_request.once('received', () =>
-                    this._raw_response.cork(() => this.send(body, close_connection))
+                    // Because 'received' will be emitted asynchronously, we need to cork the response to ensure the response is sent in the correct order
+                    this.atomic(() => this.send(body, close_connection))
                 );
             }
 
@@ -579,7 +578,7 @@ class Response {
 
         // Return a Promise which resolves once the chunk has been fully sent to the client
         return new Promise((resolve) =>
-            this._raw_response.cork(() => {
+            this.atomic(() => {
                 // Ensure the client is still connected after the cork
                 if (this.completed) return resolve();
 

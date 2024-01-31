@@ -36,10 +36,11 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
     /* HyperExpress Methods */
 
     /**
-     * This method can be used to improve Network IO performance by executing
-     * all network operations in a singular atomic structure.
+     * Alias of `uWS.HttpResponse.cork()` which allows for manual corking of the response.
+     * This is required by `uWebsockets.js` to maximize network performance with batched writes.
      *
      * @param {Function} handler
+     * @returns {Response} Response (Chainable)
      */
     atomic(handler: () => void): Response;
 
