@@ -117,7 +117,7 @@ class Server extends Router {
     /**
      * Starts HyperExpress webserver on specified port and host, or unix domain socket.
      *
-     * @param {Number|String} first Required. Port to listen on. Example: 80 or "/run/listener.sock"
+     * @param {Number|String} first Required. Port or unix domain socket path to listen on. Example: 80 or "/run/listener.sock"
      * @param {(String|function(import('uWebSockets.js').listen_socket):void)=} second Optional. Host or callback to be called when the server is listening. Default: "0.0.0.0"
      * @param {(function(import('uWebSockets.js').us_listen_socket):void)=} third Optional. Callback to be called when the server is listening.
      * @returns {Promise<import('uWebSockets.js').us_listen_socket>} Promise
