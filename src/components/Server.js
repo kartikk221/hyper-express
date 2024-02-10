@@ -115,14 +115,30 @@ class Server extends Router {
     }
 
     /**
-     * Starts HyperExpress webserver on specified port and host.
+     * Starts HyperExpress webserver on specified port and host, or unix domain socket.
      *
-     * @param {Number} port Required. Port to listen on. Example: 80
+     * @param {Number|String} first Required. Port to listen on. Example: 80 or "/run/listener.sock"
      * @param {(String|function(import('uWebSockets.js').listen_socket):void)=} second Optional. Host or callback to be called when the server is listening. Default: "0.0.0.0"
      * @param {(function(import('uWebSockets.js').us_listen_socket):void)=} third Optional. Callback to be called when the server is listening.
      * @returns {Promise<import('uWebSockets.js').us_listen_socket>} Promise
      */
-    async listen(port, second, third) {
+    async listen(first, second, third) {
+        let port;
+        let path;
+        
+        switch (typeof first) {
+            case 'number':
+                port = first;
+                break;
+            case 'string':
+                path = first;
+                break;
+            default:
+                throw new Error(
+                    `HyperExpress.Server.listen(): The first argument must be a port number or unix domain socket path as a string.`
+                );
+        }
+
         let host = '0.0.0.0'; // Host by default is 0.0.0.0
         let callback; // Callback may be optionally provided as second or third argument
         if (second) {
@@ -147,7 +163,7 @@ class Server extends Router {
                 await fs.access(cert_file_name);
             } catch (error) {
                 throw new Error(
-                    `HyperExpress.Server.listen(port, host): The provided SSL certificate file at "${cert_file_name}" does not exist or is not readable.\n${error}`
+                    `HyperExpress.Server.listen(): The provided SSL certificate file at "${cert_file_name}" does not exist or is not readable.\n${error}`
                 );
             }
 
@@ -156,15 +172,15 @@ class Server extends Router {
                 await fs.access(key_file_name);
             } catch (error) {
                 throw new Error(
-                    `HyperExpress.Server.listen(port, host): The provided SSL private key file at "${key_file_name}" does not exist or is not readable.\n${error}`
+                    `HyperExpress.Server.listen(): The provided SSL private key file at "${key_file_name}" does not exist or is not readable.\n${error}`
                 );
             }
         }
 
-        // Listen to the specified host and port with uWS
+        // Listen with uWS
         const reference = this;
-        return await new Promise((resolve, reject) =>
-            reference.#uws_instance.listen(host, port, (listen_socket) => {
+        return await new Promise((resolve, reject) => {
+            const listenCb = (listen_socket) => {
                 // Compile the Server instance to cache the routes and middlewares
                 reference._compile();
 
@@ -181,11 +197,17 @@ class Server extends Router {
                     resolve(listen_socket);
                 } else {
                     reject(
-                        'HyperExpress.Server.listen(port, host): No Socket Received From uWebsockets.js likely due to an invalid host or busy port.'
+                        'HyperExpress.Server.listen(): No Socket Received From uWebsockets.js likely due to an invalid host or busy port.'
                     );
                 }
-            })
-        );
+            };
+
+            if (port !== undefined) {
+                reference.#uws_instance.listen(host, port, listenCb);
+            } else {
+                reference.#uws_instance.listen_unix(listenCb, path);
+            }
+        });
     }
 
     /**
