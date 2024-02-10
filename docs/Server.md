@@ -54,7 +54,7 @@ Below is a breakdown of the `Server` component which is an extended `Router` ins
     * **Note** port is required and host is `0.0.0.0` by default.
     * **Overload Types**:
       * `listen(String: path)`: Starts the uWebsockets server on specified unix domain socket.
-* `close(uws_socket?: socket)`: Closes the uWebsockets se@Brver gracefully.
+* `close(uws_socket?: socket)`: Closes the uWebsockets server gracefully.
     * **Note**: socket is not required.
 * `set_error_handler(Function: handler)`: Binds a global catch-all error handler that will attempt to catch mostsynchronous/asynchronous errors.
     * **Handler Parameters:** `(Request: request, Response: response, Error: error) => {}`.
