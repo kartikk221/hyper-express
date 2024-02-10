@@ -41,6 +41,14 @@ export class Server extends Router {
     listen(port: number, host?: string): Promise<uWebsockets.us_listen_socket|string>;
 
     /**
+     * Starts HyperExpress webserver on specified unix domain socket.
+     *
+     * @param {String} path
+     * @returns {Promise} Promise
+     */
+    listen(path: string): Promise<uWebsockets.us_listen_socket|string>;
+
+    /**
      * Stops/Closes HyperExpress webserver instance.
      *
      * @param {uWebSockets.us_listen_socket=} [listen_socket] Optional
