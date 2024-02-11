@@ -176,8 +176,10 @@ class Server extends Router {
                     // Bind the auto close handler if enabled from constructor options
                     if (reference.#options.auto_close) reference._bind_auto_close();
 
-                    // Resolve the listen socket to the promise and the callback if provided
+                    // Serve the list socket over callback if provided
                     if (callback) callback(listen_socket);
+
+                    // Resolve the listen socket
                     resolve(listen_socket);
                 } else {
                     reject(
@@ -186,6 +188,13 @@ class Server extends Router {
                 }
             })
         );
+    }
+
+    /**
+     * Performs a graceful shutdown of the server and closes the listen socket once all pending requests have been handled.
+     */
+    async shutdown() {
+        // TODO: Implement a graceful shutdown of the server
     }
 
     /**
