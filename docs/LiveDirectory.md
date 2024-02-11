@@ -53,14 +53,17 @@ Server.get('/assets/*', (request, response) => {
     // Return a 404 if no asset/file exists on the derived path
     if (file === undefined) return response.status(404).send();
 
+    const fileParts = file.path.split(".");
+    const extension = fileParts[fileParts.length - 1];
+
     // Retrieve the file content and serve it depending on the type of content available for this file
     const content = file.content;
     if (content instanceof Buffer) {
         // Set appropriate mime-type and serve file content Buffer as response body (This means that the file content was cached in memory)
-        return response.type(file.extension).send(content);
+        return response.type(extension).send(content);
     } else {
         // Set the type and stream the content as the response body (This means that the file content was NOT cached in memory)
-        return response.type(file.extension).stream(content);
+        return response.type(extension).stream(content);
     }
 });
 
