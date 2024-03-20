@@ -16,6 +16,7 @@ export interface UserRouteOptions {
 export type WSRouteHandler<TUserData = unknown> = (websocket: Websocket<TUserData>) => void;
 export interface WSRouteOptions {
     message_type?: 'String' | 'Buffer' | 'ArrayBuffer';
+    compression?: number;
     idle_timeout?: number;
     max_backpressure?: number;
     max_payload_length?: number;
