@@ -293,11 +293,16 @@ class Websocket extends EventEmitter {
 
             // Create a callback for ending the readable consumption
             const end_stream = () => {
-                // Retrieve the last buffered fragment to send as last chunk
+                // Retrieve the last buffered fragment to send as last or only chunk
                 const fragment = scope._buffer_fragment();
 
-                // Stream the final chunk as last fragment and cleanup the readable
-                scope._stream_chunk(scope.#stream, FRAGMENTS.LAST, fragment, is_binary);
+                if (is_first) {
+                    scope.#ws.send(fragment, is_binary);
+                } else {
+                    // Stream the final chunk as last fragment
+                    scope._stream_chunk(scope.#stream, FRAGMENTS.LAST, fragment, is_binary);
+                }
+                // Clean up the readable
                 scope.#stream = undefined;
                 resolve();
             };
@@ -394,14 +399,19 @@ class Websocket extends EventEmitter {
 
         // Create a callback for ending the writable usage
         const end_stream = () => {
-            // Retrieve the last buffered fragment to write as last chunk
+            // Retrieve the last buffered fragment to write as last or only chunk
             const fragment = scope._buffer_fragment();
 
-            // Write the final empty chunk as last fragment and cleanup the writable
-            scope._write(FRAGMENTS.LAST, fragment, true, false, () => (scope.#stream = undefined));
+            if (is_first) {
+                scope.#ws.send(fragment, true, false);
+                scope.#ws.stream = undefined;
+            } else {
+                // Write the final empty chunk as last fragment and cleanup the writable
+                scope._write(FRAGMENTS.LAST, fragment, true, false, () => (scope.#stream = undefined));
+            }
         };
 
-        // Bind listeners to end the framented write procedure
+        // Bind listeners to end the fragmented write procedure
         this.#stream.on('finish', end_stream);
 
         // Return the writable stream
