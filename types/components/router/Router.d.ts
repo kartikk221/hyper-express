@@ -3,6 +3,7 @@ import { Request } from '../http/Request';
 import { Response } from '../http/Response';
 import { Websocket } from '../ws/Websocket';
 import { MiddlewareHandler } from '../middleware/MiddlewareHandler';
+import { CompressOptions } from 'uWebSockets.js';
 
 // Define types for HTTP Route Creators
 export type UserRouteHandler = (request: Request, response: Response) => void;
@@ -16,6 +17,7 @@ export interface UserRouteOptions {
 export type WSRouteHandler<TUserData = unknown> = (websocket: Websocket<TUserData>) => void;
 export interface WSRouteOptions {
     message_type?: 'String' | 'Buffer' | 'ArrayBuffer';
+    compression?: CompressOptions;
     idle_timeout?: number;
     max_backpressure?: number;
     max_payload_length?: number;
