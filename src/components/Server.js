@@ -120,16 +120,18 @@ class Server extends Router {
      * @param {Number|String} first Required. Port or unix domain socket path to listen on. Example: 80 or "/run/listener.sock"
      * @param {(String|function(import('uWebSockets.js').listen_socket):void)=} second Optional. Host or callback to be called when the server is listening. Default: "0.0.0.0"
      * @param {(function(import('uWebSockets.js').us_listen_socket):void)=} third Optional. Callback to be called when the server is listening.
-     * @returns {Promise<import('uWebSockets.js').us_listen_socket>} Promise
+     * @returns {Promise<import('uWebSockets.js').us_listen_socket>} Promise which resolves to the listen socket when the server is listening.
      */
     async listen(first, second, third) {
+        // Determine an effective port or UNIX path to listen on
         let port;
         let path;
-        
         switch (typeof first) {
+            // This scenario accounts for the first argument being a port number
             case 'number':
                 port = first;
                 break;
+            // This scenario accounts for the first argument being a unix domain socket path
             case 'string':
                 path = first;
                 break;
@@ -146,41 +148,38 @@ class Server extends Router {
             if (typeof second === 'function') {
                 callback = second;
             } else {
-                host = second;
+                // Ensure the second argument is a string
+                if (typeof second == 'string') {
+                    host = second;
+                } else {
+                    throw new Error(
+                        `HyperExpress.Server.listen(): The second argument must either be a callback function or a string as a hostname.`
+                    );
+                }
 
                 // If we have a third argument and it is a function then it is the callback
                 if (third && typeof third === 'function') callback = third;
             }
         }
 
-        // Validate that the key and cert files exist if SSL is enabled
+        // If the server is using SSL then verify that the provided SSL certificate and key files exist and are readable
         if (this.#options.is_ssl) {
-            // Destructure the cert and key file names from options
             const { cert_file_name, key_file_name } = this.#options;
-
-            // Verify the certificate file exists
             try {
-                await fs.access(cert_file_name);
+                // Verify that both the key and cert files exist and are readable
+                await Promise.all([fs.access(key_file_name), fs.access(cert_file_name)]);
             } catch (error) {
                 throw new Error(
-                    `HyperExpress.Server.listen(): The provided SSL certificate file at "${cert_file_name}" does not exist or is not readable.\n${error}`
-                );
-            }
-
-            // Verify the key file exists
-            try {
-                await fs.access(key_file_name);
-            } catch (error) {
-                throw new Error(
-                    `HyperExpress.Server.listen(): The provided SSL private key file at "${key_file_name}" does not exist or is not readable.\n${error}`
+                    `HyperExpress.Server.listen(): The provided SSL certificate file at "${cert_file_name}" or private key file at "${key_file_name}" does not exist or is not readable.\n${error}`
                 );
             }
         }
 
-        // Listen with uWS
+        // Bind the server to the specified port or unix domain socket with uWS.listen() or uWS.listen_unix()
         const reference = this;
         return await new Promise((resolve, reject) => {
-            const listenCb = (listen_socket) => {
+            // Define a callback to handle the listen socket from a listen event
+            const on_listen_socket = (listen_socket) => {
                 // Compile the Server instance to cache the routes and middlewares
                 reference._compile();
 
@@ -204,10 +203,11 @@ class Server extends Router {
                 }
             };
 
+            // Determine whether to bind on a port or unix domain socket with priority to port
             if (port !== undefined) {
-                reference.#uws_instance.listen(host, port, listenCb);
+                reference.#uws_instance.listen(host, port, on_listen_socket);
             } else {
-                reference.#uws_instance.listen_unix(listenCb, path);
+                reference.#uws_instance.listen_unix(on_listen_socket, path);
             }
         });
     }

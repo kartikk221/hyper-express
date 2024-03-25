@@ -261,32 +261,31 @@ class Websocket extends EventEmitter {
      */
     stream(readable, is_binary = true) {
         // Ensure readable is an instance of a stream.Readable
-        const scope = this;
         if (!(readable instanceof Readable))
             throw new Error('Websocket.stream(readable) -> readable must be a Readable stream.');
 
-        // Prevent multiple streaming operations from taking place
+        // Prevent multiple streams from taking place
         if (this.#stream)
             throw new Error(
-                'Websocket.stream(readable) -> You may not stream() data while another streaming operation is active on this websocket. Make sure you are not already streaming or piping a stream to this websocket.'
+                'Websocket.stream(readable) -> You may not stream data while another stream operation is active on this websocket. Make sure you are not already streaming or piping a stream to this websocket.'
             );
 
-        return new Promise((resolve, reject) => {
+        // Return a promise which resolves once stream has finished
+        const scope = this;
+        return new Promise((resolve) => {
             // Store the readable as the pending stream for this connection
             scope.#stream = readable;
 
             // Bind a listener for the 'data' event to consume chunks
-            let is_first = true;
+            let is_first = true; // By default, we will send the first chunk as a fragment
             readable.on('data', (chunk) => {
-                // Buffer the incoming chunk as a fragment
-                const fragment = scope._buffer_fragment(chunk);
-
                 // Check to see if we have a fragment to send post buffering
+                const fragment = scope._buffer_fragment(chunk);
                 if (fragment) {
                     // Stream the retrieved current fragment
                     scope._stream_chunk(readable, is_first ? FRAGMENTS.FIRST : FRAGMENTS.MIDDLE, fragment, is_binary);
 
-                    // Invert the is_first boolean after fragment
+                    // If this was the first chunk, invert the is_first boolean
                     if (is_first) is_first = false;
                 }
             });
@@ -296,12 +295,14 @@ class Websocket extends EventEmitter {
                 // Retrieve the last buffered fragment to send as last or only chunk
                 const fragment = scope._buffer_fragment();
 
+                // If we streamed no individual fragments aka. the is_first flag was set to true, then we did no streaming and can simply send the last fragment as a message
                 if (is_first) {
                     scope.#ws.send(fragment, is_binary);
                 } else {
                     // Stream the final chunk as last fragment
                     scope._stream_chunk(scope.#stream, FRAGMENTS.LAST, fragment, is_binary);
                 }
+
                 // Clean up the readable
                 scope.#stream = undefined;
                 resolve();
