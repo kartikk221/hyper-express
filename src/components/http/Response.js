@@ -92,6 +92,9 @@ class Response {
             if (this.completed) return;
             this.completed = true;
 
+            // Decrement the pending request count
+            this.route.app._resolve_pending_request();
+
             // Stop the body parser from accepting any more data
             this._wrapped_request._body_parser_stop();
 
@@ -316,6 +319,9 @@ class Response {
 
         // Mark request as complete so no more operations can be performed
         this.completed = true;
+
+        // Decrement the pending request count
+        this.route.app._resolve_pending_request();
     }
 
     /**
@@ -523,6 +529,9 @@ class Response {
             // Mark request as completed as it has been sent
             this.completed = true;
 
+            // Decrement the pending request count
+            this.route.app._resolve_pending_request();
+
             // Emit the 'close' event to signify that the response has been completed
             if (this._writable) this.emit('close', this._wrapped_request, this);
         }
@@ -666,7 +675,16 @@ class Response {
 
             // If we had no total size and the response is still not completed, we need to end the response
             // This is because no total size means we served with chunked encoding and we need to end the response as it is a unbounded stream
-            if (!this.completed && !total_size) this.send();
+            if (!this.completed) {
+                // Determine if we have a total size or not
+                if (total_size) {
+                    // We must call the decrement method as a conventional close would not be detected
+                    this.route.app._resolve_pending_request();
+                } else {
+                    // We must manually close the response as this stream operation is unbounded
+                    this.send();
+                }
+            }
         }
     }
 
@@ -679,6 +697,9 @@ class Response {
         if (!this.completed) {
             // Mark request as completed
             this.completed = true;
+
+            // Decrement the pending request count
+            this.route.app._resolve_pending_request();
 
             // Stop the body parser from accepting any more data
             this._wrapped_request._body_parser_stop();

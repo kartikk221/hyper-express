@@ -213,10 +213,19 @@ class Server extends Router {
     }
 
     /**
-     * Performs a graceful shutdown of the server and closes the listen socket once all pending requests have been handled.
+     * Performs a graceful shutdown of the server and closes the listen socket once all pending requests have been completed.
+     * @returns {Promise}
      */
-    async shutdown() {
-        // TODO: Implement a graceful shutdown of the server
+    shutdown() {
+        const scope = this;
+        return new Promise((resolve) => {
+            // Bind a zero pending request handler to close the server
+            scope.#pending_requests_zero_handler = () => {
+                // Close the server
+                scope.close();
+                resolve();
+            };
+        });
     }
 
     /**
@@ -463,6 +472,23 @@ class Server extends Router {
 
     /* uWS -> Server Request/Response Handling Logic */
 
+    #pending_requests_count = 0;
+    #pending_requests_zero_handler = null;
+    /**
+     * Resolves a single pending request and ticks sthe pending request handler if one exists.
+     */
+    _resolve_pending_request() {
+        // Ensure we have at least one pending request
+        if (this.#pending_requests_count > 0) {
+            // Decrement the pending request count
+            this.#pending_requests_count--;
+
+            // If we have no more pending requests and a zero pending request handler was set, execute it
+            if (this.#pending_requests_count === 0 && this.#pending_requests_zero_handler)
+                this.#pending_requests_zero_handler();
+        }
+    }
+
     /**
      * This method is used to handle incoming requests from uWS and pass them to the appropriate route through the HyperExpress request lifecycle.
      *
@@ -473,6 +499,9 @@ class Server extends Router {
      * @param {uWebSockets.us_socket_context_t=} socket
      */
     _handle_uws_request(route, uws_request, uws_response, socket) {
+        // Increment the pending request count
+        this.#pending_requests_count++;
+
         // Construct the wrapper Request around uWS.HttpRequest
         const request = new Request(route, uws_request);
         request._raw_response = uws_response;

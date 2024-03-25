@@ -10,7 +10,7 @@ const { test_websocket_component } = require('./components/ws/Websocket.js');
 // const { test_body_parser_middleware } = require('./middlewares/hyper-express-body-parser/index.js');
 
 const { server } = require('./configuration.js');
-const { TEST_SERVER, not_found_handler } = require('./components/Server.js');
+const { TEST_SERVER, not_found_handler, test_server_shutdown } = require('./components/Server.js');
 (async () => {
     try {
         // While this is effectively doing the same thing as the not_found_handler, we do not want HyperExpress to also bind its own not found handler which would throw a duplicate route error
@@ -82,8 +82,8 @@ const { TEST_SERVER, not_found_handler } = require('./components/Server.js');
         // Test SessionEngine Middleware
         await test_session_middleware();
 
-        // Test BodyParser Middleware
-        // await test_body_parser_middleware();
+        // Test the server shutdown process
+        await test_server_shutdown();
 
         log('TESTING', `Successfully Tested All Specified Tests For HyperExpress In ${Date.now() - start_time}ms!`);
         process.exit();

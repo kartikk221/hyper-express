@@ -6,28 +6,28 @@ import { Router } from './router/Router';
 import { HostManager } from './plugins/HostManager';
 
 export interface ServerConstructorOptions {
-    key_file_name?: string,
-    cert_file_name?: string,
-    passphrase?: string,
-    dh_params_file_name?: string,
-    ssl_prefer_low_memory_usage?: boolean,
-    fast_buffers?: boolean,
-    fast_abort?: boolean,
-    trust_proxy?: boolean,
-    max_body_length?: number,
-    auto_close?: boolean
+    key_file_name?: string;
+    cert_file_name?: string;
+    passphrase?: string;
+    dh_params_file_name?: string;
+    ssl_prefer_low_memory_usage?: boolean;
+    fast_buffers?: boolean;
+    fast_abort?: boolean;
+    trust_proxy?: boolean;
+    max_body_length?: number;
+    auto_close?: boolean;
 }
 
 export type GlobalErrorHandler = (request: Request, response: Response, error: Error) => void;
 export type GlobalNotFoundHandler = (request: Request, response: Response) => void;
 
 export class Server extends Router {
-    constructor(options?: ServerConstructorOptions)
+    constructor(options?: ServerConstructorOptions);
 
     /**
      * This object can be used to store properties/references local to this Server instance.
      */
-    locals: Object
+    locals: Object;
 
     /* Server Methods */
 
@@ -38,7 +38,7 @@ export class Server extends Router {
      * @param {String=} host Optional. Default: 0.0.0.0
      * @returns {Promise} Promise
      */
-    listen(port: number, host?: string): Promise<uWebsockets.us_listen_socket|string>;
+    listen(port: number, host?: string): Promise<uWebsockets.us_listen_socket | string>;
 
     /**
      * Starts HyperExpress webserver on specified unix domain socket.
@@ -46,7 +46,13 @@ export class Server extends Router {
      * @param {String} path
      * @returns {Promise} Promise
      */
-    listen(path: string): Promise<uWebsockets.us_listen_socket|string>;
+    listen(path: string): Promise<uWebsockets.us_listen_socket | string>;
+
+    /**
+     * Performs a graceful shutdown of the server and closes the listen socket once all pending requests have been completed.
+     * @returns {Promise}
+     */
+    shutdown(): Promise<void>;
 
     /**
      * Stops/Closes HyperExpress webserver instance.
