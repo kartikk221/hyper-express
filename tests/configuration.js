@@ -19,7 +19,7 @@ module.exports = {
     AbortController,
     server: {
         host: '127.0.0.1',
-        port: 8080,
+        port: '8080', // Ports should always be numbers but we are maintaining compatibility with strings
         secure_port: 8443,
         base: 'http://127.0.0.1:8080',
     },

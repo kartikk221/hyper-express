@@ -123,22 +123,16 @@ class Server extends Router {
      * @returns {Promise<import('uWebSockets.js').us_listen_socket>} Promise which resolves to the listen socket when the server is listening.
      */
     async listen(first, second, third) {
-        // Determine an effective port or UNIX path to listen on
         let port;
         let path;
-        switch (typeof first) {
-            // This scenario accounts for the first argument being a port number
-            case 'number':
-                port = first;
-                break;
-            // This scenario accounts for the first argument being a unix domain socket path
-            case 'string':
-                path = first;
-                break;
-            default:
-                throw new Error(
-                    `HyperExpress.Server.listen(): The first argument must be a port number or unix domain socket path as a string.`
-                );
+
+        // Determine if first argument is a number or string castable to a port number
+        if (typeof first == 'number' || (+first > 0 && +first < 65536)) {
+            // Parse the port number
+            port = typeof first == 'string' ? +first : first;
+        } else if (typeof first == 'string') {
+            // Parse the path to a UNIX domain socket
+            path = first;
         }
 
         let host = '0.0.0.0'; // Host by default is 0.0.0.0
@@ -214,16 +208,16 @@ class Server extends Router {
 
     /**
      * Performs a graceful shutdown of the server and closes the listen socket once all pending requests have been completed.
-     * @returns {Promise}
+     * @param {uWebSockets.us_listen_socket=} listen_socket Optional
+     * @returns {Promise<boolean>}
      */
-    shutdown() {
+    shutdown(listen_socket) {
         const scope = this;
         return new Promise((resolve) => {
             // Bind a zero pending request handler to close the server
             scope.#pending_requests_zero_handler = () => {
-                // Close the server
-                scope.close();
-                resolve();
+                // Close the server and resolve the returned boolean
+                resolve(scope.close(listen_socket));
             };
         });
     }

@@ -36,23 +36,30 @@ export class Server extends Router {
      *
      * @param {Number} port
      * @param {String=} host Optional. Default: 0.0.0.0
+     * @param {Function=} callback Optional. Callback to be called when the server is listening. Default: "0.0.0.0"
      * @returns {Promise} Promise
      */
-    listen(port: number, host?: string): Promise<uWebsockets.us_listen_socket | string>;
-
-    /**
-     * Starts HyperExpress webserver on specified unix domain socket.
-     *
-     * @param {String} path
-     * @returns {Promise} Promise
-     */
-    listen(path: string): Promise<uWebsockets.us_listen_socket | string>;
+    listen(
+        port: number,
+        callback?: (listen_socket: uWebsockets.us_listen_socket) => void
+    ): Promise<uWebsockets.us_listen_socket>;
+    listen(
+        port: number,
+        host?: string,
+        callback?: (listen_socket: uWebsockets.us_listen_socket) => void
+    ): Promise<uWebsockets.us_listen_socket>;
+    listen(
+        unix_path: string,
+        callback?: (listen_socket: uWebsockets.us_listen_socket) => void
+    ): Promise<uWebsockets.us_listen_socket>;
 
     /**
      * Performs a graceful shutdown of the server and closes the listen socket once all pending requests have been completed.
-     * @returns {Promise}
+     *
+     * @param {uWebSockets.us_listen_socket=} [listen_socket] Optional
+     * @returns {Promise<Boolean>}
      */
-    shutdown(): Promise<void>;
+    shutdown(listen_socket?: uWebsockets.us_listen_socket): boolean;
 
     /**
      * Stops/Closes HyperExpress webserver instance.

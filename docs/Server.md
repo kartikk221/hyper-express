@@ -49,13 +49,17 @@ Below is a breakdown of the `Server` component which is an extended `Router` ins
 | `handlers` | `Object` | Global handlers for current instance. |
 
 ### Server Instance Methods
-* `listen(Number: port, String?: host)`: Starts the uWebsockets server on specified port.
+* `listen(Number: port, [String?: host, Function?: callback])`: Starts the uWebsockets server on specified port and host.
+  * `listen(String: unix_path, Function?: callback)`: Starts the uWebsockets server on specified UNIX domain socket path.
     * **Returns** a `Promise` and resolves `uw_listen_socket`.
-    * **Note** port is required and host is `0.0.0.0` by default.
-    * **Overload Types**:
-      * `listen(String: path)`: Starts the uWebsockets server on specified unix domain socket.
-* `close(uws_socket?: socket)`: Closes the uWebsockets server gracefully.
-    * **Note**: socket is not required.
+    * **Note** port or unix_path is required and host is `0.0.0.0` by default if unspecified with a port listener.
+    * **Note** callback is optional and can be used as an alternative to the Promise.
+* `shutdown(uws_socket?: socket)`: Performs a graceful shutdown of the server and closes the listen socket once all pending requests have been completed.
+    * **Note**: listen_socket is not required.
+    * **Returns** a `Boolean` representing whether the socket was closed successfully.
+* `close(uws_socket?: socket)`: Closes the uWebsockets server instantly dropping all pending requests.
+    * **Note**: listen_socket is not required.
+    * **Returns** a `Boolean` representing whether the socket was closed successfully.
 * `set_error_handler(Function: handler)`: Binds a global catch-all error handler that will attempt to catch mostsynchronous/asynchronous errors.
     * **Handler Parameters:** `(Request: request, Response: response, Error: error) => {}`.
 * `set_not_found_handler(Function: handler)`: Binds a global catch-all not found handler that will handle all requests which are not handled by any routes.
