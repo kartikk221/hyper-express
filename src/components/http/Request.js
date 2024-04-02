@@ -510,7 +510,7 @@ class Request {
     _json_promise;
     /**
      * Downloads and parses the request body as a JSON object.
-     * Passing default_value as undefined will lead to the function throwing an exception if invalid JSON is received.
+     * Passing default_value as null will lead to the function throwing an exception if invalid JSON is received.
      *
      * @param {Any=} default_value Default: {}
      * @returns {Promise<Record>}
@@ -526,7 +526,7 @@ class Request {
         }
 
         // Initialize the json promise if it does not exist
-        this._json_promise = new Promise((resolve) =>
+        this._json_promise = new Promise((resolve, reject) =>
             this._body_parser_get_received_data().then((raw) => {
                 // Decode the Uint8Array buffer into a String
                 const text = this._uint8_to_string(raw);
@@ -538,7 +538,7 @@ class Request {
                         // Use the default value if provided
                         this._body_json = default_value;
                     } else {
-                        throw error;
+                        reject(error);
                     }
                 }
 
