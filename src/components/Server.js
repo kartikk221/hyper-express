@@ -214,11 +214,17 @@ class Server extends Router {
     shutdown(listen_socket) {
         const scope = this;
         return new Promise((resolve) => {
-            // Bind a zero pending request handler to close the server
-            scope.#pending_requests_zero_handler = () => {
-                // Close the server and resolve the returned boolean
+
+            if (scope.#pending_requests_count > 0) {
+                // Bind a zero pending request handler to close the server
+                scope.#pending_requests_zero_handler = () => {
+                    // Close the server and resolve the returned boolean
+                    resolve(scope.close(listen_socket));
+                };
+            } else {
+                // we don't have any pending request so closing server
                 resolve(scope.close(listen_socket));
-            };
+            }
         });
     }
 
@@ -468,6 +474,7 @@ class Server extends Router {
 
     #pending_requests_count = 0;
     #pending_requests_zero_handler = null;
+
     /**
      * Resolves a single pending request and ticks sthe pending request handler if one exists.
      */
@@ -493,6 +500,12 @@ class Server extends Router {
      * @param {uWebSockets.us_socket_context_t=} socket
      */
     _handle_uws_request(route, uws_request, uws_response, socket) {
+        // check if grace shutdown started then close any incoming requests
+        if (this.#pending_requests_zero_handler !== null) {
+            uws_response.close();
+            return;
+        }
+
         // Increment the pending request count
         this.#pending_requests_count++;
 
