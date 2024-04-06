@@ -2,9 +2,11 @@ const { log, assert_log, random_string } = require('../../scripts/operators.js')
 const { HyperExpress, fetch, server } = require('../../configuration.js');
 const { test_request_multipart } = require('./scenarios/request_multipart.js');
 const { test_request_stream_pipe } = require('./scenarios/request_stream.js');
+const { test_request_chunked_stream } = require('./scenarios/request_chunked_stream.js');
 const { test_request_body_echo_test } = require('./scenarios/request_body_echo_test.js');
 const { test_request_uncaught_rejections } = require('./scenarios/request_uncaught_rejections.js');
 const { test_request_router_paths_test } = require('./scenarios/request_router_paths_test.js');
+const { test_request_chunked_json } = require('./scenarios/request_chunked_json.js');
 const crypto = require('crypto');
 const router = new HyperExpress.Router();
 const endpoint = '/tests/request/:param1/:param2';
@@ -290,6 +292,9 @@ async function test_request_object() {
     // Verify .cookies
     assert_log(group, candidate + '.cookies', () => body.cookies[header_test_cookie.name] === header_test_cookie.value);
 
+    // Verify chunked transfer request stream
+    await test_request_chunked_stream();
+
     // Verify .stream readable request stream piping
     await test_request_stream_pipe();
 
@@ -301,6 +306,9 @@ async function test_request_object() {
 
     // Verify .json()
     assert_log(group, candidate + '.json()', () => JSON.stringify(body.body.json) === options.body);
+
+    // Verify .json() with chunked transfer
+    await test_request_chunked_json();
 
     // Verify .json() with small body payload echo test
     await test_request_body_echo_test();

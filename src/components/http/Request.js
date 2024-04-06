@@ -169,6 +169,7 @@ class Request {
     _body_received_bytes = 0;
     _body_expected_bytes = -1; // We initialize this to -1 as we will use this to ensure the uWS.HttpResponse.onData() is only called once
     _body_parser_flushing = false;
+    _body_chunked_transfer = false;
     _body_parser_buffered; // This will hold the buffered chunks until the user decides to internally or externally consume the body data
     _body_parser_passthrough; // This will be a passthrough chunk acceptor callback used by internal body parsers
 
@@ -185,14 +186,19 @@ class Request {
     _body_parser_run(response, limit_bytes) {
         // Parse the content length into a number to ensure we have some body data to parse
         // Even though it can be NaN, the > 0 check will handle this case and ignore NaN
+        // OR if the transfer-encoding header is chunked which means we will have to do a more inefficient chunked transfer
         const content_length = Number(this.headers['content-length']);
-        if (content_length > 0) {
+        const is_chunked_transfer = this.headers['transfer-encoding'] === 'chunked';
+        if (content_length > 0 || is_chunked_transfer) {
             // Determine if this is a first run meaning we have not began parsing the body yet
             const is_first_run = this._body_expected_bytes === -1;
 
             // Update the limit and expected body bytes as these will be used to check if we are within the limit
             this._body_limit_bytes = limit_bytes;
-            this._body_expected_bytes = content_length;
+            this._body_expected_bytes = is_chunked_transfer ? 0 : content_length; // We use 0 to indicate we do not know the content length with chunked transfers
+
+            // We want to track if we are expecting a chunked transfer so depending logic does not treat the 0 expected bytes as an empty body
+            this._body_chunked_transfer = is_chunked_transfer;
 
             // Determine if this is a first time body parser run
             if (is_first_run) {
@@ -246,7 +252,7 @@ class Request {
      * @returns {Boolean} Returns `true` when the body limit has been reached.
      */
     _body_parser_enforce_limit(response) {
-        // Determine if we have more incoming bytes than the limit allows for
+        // Determine if we may have either received or are expecting more incoming bytes than the limit allows for
         const incoming_bytes = Math.max(this._body_received_bytes, this._body_expected_bytes);
         if (incoming_bytes > this._body_limit_bytes) {
             // Stop the body parser from accepting any more incoming body data
@@ -302,7 +308,14 @@ class Request {
                     // Buffering mode - Internal use only
                     case 1:
                         // Pass through the uWS volatile ArrayBuffer chunk to the passthrough callback as a volatile Uint8Array chunk
-                        this._body_parser_passthrough(new Uint8Array(chunk), is_last);
+                        this._body_parser_passthrough(
+                            // If this is a chunked transfer, we need to copy the chunk as any passthrough consumer
+                            // will have no immediate way of processing hence this chunk needs to stick around in memory across multiple cycles without being deallocated by uWS
+                            this._body_chunked_transfer
+                                ? copy_array_buffer_to_uint8array(chunk)
+                                : new Uint8Array(chunk),
+                            is_last
+                        );
                         break;
                     // Streaming mode - External use only
                     case 2:
@@ -390,7 +403,7 @@ class Request {
         this._body_parser_flush_buffered();
     }
 
-    _data_promise;
+    _received_data_promise;
     /**
      * Returns a single Uint8Array buffer which contains all incoming body data.
      * @private
@@ -398,38 +411,67 @@ class Request {
      */
     _body_parser_get_received_data() {
         // Return the current promise if it exists
-        if (this._data_promise) return this._data_promise;
+        if (this._received_data_promise) return this._received_data_promise;
 
-        // If we have no expected body length, we will return an empty buffer
-        if (this._body_expected_bytes <= 0) return Promise.resolve(new Uint8Array(0));
+        // If this is not a chunked transfer and we have no expected body length, we will return an empty buffer as we have no body data to parse
+        if (!this._body_chunked_transfer && this._body_expected_bytes <= 0) return Promise.resolve(new Uint8Array(0));
 
         // Create a new promise which will be resolved once all incoming body data has been received
-        this._data_promise = new Promise((resolve) => {
-            // Initialize the body Uint8Array buffer based on the expected body length
-            const buffer = new Uint8Array(this._body_expected_bytes);
+        this._received_data_promise = new Promise((resolve) => {
+            // Determine if this is a chunked transfer
+            if (this._body_chunked_transfer) {
+                // Since we don't know how many or how much each chunk will be, we have to store all the chunks
+                // After all the chunks have been received, we will concatenate them into a single Uint8Array
+                const chunks = [];
 
-            // Set the body parser mode to buffering mode
+                // Define a passthrough callback which will be called for each incoming chunk
+                this._body_parser_passthrough = (chunk, is_last) => {
+                    // Push the chunk to the chunks array
+                    chunks.push(chunk);
+
+                    // If this is the last chunk, call the callback with the body buffer
+                    if (is_last) {
+                        // Initialize a new Uint8Array of size received bytes
+                        let offset = 0;
+                        const buffer = new Uint8Array(this._body_received_bytes);
+                        for (const chunk of chunks) {
+                            // Write the chunk into the body buffer at the current offset
+                            buffer.set(chunk, offset);
+                            offset += chunk.byteLength;
+                        }
+
+                        // Resolve the promise with the body buffer
+                        resolve(buffer);
+                    }
+                };
+            } else {
+                // Initialize the full size body Uint8Array buffer based on the expected body length
+                // We will copy all volatile chunk data onto this stable buffer for memory efficiency
+                const buffer = new Uint8Array(this._body_expected_bytes);
+
+                // Define a passthrough callback which will be called for each incoming chunk
+                let offset = 0;
+                this._body_parser_passthrough = (chunk, is_last) => {
+                    // Write the chunk into the body buffer at the current offset
+                    buffer.set(chunk, offset);
+
+                    // Increment the offset by the byteLength of the incoming chunk
+                    offset += chunk.byteLength;
+
+                    // If this is the last chunk, call the callback with the body buffer
+                    if (is_last) resolve(buffer);
+                };
+            }
+
+            // Set the body parser mode to buffering mode as we want to receive all incoming chunks through the passthrough callback
             this._body_parser_mode = 1;
 
-            // Define a passthrough callback which will be called for each incoming chunk
-            let offset = 0;
-            this._body_parser_passthrough = (chunk, is_last) => {
-                // Write the chunk into the body buffer at the current offset
-                buffer.set(chunk, offset);
-
-                // Increment the offset by the byteLength of the incoming chunk
-                offset += chunk.byteLength;
-
-                // If this is the last chunk, call the callback with the body buffer
-                if (is_last) resolve(buffer);
-            };
-
-            // Flush the buffered chunks to the passthrough callback if we have any
+            // Flush the buffered chunks so the passthrough callback receives all buffered data through its callback
             this._body_parser_flush_buffered();
         });
 
         // Return the data promise
-        return this._data_promise;
+        return this._received_data_promise;
     }
 
     _body_buffer;
@@ -441,12 +483,6 @@ class Request {
     buffer() {
         // Check cache and return if body has already been parsed
         if (this._body_buffer) return Promise.resolve(this._body_buffer);
-
-        // We have no expected body length, hence we will return an empty buffer
-        if (this._body_expected_bytes <= 0) {
-            this._body_buffer = Buffer.from('');
-            return Promise.resolve(this._body_buffer);
-        }
 
         // Initialize the buffer promise if it does not exist
         this._buffer_promise = new Promise((resolve) =>
@@ -485,12 +521,6 @@ class Request {
         // Resolve from cache if available
         if (this._body_text) return Promise.resolve(this._body_text);
 
-        // If we have no expected body length, we will return an empty string
-        if (this._body_expected_bytes <= 0) {
-            this._body_text = '';
-            return Promise.resolve(this._body_text);
-        }
-
         // Initialize the text promise if it does not exist
         this._text_promise = new Promise((resolve) =>
             this._body_parser_get_received_data().then((raw) => {
@@ -518,12 +548,6 @@ class Request {
     json(default_value = {}) {
         // Return from cache if available
         if (this._body_json) return Promise.resolve(this._body_json);
-
-        // If we have no expected body length, we will return the default value
-        if (this._body_expected_bytes <= 0) {
-            this._body_json = default_value;
-            return Promise.resolve(this._body_json);
-        }
 
         // Initialize the json promise if it does not exist
         this._json_promise = new Promise((resolve, reject) =>
@@ -560,12 +584,6 @@ class Request {
     urlencoded() {
         // Return from cache if available
         if (this._body_urlencoded) return Promise.resolve(this._body_urlencoded);
-
-        // If we have no expected body length, we will return an empty object
-        if (this._body_expected_bytes <= 0) {
-            this._body_urlencoded = {};
-            return Promise.resolve(this._body_urlencoded);
-        }
 
         // Initialize the urlencoded promise if it does not exist
         this._urlencoded_promise = new Promise((resolve) =>
