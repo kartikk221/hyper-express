@@ -7,6 +7,8 @@ const { test_request_body_echo_test } = require('./scenarios/request_body_echo_t
 const { test_request_uncaught_rejections } = require('./scenarios/request_uncaught_rejections.js');
 const { test_request_router_paths_test } = require('./scenarios/request_router_paths_test.js');
 const { test_request_chunked_json } = require('./scenarios/request_chunked_json.js');
+const fs = require('fs');
+const _path = require('path');
 const crypto = require('crypto');
 const router = new HyperExpress.Router();
 const endpoint = '/tests/request/:param1/:param2';
@@ -188,6 +190,32 @@ async function test_request_object() {
 
     // Assert rejection status code as 413 Too Large Payload
     assert_log(group, 'Too Large Body 413 HTTP Code Reject', () => too_large_response.status === 413);
+
+    // Perform a too large body test with transfer-encoding: chunked
+    const temp_file_path = _path.resolve(_path.join(__dirname, '../../../tests/content/too-large-file.temp'));
+    fs.writeFileSync(temp_file_path, too_large_body_value);
+    try {
+        const too_large_chunked_response = await fetch(base + url, {
+            method: test_method,
+            body: fs.createReadStream(temp_file_path),
+            headers: {
+                'transfer-encoding': 'chunked',
+            },
+        });
+
+        // Cleanup the temp file
+        fs.unlinkSync(temp_file_path);
+
+        // Assert rejection status code as 413 Too Large Payload
+        assert_log(
+            group,
+            'Too Large Body 413 HTTP Code Reject (Chunked)',
+            () => too_large_chunked_response.status === 413
+        );
+    } catch (error) {
+        // Cleanup the temp file
+        fs.unlinkSync(temp_file_path);
+    }
 
     // Perform a request with a urlencoded body to test .urlencoded() method
     const urlencoded_string = `url1=${param1}&url2=${param2}`;

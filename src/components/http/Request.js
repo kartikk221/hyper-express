@@ -309,8 +309,8 @@ class Request {
                     case 1:
                         // Pass through the uWS volatile ArrayBuffer chunk to the passthrough callback as a volatile Uint8Array chunk
                         this._body_parser_passthrough(
-                            // If this is a chunked transfer, we need to copy the chunk as any passthrough consumer
-                            // will have no immediate way of processing hence this chunk needs to stick around in memory across multiple cycles without being deallocated by uWS
+                            // If this is a chunked transfer, we need to COPY the chunk as any passthrough consumer will have no immediate way of processing
+                            // hence this chunk needs to stick around across multiple cycles without being deallocated by uWS
                             this._body_chunked_transfer
                                 ? copy_array_buffer_to_uint8array(chunk)
                                 : new Uint8Array(chunk),
