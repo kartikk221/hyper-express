@@ -212,19 +212,17 @@ class Server extends Router {
      * @returns {Promise<boolean>}
      */
     shutdown(listen_socket) {
+        // If we have no pending requests, we can shutdown immediately
+        if (!this.#pending_requests_count) return Promise.resolve(this.close(listen_socket));
+
+        // Return a promise which resolves once all pending requests have been completed
         const scope = this;
         return new Promise((resolve) => {
-
-            if (scope.#pending_requests_count > 0) {
-                // Bind a zero pending request handler to close the server
-                scope.#pending_requests_zero_handler = () => {
-                    // Close the server and resolve the returned boolean
-                    resolve(scope.close(listen_socket));
-                };
-            } else {
-                // we don't have any pending request so closing server
+            // Bind a zero pending request handler to close the server
+            scope.#pending_requests_zero_handler = () => {
+                // Close the server and resolve the returned boolean
                 resolve(scope.close(listen_socket));
-            }
+            };
         });
     }
 
@@ -500,15 +498,6 @@ class Server extends Router {
      * @param {uWebSockets.us_socket_context_t=} socket
      */
     _handle_uws_request(route, uws_request, uws_response, socket) {
-        // check if grace shutdown started then close any incoming requests
-        if (this.#pending_requests_zero_handler !== null) {
-            uws_response.close();
-            return;
-        }
-
-        // Increment the pending request count
-        this.#pending_requests_count++;
-
         // Construct the wrapper Request around uWS.HttpRequest
         const request = new Request(route, uws_request);
         request._raw_response = uws_response;
@@ -518,6 +507,12 @@ class Server extends Router {
         response.route = route;
         response._wrapped_request = request;
         response._upgrade_socket = socket || null;
+
+        // If we are in the process of gracefully shutting down, we must immediately close the request
+        if (this.#pending_requests_zero_handler) return response.close();
+
+        // Increment the pending request count
+        this.#pending_requests_count++;
 
         // Attempt to start the body parser for this request
         // This method will return false If the request body is larger than the max_body_length

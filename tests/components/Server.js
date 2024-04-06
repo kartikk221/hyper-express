@@ -59,13 +59,23 @@ async function test_server_shutdown() {
     const delay = 100;
     const started_at = Date.now();
 
+    // Send the request and time the response
+    const response = await fetch(`${server.base}/echo/${delay}`);
+
     // Begin the server shutdown process and time the shutdown
     let shutdown_time_ms = 0;
     const shutdown_promise = TEST_SERVER.shutdown();
     shutdown_promise.then(() => (shutdown_time_ms = Date.now() - started_at));
 
-    // Send the request and time the response
-    const response = await fetch(`${server.base}/echo/${delay}`);
+    // Send a second fetch which should be immediately closed
+    let response2_error;
+    try {
+        const response2 = await fetch(`${server.base}/echo/${delay}`);
+    } catch (error) {
+        response2_error = error;
+    }
+
+    // Begin processing the response body
     const body = await response.text();
     const request_time_ms = Date.now() - started_at;
 
@@ -79,7 +89,12 @@ async function test_server_shutdown() {
         // Ensure that the response body matches the delay
         // Ensure that the request time is greater than the delay (The handler artificially waited for the delay)
         // Ensure that the shutdown time is greater than the delay (The server shutdown took longer than the delay)
-        () => body === delay.toString() && request_time_ms >= delay && shutdown_time_ms >= delay
+        // Ensure that response2 failed over network as the server shutdown was in process which would immediately close the request
+        () =>
+            body === delay.toString() &&
+            request_time_ms >= delay &&
+            shutdown_time_ms >= delay &&
+            response2_error !== undefined
     );
 }
 
