@@ -56,7 +56,7 @@ Below is a breakdown of the `Server` component which is an extended `Router` ins
     * **Note** callback is optional and can be used as an alternative to the Promise.
 * `shutdown(uws_socket?: socket)`: Performs a graceful shutdown of the server and closes the listen socket once all pending requests have been completed.
     * **Note**: listen_socket is not required.
-    * **Returns** a `Boolean` representing whether the socket was closed successfully.
+    * **Returns** a `Promise` and resolves `Boolean` representing whether the socket was closed successfully.
 * `close(uws_socket?: socket)`: Closes the uWebsockets server instantly dropping all pending requests.
     * **Note**: listen_socket is not required.
     * **Returns** a `Boolean` representing whether the socket was closed successfully.
