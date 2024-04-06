@@ -59,7 +59,7 @@ export class Server extends Router {
      * @param {uWebSockets.us_listen_socket=} [listen_socket] Optional
      * @returns {Promise<Boolean>}
      */
-    shutdown(listen_socket?: uWebsockets.us_listen_socket): boolean;
+    shutdown(listen_socket?: uWebsockets.us_listen_socket): Promise<boolean>;
 
     /**
      * Stops/Closes HyperExpress webserver instance.
