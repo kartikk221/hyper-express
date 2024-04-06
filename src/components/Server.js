@@ -206,24 +206,30 @@ class Server extends Router {
         });
     }
 
+    #shutdown_promise;
     /**
      * Performs a graceful shutdown of the server and closes the listen socket once all pending requests have been completed.
      * @param {uWebSockets.us_listen_socket=} listen_socket Optional
      * @returns {Promise<boolean>}
      */
     shutdown(listen_socket) {
+        // If we already have a shutdown promise in flight, return it
+        if (this.#shutdown_promise) return this.#shutdown_promise;
+
         // If we have no pending requests, we can shutdown immediately
         if (!this.#pending_requests_count) return Promise.resolve(this.close(listen_socket));
 
-        // Return a promise which resolves once all pending requests have been completed
+        // Create a promise which resolves once all pending requests have been completed
         const scope = this;
-        return new Promise((resolve) => {
+        this.#shutdown_promise = new Promise((resolve) => {
             // Bind a zero pending request handler to close the server
             scope.#pending_requests_zero_handler = () => {
                 // Close the server and resolve the returned boolean
                 resolve(scope.close(listen_socket));
             };
         });
+
+        return this.#shutdown_promise;
     }
 
     /**
