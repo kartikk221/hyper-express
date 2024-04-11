@@ -122,7 +122,7 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * @param {Readable} readable A Readable stream which will be piped as response body
      * @param {Number=} total_size Total size of the Readable stream source in bytes (Optional)
      */
-    stream(readable: Readable, total_size?: number): void;
+    stream(readable: Readable, total_size?: number): Promise<void>;
 
     /**
      * Instantly aborts/closes current request without writing a status response code.
