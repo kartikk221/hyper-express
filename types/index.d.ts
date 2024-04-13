@@ -9,3 +9,6 @@ export * from './components/plugins/LiveFile'
 export * from './components/plugins/MultipartField'
 export * from './components/plugins/SSEventStream'
 export * from './components/ws/Websocket'
+
+import { Server } from './components/Server';
+export const express: (...args: ConstructorParameters<typeof Server>) => Server;
