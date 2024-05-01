@@ -17,4 +17,5 @@ module.exports = {
     Server,
     Router,
     compressors: uWebsockets,
+    express(...args) { return new Server(...args); },
 };
