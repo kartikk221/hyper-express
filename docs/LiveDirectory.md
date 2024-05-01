@@ -24,7 +24,7 @@ const LiveAssets = new LiveDirectory('/var/www/website/files', {
     filter: {
         keep: {
             // Something like below can be used to only serve images, css, js, json files aka. most common web assets ONLY
-            extensions: ['.css', '.js', '.json', '.png', '.jpg', '.jpeg']
+            extensions: ['css', 'js', 'json', 'png', 'jpg', 'jpeg']
         },
         ignore: (path) => {
             // You can define a function to perform any kind of matching on the path of each file being considered by LiveDirectory

@@ -20,7 +20,6 @@ if (!process.env['KEEP_UWS_HEADER']) {
 
 // Expose Server and Router classes along with uWebSockets.js constants
 module.exports = {
-    compressors: uWebsockets,
     Server,
     Router,
     Request,
@@ -29,4 +28,6 @@ module.exports = {
     MultipartField,
     SSEventStream,
     Websocket,
+    compressors: uWebsockets,
+    express(...args) { return new Server(...args); },
 };
