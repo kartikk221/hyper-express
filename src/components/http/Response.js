@@ -487,6 +487,18 @@ class Response {
     send(body, close_connection) {
         // Ensure response connection is still active
         if (!this.completed) {
+            // If this request has a writable stream with some data in it, we must schedule this send() as the last chunk after which the stream will be flushed
+            if (this._writable && this._writable.writableLength) {
+                // Queue the last chunk of the body to be written
+                this._writable.write(body);
+
+                // Mark the writable stream as ended
+                this._writable.end();
+
+                // Return this to make the Router chainable
+                return this;
+            }
+
             // If the response has not been corked yet, cork it and wait for the next tick to send the response
             if (this._cork && !this._corked) {
                 this._corked = true;
