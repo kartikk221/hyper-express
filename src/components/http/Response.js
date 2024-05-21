@@ -919,8 +919,15 @@ class Response {
     get sse() {
         // Return a new SSE instance if one has not been created yet
         if (this._wrapped_request.method === 'GET') {
-            // Create new SSE instance if one has not been created yet
-            if (this._sse === undefined) this._sse = new SSEventStream(this);
+            // Initialize the SSE instance if one has not been created yet
+            if (this._sse === undefined) {
+                this._sse = new SSEventStream();
+
+                // Provide the response object to the SSE instance
+                this._sse._response = this;
+            }
+
+            // Return the SSE instance
             return this._sse;
         }
     }

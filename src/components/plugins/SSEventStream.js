@@ -1,24 +1,43 @@
 'use strict';
 class SSEventStream {
-    #response;
+    _response;
 
-    constructor(response) {
-        // Store the response object locally
-        this.#response = response;
+    #wrote_headers = false;
+    /**
+     * @private
+     * Ensures the proper SSE headers are written to the client to initiate the SSE stream.
+     * @returns {Boolean} Whether the headers were written
+     */
+    _initiate_sse_stream() {
+        // If the response has already been initiated, we cannot write headers anymore
+        if (this._response.initiated) return false;
+
+        // If we have already written headers, we cannot write again
+        if (this.#wrote_headers) return false;
+        this.#wrote_headers = true;
+
+        // Write the headers for the SSE stream to the client
+        this._response
+            .header('content-type', 'text/event-stream')
+            .header('cache-control', 'no-cache')
+            .header('connection', 'keep-alive')
+            .header('x-accel-buffering', 'no');
+
+        // Return true to signify that we have written headers
+        return true;
     }
 
     /**
      * @private
-     * Writes the required Server-Sent Events headers to the client.
+     * Internal method to write data to the response stream.
+     * @returns {Boolean} Whether the data was written
      */
-    _write_sse_headers() {
-        // Only write headers if the response has not been initiated yet
-        if (!this.#response.initiated) {
-            this.#response.header('content-type', 'text/event-stream');
-            this.#response.header('cache-control', 'no-cache');
-            this.#response.header('connection', 'keep-alive');
-            this.#response.header('x-accel-buffering', 'no');
-        }
+    _write(data) {
+        // Initialize the SSE stream
+        this._initiate_sse_stream();
+
+        // Write the data to the response stream
+        return this._response.write(data);
     }
 
     /**
@@ -39,7 +58,7 @@ class SSEventStream {
      */
     close() {
         // Ends the connection by sending the final empty message
-        return this.#response.send();
+        return this._response.send();
     }
 
     /**
@@ -51,7 +70,7 @@ class SSEventStream {
      */
     comment(data) {
         // Prefix the message with a colon character to signify a comment
-        return this.#response.write(`: ${data}\n`);
+        return this._write(`: ${data}\n`);
     }
 
     /**
@@ -78,11 +97,8 @@ class SSEventStream {
         // Push an empty line to indicate the end of the message
         parts.push('', '');
 
-        // Ensure the proper SSE headers are written
-        this._write_sse_headers();
-
         // Write the string based payload to the client
-        return this.#response.write(parts.join('\n'));
+        return this._write(parts.join('\n'));
     }
 
     /* SSEConnection Properties */
@@ -93,7 +109,7 @@ class SSEventStream {
      * @returns {Boolean}
      */
     get active() {
-        return !this.#response.completed;
+        return !this._response.completed;
     }
 }
 
