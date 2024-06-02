@@ -489,8 +489,8 @@ class Response {
         if (!this.completed) {
             // If this request has a writable stream with some data in it, we must schedule this send() as the last chunk after which the stream will be flushed
             if (this._writable && this._writable.writableLength) {
-                // Queue the last chunk of the body to be written
-                this._writable.write(body);
+                // If we have some body data, queue it as the last chunk of the body to be written
+                if (body) this._writable.write(body);
 
                 // Mark the writable stream as ended
                 this._writable.end();
