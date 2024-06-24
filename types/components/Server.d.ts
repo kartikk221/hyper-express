@@ -1,3 +1,4 @@
+import { ReadableOptions, WritableOptions } from 'stream';
 import * as uWebsockets from 'uWebSockets.js';
 import { SendableData } from './http/Response';
 import { Request } from './http/Request';
@@ -11,11 +12,16 @@ export interface ServerConstructorOptions {
     passphrase?: string;
     dh_params_file_name?: string;
     ssl_prefer_low_memory_usage?: boolean;
+    auto_close?: boolean;
     fast_buffers?: boolean;
     fast_abort?: boolean;
     trust_proxy?: boolean;
+    max_body_buffer?: number;
     max_body_length?: number;
-    auto_close?: boolean;
+    streaming?: {
+        readable?: ReadableOptions;
+        writable?: WritableOptions;
+    };
 }
 
 export type GlobalErrorHandler = (request: Request, response: Response, error: Error) => void;
