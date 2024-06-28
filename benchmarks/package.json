@@ -5,15 +5,16 @@
     "main": "index.js",
     "type": "module",
     "scripts": {
+        "start": "node index.js",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "author": "",
     "license": "ISC",
     "dependencies": {
-        "express": "^4.17.3",
-        "fastify": "^3.28.0",
-        "nanoexpress": "^5.2.4",
-        "node-fetch": "^3.2.3",
-        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.10.0"
+        "express": "^4.19.2",
+        "fastify": "^4.28.0",
+        "nanoexpress": "^6.3.0",
+        "node-fetch": "^3.3.2",
+        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.44.0"
     }
 }
