@@ -1,13 +1,13 @@
 import os from 'os';
 import fs from 'fs';
-import fetch from 'node-fetch';
 import cluster from 'cluster';
+import fetch from 'node-fetch';
 import uWebsocketsJS from 'uWebSockets.js';
 import { log } from './utils.js';
 
 // Load the server instances to be benchmarked
 import uWebsockets from './setup/uwebsockets.js';
-// import NanoExpress from './setup/nanoexpress.js';
+import NanoExpress from './setup/nanoexpress.js';
 import HyperExpress from './setup/hyperexpress.js';
 import Fastify from './setup/fastify.js';
 import Express from './setup/express.js';
@@ -39,22 +39,20 @@ if (numCPUs <= 1 || cluster.isWorker) {
                 uWebsockets.listen(configuration.hostname, configuration.port_start, resolve)
             );
             log(`uWebsockets.js server listening on port ${configuration.port_start}`);
-
-            // Initialize the NanoExpress server instance
-            // Commented out NanoExpress as it is not properly updated to Node.js v18
-            /* configuration.port_start++;
-                await NanoExpress.listen(configuration.port_start);
-                log(`NanoExpress server listening on port ${configuration.port_start}`);
-            */
-
+            
             // Initialize the NanoExpress server instance
             configuration.port_start++;
             await HyperExpress.listen(configuration.port_start, configuration.hostname);
             log(`HyperExpress server listening on port ${configuration.port_start}`);
 
+            // Initialize the NanoExpress server instance
+            configuration.port_start++;
+            await NanoExpress.listen(configuration.port_start);
+            log(`NanoExpress server listening on port ${configuration.port_start}`);
+
             // Initialize the Fastify server instance
             configuration.port_start++;
-            Fastify.listen(configuration.port_start, configuration.hostname);
+            Fastify.listen({ port: configuration.port_start, host: configuration.hostname });
             log(`Fastify server listening on port ${configuration.port_start}`);
 
             // Initialize the Express server instance
@@ -91,7 +89,7 @@ if (numCPUs <= 1 || cluster.isWorker) {
         // Close all the webserver instances
         try {
             if (uws_socket) uWebsocketsJS.us_listen_socket_close(uws_socket);
-            // NanoExpress.close();
+            NanoExpress.close();
             HyperExpress.close();
             Fastify.close();
         } catch (error) {
