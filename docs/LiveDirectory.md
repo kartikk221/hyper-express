@@ -3,7 +3,7 @@ Below is a simple guide on implementing static serving functionality to HyperExp
 
 #### Why LiveDirectory?
 LiveDirectory loads files from the specified path into memory and watches them for updates allowing for instantaneous changes. This is desirable for both development and production environments as we do not have to wait on any I/O operation when serving assets. Each request will serve the most updated file content from memory allowing for high performance and throughput without any bottlenecks.
-- See [`> [LiveDirectory]`]([./docs/LiveDirectory.md](https://github.com/kartikk221/live-directory)) for all available properties, methods and documentation on this package.
+- See [`> [LiveDirectory]`]([./docs/LiveDirectory.md](https://github.com/kartikk221/live-directory) for all available properties, methods and documentation on this package.
 
 #### Getting Started
 Please install the [`live-directory`](https://github.com/kartikk221/live-directory) using the `npm` package manager.
