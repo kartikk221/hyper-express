@@ -52,7 +52,7 @@ Object.keys(route_definitions).forEach((type) => {
         endpoint_base + type,
         async (request, response) => {
             // Push the third signature value to the request
-            request.middleware_signature.push(middleware_signature[1]);
+            request.middleware_signature.push(middleware_signature[2]);
         },
         (request, response) => {
             // Echo the methods, call and signature values to the client
@@ -68,7 +68,7 @@ TEST_SERVER.use(router);
 // Bind a second global middleware
 TEST_SERVER.use((request, response, next) => {
     // Push the second signature value to the request
-    request.middleware_signature.push(middleware_signature[2]);
+    request.middleware_signature.push(middleware_signature[1]);
     next();
 });
 
