@@ -618,7 +618,10 @@ class Response {
                     // Note! This callback may be called as many times as neccessary to send a full chunk when using the tryEnd method
                     this.drain((offset) => {
                         // Check if the response has been completed / connection has been closed since we can no longer write to the client
-                        if (this.completed) {
+                        // When total_size is not provided, the chunk has been fully sent already via uWS.write()
+                        // Only when total_size is provided we need to retry to send the ramining chunk since we have used uWS.tryEnd() and
+                        // that does not guarantee that the whole chunk has been sent when stream is drained
+                        if (this.completed || total_size === undefined) {
                             resolve();
                             return true;
                         }
