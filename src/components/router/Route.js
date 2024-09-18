@@ -108,8 +108,23 @@ class Route {
             // Retrieve an output value from the route handler or the middleware function
             let output;
             if (middleware) {
-                // Execute the middleware handler with the iterator
-                output = middleware.handler(request, response, iterator);
+                // Determine if this is an async middleware function
+                const is_async_function = middleware.handler.constructor.name === 'AsyncFunction';
+                if (is_async_function) {
+                    // Use a safety promise to catch any uncaught thrown errors from the middleware
+                    output = new Promise(async (resolve) => {
+                        try {
+                            // Execute the middleware handler with the iterator
+                            resolve(await middleware.handler(request, response, iterator));
+                        } catch (error) {
+                            // Catch and pipe any errors to the error handler
+                            response.throw(error);
+                        }
+                    });
+                } else {
+                    // Execute the middleware handler with the iterator
+                    output = middleware.handler(request, response, iterator);
+                }
             } else {
                 // Excute the route handler without the iterator
                 output = this.handler(request, response);

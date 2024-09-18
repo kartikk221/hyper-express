@@ -16,12 +16,17 @@ TEST_SERVER.locals.some_reference = {
 // Bind error handler for catch-all logging
 TEST_SERVER.set_error_handler((request, response, error) => {
     // Handle expected errors with their appropriate callbacks
-    if (typeof request.expected_error == 'function') return request.expected_error(error);
-
-    // Treat as global error and log to console
-    log('UNCAUGHT_ERROR_REQUEST', `${request.method} | ${request.url}\n ${JSON.stringify(request.headers, null, 2)}`);
-    console.log(error);
-    return response.send('Uncaught Error Occured');
+    if (typeof request.expected_error == 'function') {
+        request.expected_error(error);
+    } else {
+        // Treat as global error and log to console
+        log(
+            'UNCAUGHT_ERROR_REQUEST',
+            `${request.method} | ${request.url}\n ${JSON.stringify(request.headers, null, 2)}`
+        );
+        console.log(error);
+        response.send('Uncaught Error Occured');
+    }
 });
 
 function not_found_handler(request, response) {

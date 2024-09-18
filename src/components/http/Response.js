@@ -621,7 +621,7 @@ class Response {
                         // When total_size is not provided, the chunk has been fully sent already via uWS.write()
                         // Only when total_size is provided we need to retry to send the ramining chunk since we have used uWS.tryEnd() and
                         // that does not guarantee that the whole chunk has been sent when stream is drained
-                        if (this.completed || total_size === undefined) {
+                        if (this.completed || !total_size) {
                             resolve();
                             return true;
                         }
@@ -850,6 +850,7 @@ class Response {
         return this.attachment(path, filename).file(path);
     }
 
+    #thrown = false;
     /**
      * This method allows you to throw an error which will be caught by the global error handler.
      *
@@ -857,6 +858,10 @@ class Response {
      * @returns {Response}
      */
     throw(error) {
+        // If we have already thrown an error, ignore further throws
+        if (this.#thrown) return this;
+        this.#thrown = true;
+
         // If the error is not an instance of Error, wrap it in an Error object that
         if (!(error instanceof Error)) error = new Error(`ERR_CAUGHT_NON_ERROR_TYPE: ${error}`);
 

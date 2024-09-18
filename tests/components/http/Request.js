@@ -61,6 +61,7 @@ const route_specific_middleware = (request, response, next) => {
 // Load scenarios and bind router to test server
 const { test_middleware_double_iteration } = require('./scenarios/middleware_double_iteration.js');
 const { test_middleware_iteration_error } = require('./scenarios/middleware_iteration_error.js');
+const { test_middleware_uncaught_async_error } = require('./scenarios/middleware_uncaught_async_error.js');
 const { test_middleware_layered_iterations } = require('./scenarios/middleware_layered_iteration.js');
 const { test_middleware_dynamic_iteration } = require('./scenarios/middleware_dynamic_iteration.js');
 const { test_middleware_execution_order } = require('./scenarios/middleware_execution_order.js');
@@ -264,6 +265,9 @@ async function test_request_object() {
 
     // Test simulated middleware iteration error
     await test_middleware_iteration_error();
+
+    // Test uncaught async middleware error
+    await test_middleware_uncaught_async_error();
 
     // Test dynamic middleware iteration
     await test_middleware_dynamic_iteration();
