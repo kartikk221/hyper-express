@@ -1,10 +1,16 @@
 'use strict';
-const accepts = require('accepts');
+const Negotiator = require('negotiator')
 const parse_range = require('range-parser');
 const type_is = require('type-is');
 const is_ip = require('net').isIP;
 
 class ExpressRequest {
+    #negotiator;
+
+    ExpressRequest() {
+        this.#negotiator = new Negotiator(this);
+    }
+
     /* Methods */
     get(name) {
         let lowercase = name.toLowerCase();
@@ -28,18 +34,36 @@ class ExpressRequest {
     }
 
     acceptsCharsets() {
-        let instance = accepts(this);
-        return instance.charsets.apply(instance, arguments);
+        charsets = flattened(charsets, arguments);
+  
+        // no charsets, return all requested charsets
+        if (!charsets || charsets.length === 0) {
+          return this.#negotiator.charsets();
+        }
+      
+        return this.#negotiator.charsets(charsets)[0] || false;
     }
 
     acceptsEncodings() {
-        let instance = accepts(this);
-        return instance.encodings.apply(instance, arguments);
+        encodings = flattened(encodings, arguments);
+  
+        // no encodings, return all requested encodings
+        if (!encodings || encodings.length === 0) {
+          return this.#negotiator.encodings();
+        }
+      
+        return this.#negotiator.encodings(encodings)[0] || false;
     }
 
     acceptsLanguages() {
-        let instance = accepts(this);
-        return instance.languages.apply(instance, arguments);
+        languages = flattened(languages, arguments);
+  
+        // no languages, return all requested languages
+        if (!languages || languages.length === 0) {
+          return this.#negotiator.languages();
+        }
+      
+        return this.#negotiator.languages(languages)[0] || false;
     }
 
     range(size, options) {
@@ -169,6 +193,16 @@ class ExpressRequest {
     get xhr() {
         return (this.get('X-Requested-With') || '').toLowerCase() === 'xmlhttprequest';
     }
+}
+
+const flattened = function(arr, args) {
+    if (arr && !Array.isArray(arr)) {
+        arr = new Array(args.length)
+        for (var i = 0; i < arr.length; i++) {
+            arr[i] = args[i];
+        }
+    }
+    return arr;
 }
 
 module.exports = ExpressRequest;
