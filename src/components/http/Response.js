@@ -1,7 +1,6 @@
 'use strict';
 const crypto = require('crypto');
 const cookie = require('cookie');
-const signature = require('cookie-signature');
 const status_codes = require('http').STATUS_CODES;
 const mime_types = require('mime-types');
 const stream = require('stream');
@@ -269,7 +268,11 @@ class Response {
         // Sign cookie value if signing is enabled and a valid secret is provided
         if (sign_cookie && typeof options.secret == 'string') {
             options.encode = false; // Turn off encoding to prevent loss of signature structure
-            value = signature.sign(value, options.secret);
+            value = value + '.' + crypto
+                .createHmac('sha256', options.secret)
+                .update(value)
+                .digest('base64')
+                .replace(/\=+$/, '');
         }
 
         // Initialize the cookies holder object if it does not exist
