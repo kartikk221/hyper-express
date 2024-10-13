@@ -11,6 +11,7 @@ const { test_response_events } = require('./scenarios/response_hooks.js');
 const { test_response_sync_writes } = require('./scenarios/response_stream_sync_writes.js');
 const { test_response_custom_content_length } = require('./scenarios/response_custom_content_length.js');
 const { test_response_sse } = require('./scenarios/response_sse.js');
+const { test_response_set_header } = require('./scenarios/response_set.js');
 const router = new HyperExpress.Router();
 const endpoint = '/tests/response/operators';
 const endpoint_url = server.base + endpoint;
@@ -169,6 +170,9 @@ async function test_response_object() {
 
     // Test Response.LiveFile object
     await test_livefile_object();
+
+    // Test Response.set() compatibility
+    await test_response_set_header();
 
     // Verify .on() aka. Response events
     assert_log(
