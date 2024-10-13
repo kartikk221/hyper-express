@@ -58,6 +58,7 @@ router.post(endpoint, async (request, response) => {
 
 // Bind router to webserver
 const { TEST_SERVER } = require('../Server.js');
+const { test_response_send_status } = require('./scenarios/response_send_status.js');
 TEST_SERVER.use(router);
 
 async function test_response_object() {
@@ -136,6 +137,9 @@ async function test_response_object() {
 
     // Verify the custom HTTP status code and message support
     await test_response_custom_status();
+
+    // Verify the custom HTTP status code and message support
+    await test_response_send_status();
 
     // Verify the behavior of the .header() and .cookie() methods
     await test_response_headers_behavior();

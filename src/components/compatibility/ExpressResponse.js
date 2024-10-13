@@ -84,7 +84,7 @@ class ExpressResponse {
     }
 
     sendStatus(status_code) {
-        return this.status(status_code);
+        return this.status(status_code).send();
     }
 
     set(field, value) {
