@@ -11,10 +11,10 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
-        "express": "^4.19.2",
-        "fastify": "^4.28.0",
-        "nanoexpress": "^6.3.0",
+        "express": "^5.0.1",
+        "fastify": "^5.0.0",
+        "nanoexpress": "^6.4.4",
         "node-fetch": "^3.3.2",
-        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.44.0"
+        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.49.0"
     }
 }
