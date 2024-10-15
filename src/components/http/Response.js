@@ -745,7 +745,7 @@ class Response {
      * @returns {Boolean} Boolean
      */
     json(body) {
-        return this.type('json').send(JSON.stringify(body));
+        return this.header('content-type', 'application/json', true).send(JSON.stringify(body));
     }
 
     /**
@@ -760,7 +760,7 @@ class Response {
     jsonp(body, name) {
         let query_parameters = this._wrapped_request.query_parameters;
         let method_name = query_parameters['callback'] || name;
-        return this.type('js').send(`${method_name}(${JSON.stringify(body)})`);
+        return this.header('content-type', 'application/javascript', true).send(`${method_name}(${JSON.stringify(body)})`);
     }
 
     /**
@@ -771,7 +771,7 @@ class Response {
      * @returns {Boolean} Boolean
      */
     html(body) {
-        return this.type('html').send(body);
+        return this.header('content-type', 'text/html', true).send(body);
     }
 
     /**
