@@ -2,6 +2,7 @@ import { Readable, Writable } from 'stream';
 import * as uWebsockets from 'uWebSockets.js';
 import { LiveFile } from '../plugins/LiveFile';
 import { Server } from '../Server';
+import { SSEventStream } from '../plugins/SSEventStream';
 
 export type SendableData = string | Buffer | ArrayBuffer;
 export type FileCachePool = {
@@ -242,6 +243,14 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * @returns {uWebsockets.ux_socket_context}
      */
     get upgrade_socket(): uWebsockets.us_socket_context_t;
+
+    /**
+     * Returns a "Server-Sent Events" connection object to allow for SSE functionality.
+     * This property will only be available for GET requests as per the SSE specification.
+     *
+     * @returns {SSEventStream=}
+     */
+    get sse(): SSEventStream | undefined
 
     /* ExpressJS Methods */
     append(name: string, values: string | Array<string>): Response;
