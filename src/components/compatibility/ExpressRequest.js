@@ -1,5 +1,6 @@
 'use strict';
 const Negotiator = require('negotiator')
+const mime_types = require('mime-types')
 const parse_range = require('range-parser');
 const type_is = require('type-is');
 const is_ip = require('net').isIP;
@@ -28,40 +29,49 @@ class ExpressRequest {
         return this.get(name);
     }
 
-    accepts() {
+    accepts(types) {
         if (arguments.length === 0) {
             return this.#negotiator.mediaTypes();
-        } else if (Array.isArray(arguments[0])) {
-            return this.#negotiator.mediaType(arguments[0]);
         }
-        return this.#negotiator.mediaType(Array.from(arguments));
+
+        const arrayTypes = Array.isArray(types) ? types : Array.from(arguments);
+        if (!arrayTypes.length) {
+            return this.#negotiator.mediaTypes();
+        }
+
+        const mimes = arrayTypes.map((type) => type.indexOf('/') === -1 ? mime_types.lookup(type) : type);
+        const first = this.#negotiator.mediaType(mimes.filter((type) => typeof type === 'string'));
+        return first ? arrayTypes[mimes.indexOf(first)] : false;
     }
 
-    acceptsCharsets() {
-        if (arguments.length === 0) {
-            return this.#negotiator.charsets();
-        } else if (Array.isArray(arguments[0])) {
-            return this.#negotiator.charset(arguments[0]);
-        }
-        return this.#negotiator.charset(Array.from(arguments));
-    }
-
-    acceptsEncodings() {
+    acceptsEncodings(encodings) {
         if (arguments.length === 0) {
             return this.#negotiator.encodings();
-        } else if (Array.isArray(arguments[0])) {
-            return this.#negotiator.encoding(arguments[0]);
+        } else if (Array.isArray(encodings)) {
+            if (!encodings.length) return this.#negotiator.encodings();
+            return this.#negotiator.encoding(encodings) || false;
         }
-        return this.#negotiator.encoding(Array.from(arguments));
+        return this.#negotiator.encoding(Array.from(arguments)) || false;
     }
 
-    acceptsLanguages() {
+    acceptsCharsets(charsets) {
+        if (arguments.length === 0) {
+            return this.#negotiator.charsets();
+        } else if (Array.isArray(charsets)) {
+            if (!charsets.length) return this.#negotiator.charsets();
+            return this.#negotiator.charset(charsets) || false;
+        }
+        return this.#negotiator.charset(Array.from(arguments)) || false;
+    }
+
+    acceptsLanguages(languages) {
         if (arguments.length === 0) {
             return this.#negotiator.languages();
-        } else if (Array.isArray(arguments[0])) {
-            return this.#negotiator.language(arguments[0]);
+        } else if (Array.isArray(languages)) {
+            if (!languages.length) return this.#negotiator.languages();
+            return this.#negotiator.language(languages) || false;
         }
-        return this.#negotiator.language(Array.from(arguments));
+        return this.#negotiator.language(Array.from(arguments)) || false;
     }
 
     range(size, options) {
