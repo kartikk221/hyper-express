@@ -29,41 +29,39 @@ class ExpressRequest {
     }
 
     accepts() {
-        let instance = accepts(this);
-        return instance.types.apply(instance, arguments);
+        if (arguments.length === 0) {
+            return this.#negotiator.mediaTypes();
+        } else if (Array.isArray(arguments[0])) {
+            return this.#negotiator.mediaType(arguments[0]);
+        }
+        return this.#negotiator.mediaType(Array.from(arguments));
     }
 
     acceptsCharsets() {
-        charsets = flattened(charsets, arguments);
-  
-        // no charsets, return all requested charsets
-        if (!charsets || charsets.length === 0) {
-          return this.#negotiator.charsets();
+        if (arguments.length === 0) {
+            return this.#negotiator.charsets();
+        } else if (Array.isArray(arguments[0])) {
+            return this.#negotiator.charset(arguments[0]);
         }
-      
-        return this.#negotiator.charsets(charsets)[0] || false;
+        return this.#negotiator.charset(Array.from(arguments));
     }
 
     acceptsEncodings() {
-        encodings = flattened(encodings, arguments);
-  
-        // no encodings, return all requested encodings
-        if (!encodings || encodings.length === 0) {
-          return this.#negotiator.encodings();
+        if (arguments.length === 0) {
+            return this.#negotiator.encodings();
+        } else if (Array.isArray(arguments[0])) {
+            return this.#negotiator.encoding(arguments[0]);
         }
-      
-        return this.#negotiator.encodings(encodings)[0] || false;
+        return this.#negotiator.encoding(Array.from(arguments));
     }
 
     acceptsLanguages() {
-        languages = flattened(languages, arguments);
-  
-        // no languages, return all requested languages
-        if (!languages || languages.length === 0) {
-          return this.#negotiator.languages();
+        if (arguments.length === 0) {
+            return this.#negotiator.languages();
+        } else if (Array.isArray(arguments[0])) {
+            return this.#negotiator.language(arguments[0]);
         }
-      
-        return this.#negotiator.languages(languages)[0] || false;
+        return this.#negotiator.language(Array.from(arguments));
     }
 
     range(size, options) {
@@ -193,16 +191,6 @@ class ExpressRequest {
     get xhr() {
         return (this.get('X-Requested-With') || '').toLowerCase() === 'xmlhttprequest';
     }
-}
-
-const flattened = function(arr, args) {
-    if (arr && !Array.isArray(arr)) {
-        arr = new Array(args.length)
-        for (var i = 0; i < arr.length; i++) {
-            arr[i] = args[i];
-        }
-    }
-    return arr;
 }
 
 module.exports = ExpressRequest;
