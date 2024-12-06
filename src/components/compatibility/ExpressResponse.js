@@ -24,11 +24,20 @@ class ExpressResponse {
      *
      * @see https://github.com/kartikk221/hyper-express/issues/324
      * @see https://github.com/kartikk221/hyper-express/issues/22
+     *
+     * @see https://nodejs.org/api/http.html#responsewriteheadstatuscode-statusmessage-headers
      */
-    writeHead(statusCode, headers) {
+    writeHead(statusCode, msgOrHeaders, headersOrUndefined) {
         this.status(statusCode);
-        if (headers && typeof headers === 'object') {
+
+        const setHeaders = (headers) => {
             Object.keys(headers).forEach((name) => this.header(name, headers[name]));
+        };
+
+        if (msgOrHeaders && typeof msgOrHeaders === 'object') {
+            setHeaders(msgOrHeaders);
+        } else if (headersOrUndefined && typeof headersOrUndefined === 'object') {
+            setHeaders(headersOrUndefined);
         }
     }
 
