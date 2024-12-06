@@ -1,6 +1,6 @@
 'use strict';
-const Negotiator = require('negotiator')
-const mime_types = require('mime-types')
+const Negotiator = require('negotiator');
+const mime_types = require('mime-types');
 const parse_range = require('range-parser');
 const type_is = require('type-is');
 const is_ip = require('net').isIP;
@@ -39,7 +39,7 @@ class ExpressRequest {
             return this.#negotiator.mediaTypes();
         }
 
-        const mimes = arrayTypes.map((type) => type.indexOf('/') === -1 ? mime_types.lookup(type) : type);
+        const mimes = arrayTypes.map((type) => (type.indexOf('/') === -1 ? mime_types.lookup(type) : type));
         const first = this.#negotiator.mediaType(mimes.filter((type) => typeof type === 'string'));
         return first ? arrayTypes[mimes.indexOf(first)] : false;
     }
@@ -111,6 +111,16 @@ class ExpressRequest {
 
     get originalUrl() {
         return this.url;
+    }
+
+    /**
+     * @benoitlahoz Only tested with `vite` middlewares used for SSR
+     * that actually change the `originalUrl` of the request.
+     *
+     * @see https://github.com/kartikk221/hyper-express/issues/324
+     */
+    set originalUrl(url) {
+        this.url = url;
     }
 
     get fresh() {
