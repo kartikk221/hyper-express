@@ -866,10 +866,13 @@ class Response {
         if (!(error instanceof Error)) error = new Error(`ERR_CAUGHT_NON_ERROR_TYPE: ${error}`);
 
         // Trigger the global error handler
-        this.route.app.handlers.on_error(this._wrapped_request, this, error);
-
-        // Return this response instance
-        return this;
+        // These have changed to return statements to stop the logic of missing the
+        // error handler when middleware is mounted on the Server or Router instance.
+        if (this.route.handlers.on_error === null) {
+            return this.route.app.handlers.on_error(this._wrapped_request, this, error);
+        } else {
+            return this.route.handlers.on_error(this._wrapped_request, this, error);
+        }
     }
 
     /* HyperExpress Properties */

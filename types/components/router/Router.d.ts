@@ -5,6 +5,8 @@ import { Websocket } from '../ws/Websocket';
 import { CompressOptions } from 'uWebSockets.js';
 import { MiddlewareHandler } from '../middleware/MiddlewareHandler';
 
+export type RouterErrorHandler = (request: Request, resposne: Response, error: Error) => void;
+
 // Define types for HTTP Route Creators
 export type UserRouteHandler = (request: Request, response: Response) => void;
 export interface UserRouteOptions {
@@ -29,6 +31,7 @@ export interface RouteRecord {
     pattern: string;
     options: UserRouteOptions | WSRouteOptions;
     handler: UserRouteHandler;
+    handlers: Object;
 }
 
 // Defines the type for internal middleware records
@@ -48,6 +51,13 @@ type RouteSpreadableArguments = (
 
 export class Router {
     constructor();
+
+    /**
+     * Sets a global error handler which will catch most uncaught errors across all routes/middlewares.
+     *
+     * @param {RouterErrorHandler} handler
+     */
+    set_error_handler(handler: RouterErrorHandler): void;
 
     /**
      * Returns a chainable Router instance which can be used to bind multiple method routes or middlewares on the same path easily.
@@ -185,4 +195,10 @@ export class Router {
      * @returns {Array}
      */
     get middlewares(): Array<MiddlewareRecord>;
+
+    /** 
+     * Router instance handlers.
+     * @returns {Object}
+     */
+    get handlers(): Object;
 }
