@@ -60,15 +60,15 @@ class Router {
         const method = arguments[0];
 
         // The pattern, options and handler must be dynamically parsed depending on the arguments provided and router behavior
-        let pattern, options, handler;
+        let pattern, options, handler, handlers = null;
 
         // Iterate through the remaining arguments to find the above values and also build an Array of middleware / handler callbacks
-        // The route handler will be the last one in the array
         const callbacks = [];
         for (let i = 1; i < arguments.length; i++) {
             const argument = arguments[i];
 
             // The second argument should be the pattern. If it is a string, it is the pattern. If it is anything else and we do not have a context pattern, throw an error as that means we have no pattern.
+            // The router on_error and on_not_found handlers are the last argument in the array
             if (i === 1) {
                 if (typeof argument === 'string') {
                     if (this.#context_pattern) {
@@ -98,6 +98,9 @@ class Router {
             } else if (Array.isArray(argument)) {
                 // Scenario: Array of functions
                 callbacks.push(...argument);
+            } else if (method !== 'ws' && i === arguments.length - 1) {
+                // Scenario: Router-specific handlers
+                handlers = argument;
             } else if (argument && typeof argument == 'object') {
                 // Scenario: Route options object
                 options = argument;
@@ -131,12 +134,15 @@ class Router {
         // Write the middlewares into the options object
         options.middlewares = middlewares;
 
-        // Initialize the record object which will hold information about this route
+        // Initialize the record object which will hold information about this route.
+        // If the handlers variable is null then default to the Server defined on_error
+        // and on_not_found handlers.
         const record = {
             method,
             pattern,
             options,
             handler,
+            handlers: handlers || this.handlers,
         };
 
         // Store record for future subscribers
@@ -191,13 +197,14 @@ class Router {
                     const { routes, middlewares } = object;
 
                     // Register routes from router locally with adjusted pattern
-                    routes.forEach((record) =>
+                    routes.forEach((record) => {
                         reference._register_route(
                             record.method,
                             merge_relative_paths(pattern, record.pattern),
                             record.options,
-                            record.handler
-                        )
+                            record.handler,
+                            record.handlers,
+                        )}
                     );
 
                     // Register middlewares from router locally with adjusted pattern
@@ -210,7 +217,8 @@ class Router {
                         object.method,
                         merge_relative_paths(pattern, object.pattern),
                         object.options,
-                        object.handler
+                        object.handler,
+                        object.handlers,
                     );
                 case 'middleware':
                     // Register middleware from router locally with adjusted pattern
@@ -236,6 +244,26 @@ class Router {
 
         // Register subscriber handler for future updates
         this.#subscribers.push(handler);
+    }
+
+    #handlers = {
+        on_error: null,
+    };
+
+    /**
+     * @typedef RouteErrorHandler
+     * @type {function(Request, Response, Error):void}
+     */
+
+    /**
+     * Sets a router error handler which will catch most uncaught errors across all routes/middlewares on this
+     * router.
+     *
+     * @param {RouteErrorHandler} handler
+     */
+    set_error_handler(handler) {
+        if (typeof handler !== 'function') throw new Error('HyperExpress: handler must be a function');
+        this.#handlers.on_error = handler;
     }
 
     /**
@@ -478,6 +506,15 @@ class Router {
     get middlewares() {
         return this.#records.middlewares;
     }
+
+    /**
+     * Router instance handlers.
+     * @returns {Object}
+     */
+    get handlers() {
+        return this.#handlers;
+    }
+
 }
 
 module.exports = Router;

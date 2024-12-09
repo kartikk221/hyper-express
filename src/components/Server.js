@@ -359,7 +359,7 @@ class Server extends Router {
      */
     _create_route(record) {
         // Destructure record into route options
-        const { method, pattern, options, handler } = record;
+        const { method, pattern, options, handler, handlers } = record;
 
         // Do not allow route creation once it is locked after a not found handler has been bound
         if (this.#routes_locked === true)
@@ -381,6 +381,7 @@ class Server extends Router {
             pattern,
             options,
             handler,
+            handlers,
         });
 
         // Mark route as temporary if specified from options

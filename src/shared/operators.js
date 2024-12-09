@@ -6,6 +6,7 @@
  * @param {Object} obj2 Focus Object
  */
 function wrap_object(original, target) {
+    if (!target) return;
     Object.keys(target).forEach((key) => {
         if (typeof target[key] == 'object') {
             if (Array.isArray(target[key])) return (original[key] = target[key]); // lgtm [js/prototype-pollution-utility]

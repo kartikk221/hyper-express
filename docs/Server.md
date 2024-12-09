@@ -61,7 +61,7 @@ Below is a breakdown of the `Server` component which is an extended `Router` ins
 * `close(uws_socket?: socket)`: Closes the uWebsockets server instantly dropping all pending requests.
     * **Note**: listen_socket is not required.
     * **Returns** a `Boolean` representing whether the socket was closed successfully.
-* `set_error_handler(Function: handler)`: Binds a global catch-all error handler that will attempt to catch mostsynchronous/asynchronous errors.
+* `set_error_handler(Function: handler)`: Binds a global catch-all error handler that will attempt to catch mostsynchronous/asynchronous errors. This is the default error handler if router specific routes do not have a defined error handler.
     * **Handler Parameters:** `(Request: request, Response: response, Error: error) => {}`.
 * `set_not_found_handler(Function: handler)`: Binds a global catch-all not found handler that will handle all requests which are not handled by any routes.
     * **Handler Parameters:** `(Request: request, Response: response) => {}`.

@@ -8,6 +8,7 @@ class Route {
     method = '';
     pattern = '';
     handler = null;
+    handlers = null;
     options = null;
     streaming = null;
     max_body_length = null;
@@ -21,11 +22,12 @@ class Route {
      * @param {String} options.pattern - The route pattern.
      * @param {Function} options.handler - The route handler.
      */
-    constructor({ app, method, pattern, options, handler }) {
+    constructor({ app, method, pattern, options, handler, handlers }) {
         this.id = app._get_incremented_id();
         this.app = app;
         this.pattern = pattern;
         this.handler = handler;
+        this.handlers = handlers;
         this.options = options;
         this.method = method.toUpperCase();
         this.streaming = options.streaming || app._options.streaming || {};
@@ -46,6 +48,7 @@ class Route {
      * @property {Number} id - Unique identifier for this middleware based on it's registeration order.
      * @property {String} pattern - The middleware pattern.
      * @property {function} handler - The middleware handler function.
+     * @property {Object} handlers - The on_not_found and on_error handler functions.
      * @property {Boolean=} match - Whether to match the middleware pattern against the request path.
      */
 
