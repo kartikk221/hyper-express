@@ -36,7 +36,6 @@ webserver.use('/api/v1', api_v1_router);
     * **Example**: `Router.route('/api/v1').get(getApiV1Handler).post(postApiV1Handler)`
 * `set_error_handler(Function: handler)`: Binds a catch-all error handler that will attempt to catch mostsynchronous/asynchronous errors on routes defined on this router.
     * **Handler Parameters:** `(Request: request, Response: response, Error: error) => {}`.
-* `set_not_found_handler(Function: handler)`: Binds a global catch-all not found handler that will handle all requests which are not handled by any routes.
 * `use(...2 Overloads)`: Binds middlewares and mounts `Router` instances on the optionally specified pattern hierarchy.
     * **Overload Types**:
       * `use(Function | Router: ...handler)`: Binds the specified functions as middlewares and mounts the `Router` instances on the `/` pattern.
