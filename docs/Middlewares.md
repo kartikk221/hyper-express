@@ -24,7 +24,8 @@ server.use(async (request, response) => {
         await some_async_operation();
         // The request proceeds to the next middleware/handler after the promise resolves
     } catch (error) {
-        return error; // This will trigger global error handler as we are returning an Error
+        next(error); // This will trigger global error handler as we are returning an Error
+        //or throw error;
     }
 });
 ```
