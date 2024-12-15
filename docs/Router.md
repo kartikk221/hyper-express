@@ -29,10 +29,13 @@ webserver.use('/api/v1', api_v1_router);
 | :-------- | :------- | :------------------------- |
 | `routes` | `Array` | Routes contained in this router. |
 | `middlewares` | `Array` | Middlewares contained in this router in proper execution order. |
+| `handlers` | `Object` | Router specific handlers for current instance |
 
 ### Router Instance Methods
 * `route(String: pattern)`: Returns a chainable `Router` instance which can be used to chain calls for the same route.
     * **Example**: `Router.route('/api/v1').get(getApiV1Handler).post(postApiV1Handler)`
+* `set_error_handler(Function: handler)`: Binds a catch-all error handler that will attempt to catch mostsynchronous/asynchronous errors on routes defined on this router.
+    * **Handler Parameters:** `(Request: request, Response: response, Error: error) => {}`.
 * `use(...2 Overloads)`: Binds middlewares and mounts `Router` instances on the optionally specified pattern hierarchy.
     * **Overload Types**:
       * `use(Function | Router: ...handler)`: Binds the specified functions as middlewares and mounts the `Router` instances on the `/` pattern.
