@@ -869,10 +869,12 @@ class Response {
         // These have changed to return statements to stop the logic of missing the
         // error handler when middleware is mounted on the Server or Router instance.
         if (this.route.handlers.on_error === null) {
-            return this.route.app.handlers.on_error(this._wrapped_request, this, error);
+            this.route.app.handlers.on_error(this._wrapped_request, this, error);
         } else {
-            return this.route.handlers.on_error(this._wrapped_request, this, error);
+            this.route.handlers.on_error(this._wrapped_request, this, error);
         }
+
+        return this;
     }
 
     /* HyperExpress Properties */
