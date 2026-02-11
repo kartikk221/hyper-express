@@ -1,6 +1,6 @@
 {
     "name": "hyper-express",
-    "version": "6.17.3",
+    "version": "6.17.3.1",
     "description": "High performance Node.js webserver with a simple-to-use API powered by uWebsockets.js under the hood.",
     "main": "index.js",
     "types": "./types/index.d.ts",
@@ -9,7 +9,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+ssh://git@github.com/kartikk221/hyper-express.git"
+        "url": "git+ssh://github.com/Dragon-InterActive/hyper-express.git"
     },
     "keywords": [
         "uws",
@@ -49,7 +49,7 @@
         "range-parser": "^1.2.1",
         "type-is": "^1.6.18",
         "typed-emitter": "^2.1.0",
-        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.51.0"
+        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.57.0"
     },
     "devDependencies": {
         "@types/busboy": "^1.5.4",
