@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2021",
+    "target": "ES2024",
     "moduleResolution": "node",
     "typeRoots": [
       "./types/*.d.ts",

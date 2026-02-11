@@ -881,6 +881,16 @@ class Request {
     }
 
     /**
+     * Sets query parameters for incoming request.
+     * @param {Object.<string, string>} value
+     * @returns {Object.<string, string>}
+     */
+    set query_parameters(value) {
+        this._query_parameters = value;
+        return this._query_parameters;
+    }
+
+    /**
      * Returns remote IP address in string format from incoming request.
      * Note! You cannot call this method after the response has been sent or ended.
      * @returns {String}
