@@ -1,12 +1,11 @@
 'use strict';
-const Negotiator = require('negotiator')
-const mime_types = require('mime-types')
+const Negotiator = require('negotiator');
+const mime_types = require('mime-types');
 const parse_range = require('range-parser');
 const type_is = require('type-is');
 const is_ip = require('net').isIP;
 
 class ExpressRequest {
-
     /* Methods */
     get(name) {
         let lowercase = name.toLowerCase();
@@ -24,53 +23,53 @@ class ExpressRequest {
         return this.get(name);
     }
 
-    accepts(mediaTypes) {
+    accepts(types) {
         const negotiator = new Negotiator(this);
-        if (mediaTypes && !Array.isArray(mediaTypes)) {
-            mediaTypes = Array.from(arguments);
-        }
-        if (!mediaTypes || !mediaTypes.length) {
+        if (arguments.length === 0) {
             return negotiator.mediaTypes();
         }
-        if (!this.headers.accept) {
-            return mediaTypes[0];
+
+        const array_types = Array.isArray(types) ? types : Array.from(arguments);
+        if (!array_types.length) {
+            return negotiator.mediaTypes();
         }
-        const mimes = mediaTypes.map((type) => type.indexOf('/') === -1 ? mime_types.lookup(type) : type);
+
+        const mimes = array_types.map((type) => (type.indexOf('/') === -1 ? mime_types.lookup(type) : type));
         const first = negotiator.mediaType(mimes.filter((type) => typeof type === 'string'));
-        return first ? mediaTypes[mimes.indexOf(first)] : false;
+        return first ? array_types[mimes.indexOf(first)] : false;
     }
 
     acceptsEncodings(encodings) {
         const negotiator = new Negotiator(this);
-        if (encodings && !Array.isArray(encodings)) {
-            encodings = Array.from(arguments);
-        }
-        if (!encodings || !encodings.length) {
+        if (arguments.length === 0) {
             return negotiator.encodings();
+        } else if (Array.isArray(encodings)) {
+            if (!encodings.length) return negotiator.encodings();
+            return negotiator.encoding(encodings) || false;
         }
-        return negotiator.encodings(encodings)[0] || false;
+        return negotiator.encoding(Array.from(arguments)) || false;
     }
 
     acceptsCharsets(charsets) {
         const negotiator = new Negotiator(this);
-        if (charsets && !Array.isArray(charsets)) {
-            charsets = Array.from(arguments);
-        }
-        if (!charsets || !charsets.length) {
+        if (arguments.length === 0) {
             return negotiator.charsets();
+        } else if (Array.isArray(charsets)) {
+            if (!charsets.length) return negotiator.charsets();
+            return negotiator.charset(charsets) || false;
         }
-        return negotiator.charsets(charsets)[0] || false;
+        return negotiator.charset(Array.from(arguments)) || false;
     }
 
     acceptsLanguages(languages) {
         const negotiator = new Negotiator(this);
-        if (languages && !Array.isArray(languages)) {
-            languages = Array.from(arguments);
-        }
-        if (!languages || !languages.length) {
+        if (arguments.length === 0) {
             return negotiator.languages();
+        } else if (Array.isArray(languages)) {
+            if (!languages.length) return negotiator.languages();
+            return negotiator.language(languages) || false;
         }
-        return negotiator.languages(languages)[0] || false;
+        return negotiator.language(Array.from(arguments)) || false;
     }
 
     range(size, options) {

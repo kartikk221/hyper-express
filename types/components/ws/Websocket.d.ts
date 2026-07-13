@@ -1,22 +1,23 @@
 import * as uWebsockets from 'uWebSockets.js';
-import { EventEmitter } from "events";
+import { EventEmitter } from 'events';
 import { Readable, Writable } from 'stream';
-import TypedEmitter from 'typed-emitter';
-import { SendableData } from "../http/Response";
+import { SendableData } from '../http/Response';
 
 export type WebsocketContext = {
-    [key: string]: string
-}
+    [key: string]: string;
+};
 
-type Events = {
+type WebsocketEvents = {
     message: (...args: any[]) => void | Promise<void>;
     close: (...args: any[]) => void | Promise<void>;
     drain: (...args: any[]) => void | Promise<void>;
     ping: (...args: any[]) => void | Promise<void>;
     pong: (...args: any[]) => void | Promise<void>;
-}
+};
 
-export class Websocket<TUserData = unknown> extends (EventEmitter as new () => TypedEmitter<Events>) {
+export class Websocket<TUserData = unknown> extends EventEmitter {
+    on<Event extends keyof WebsocketEvents>(event_name: Event, listener: WebsocketEvents[Event]): this;
+    once<Event extends keyof WebsocketEvents>(event_name: Event, listener: WebsocketEvents[Event]): this;
     /**
      * Alias of uWS.cork() method. Accepts a callback with multiple operations for network efficiency.
      *
@@ -44,7 +45,7 @@ export class Websocket<TUserData = unknown> extends (EventEmitter as new () => T
      * @param {String|Buffer|ArrayBuffer=} message
      * @returns {Boolean}
      */
-    ping(message?: SendableData): void;
+    ping(message?: SendableData): boolean;
 
     /**
      * Gracefully closes websocket connection by sending specified code and short message.

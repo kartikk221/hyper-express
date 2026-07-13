@@ -33,9 +33,10 @@ class LiveFile extends EventEmitter {
         this.#extension = this.#options.path.split('.');
         this.#extension = this.#extension[this.#extension.length - 1];
 
-        // Initialize file watcher to keep file updated in memory
-        this.reload();
-        this._initiate_watcher();
+        // Perform the initial load before watching the file for changes
+        this.reload()
+            .then(() => this._initiate_watcher())
+            .catch((error) => this.emit('error', error));
     }
 
     /**
@@ -43,8 +44,11 @@ class LiveFile extends EventEmitter {
      * Initializes File Watcher to reload file on changes
      */
     _initiate_watcher() {
-        // Create FileWatcher that trigger reload method
-        this.#watcher = FileSystem.watch(this.#options.path, () => this.reload());
+        // Create FileWatcher that triggers reload method
+        this.#watcher = FileSystem.watch(this.#options.path, () =>
+            this.reload().catch((error) => this.emit('error', error))
+        );
+        this.#watcher.on('error', (error) => this.emit('error', error));
     }
 
     #reload_promise;
@@ -76,8 +80,12 @@ class LiveFile extends EventEmitter {
         FileSystem.readFile(this.#options.path, async (error, buffer) => {
             // Pipe filesystem error through promise
             if (error) {
-                reference._flush_ready();
-                return reference.#reload_reject(error);
+                const reject = reference.#reload_reject;
+                reference.#reload_resolve = null;
+                reference.#reload_reject = null;
+                reference.#reload_promise = null;
+                reference._flush_ready(error);
+                return reject(error);
             }
 
             // Perform retries in accordance with retry policy
@@ -106,17 +114,23 @@ class LiveFile extends EventEmitter {
 
     #ready_promise;
     #ready_resolve;
+    #ready_reject;
+    #ready_error;
 
     /**
      * Flushes pending ready promise.
      * @private
      */
-    _flush_ready() {
-        if (typeof this.#ready_resolve == 'function') {
-            this.#ready_resolve();
-            this.#ready_resolve = null;
+    _flush_ready(error) {
+        if (error) {
+            this.#ready_error = error;
+            if (typeof this.#ready_reject == 'function') this.#ready_reject(error);
+        } else {
+            if (typeof this.#ready_resolve == 'function') this.#ready_resolve();
+            this.#ready_promise = true;
         }
-        this.#ready_promise = true;
+        this.#ready_resolve = null;
+        this.#ready_reject = null;
     }
 
     /**
@@ -127,10 +141,14 @@ class LiveFile extends EventEmitter {
     ready() {
         // Return true if no ready promise exists
         if (this.#ready_promise === true) return Promise.resolve();
+        if (this.#ready_error) return Promise.reject(this.#ready_error);
 
         // Create a Promise if one does not exist for ready event
         if (this.#ready_promise === undefined)
-            this.#ready_promise = new Promise((resolve) => (this.#ready_resolve = resolve));
+            this.#ready_promise = new Promise((resolve, reject) => {
+                this.#ready_resolve = resolve;
+                this.#ready_reject = reject;
+            });
 
         return this.#ready_promise;
     }

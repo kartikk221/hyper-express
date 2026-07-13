@@ -520,16 +520,28 @@ class Response {
                 );
             }
 
-            // If we have no body and are not streaming and have a custom content-length header, we need to send a response without a body with the custom content-length header
             const custom_length = this._headers['content-length'];
-            if (!(body !== undefined || this._streaming || !custom_length)) {
-                // We can only use one of the content-lengths, so we will use the last one if there are multiple
-                const content_length =
-                    typeof custom_length == 'string' ? custom_length : custom_length[custom_length.length - 1];
+            const content_length = Array.isArray(custom_length)
+                ? custom_length[custom_length.length - 1]
+                : custom_length;
+            const status_code = this._status_code || 200;
+            const is_head = this._wrapped_request.method === 'HEAD';
+            const status_forbids_body =
+                (status_code >= 100 && status_code < 200) || status_code === 204 || status_code === 304;
 
-                // Send the response with the uWS.HttpResponse.endWithoutBody() method as we have no body data
-                // NOTE: This method is completely undocumented by uWS but exists in the source code to solve the problem of no body being sent with a custom content-length
-                this._raw_response.endWithoutBody(content_length, close_connection);
+            // HEAD and specific status codes must never include response body bytes
+            if (is_head || status_forbids_body) {
+                let reported_length;
+                if (content_length !== undefined && (is_head || status_code === 304)) {
+                    reported_length = Number(content_length);
+                } else if (is_head && body !== undefined) {
+                    reported_length = Buffer.byteLength(body);
+                }
+                this._raw_response.endWithoutBody(reported_length, close_connection);
+
+                // If we have no body and are not streaming and have a custom content-length header, send only the declared length
+            } else if (body === undefined && !this._streaming && content_length !== undefined) {
+                this._raw_response.endWithoutBody(Number(content_length), close_connection);
             } else {
                 // Send the response with the uWS.HttpResponse.end(body, close_connection) method as we have some body data
                 this._raw_response.end(body, close_connection);
@@ -731,7 +743,7 @@ class Response {
      * This method is used to redirect an incoming request to a different url.
      *
      * @param {String} url Redirect URL
-     * @returns {Boolean} Boolean
+     * @returns {Response|Boolean} Response (Chainable) or false if already completed
      */
     redirect(url) {
         if (!this.completed) return this.status(302).header('location', url).send();
@@ -742,7 +754,7 @@ class Response {
      * This method is an alias of send() method except it accepts an object and automatically stringifies the passed payload object.
      *
      * @param {Object} body JSON body
-     * @returns {Boolean} Boolean
+     * @returns {Response} Response (Chainable)
      */
     json(body) {
         return this.header('content-type', 'application/json', true).send(JSON.stringify(body));
@@ -755,7 +767,7 @@ class Response {
      *
      * @param {Object} body
      * @param {String=} name
-     * @returns {Boolean} Boolean
+     * @returns {Response} Response (Chainable)
      */
     jsonp(body, name) {
         let query_parameters = this._wrapped_request.query_parameters;
@@ -768,7 +780,7 @@ class Response {
      * html as the response content type and sends provided html response body.
      *
      * @param {String} body
-     * @returns {Boolean} Boolean
+     * @returns {Response} Response (Chainable)
      */
     html(body) {
         return this.header('content-type', 'text/html', true).send(body);
@@ -780,6 +792,7 @@ class Response {
      *
      * @param {LiveFile} live_file
      * @param {function(Object):void} callback
+     * @returns {Promise<Response>}
      */
     async _send_file(live_file, callback) {
         // Wait for LiveFile to be ready before serving
@@ -793,6 +806,8 @@ class Response {
 
         // Execute callback with cache pool, so user can expire as they wish.
         if (callback) setImmediate(() => callback(FilePool));
+
+        return this;
     }
 
     /**
@@ -803,21 +818,25 @@ class Response {
      *
      * @param {String} path
      * @param {function(Object):void=} callback Executed after file has been served with the parameter being the cache pool.
+     * @returns {Promise<Response>}
      */
     file(path, callback) {
         // Send file from local cache pool if available
-        if (FilePool[path]) return this._send_file(FilePool[path], callback);
+        if (FilePool[path]) return this._send_file(FilePool[path], callback).catch((error) => this.throw(error));
 
         // Create new LiveFile instance in local cache pool for new file path
-        FilePool[path] = new LiveFile({
+        const live_file = new LiveFile({
             path,
         });
+        FilePool[path] = live_file;
 
-        // Assign error handler to live file
-        FilePool[path].on('error', (error) => this.throw(error));
+        // Remove unavailable files from cache so a future request can retry loading them
+        live_file.on('error', () => {
+            if (FilePool[path] === live_file) delete FilePool[path];
+        });
 
         // Serve file as response
-        this._send_file(FilePool[path], callback);
+        return this._send_file(live_file, callback).catch((error) => this.throw(error));
     }
 
     /**
@@ -845,6 +864,7 @@ class Response {
      *
      * @param {String} path
      * @param {String=} filename
+     * @returns {Promise<Response>}
      */
     download(path, filename) {
         return this.attachment(path, filename).file(path);
