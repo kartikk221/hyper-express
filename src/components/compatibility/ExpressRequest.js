@@ -6,11 +6,6 @@ const type_is = require('type-is');
 const is_ip = require('net').isIP;
 
 class ExpressRequest {
-    #negotiator;
-
-    ExpressRequest() {
-        this.#negotiator = new Negotiator(this);
-    }
 
     /* Methods */
     get(name) {
@@ -29,49 +24,53 @@ class ExpressRequest {
         return this.get(name);
     }
 
-    accepts(types) {
-        if (arguments.length === 0) {
-            return this.#negotiator.mediaTypes();
+    accepts(mediaTypes) {
+        const negotiator = new Negotiator(this);
+        if (mediaTypes && !Array.isArray(mediaTypes)) {
+            mediaTypes = Array.from(arguments);
         }
-
-        const arrayTypes = Array.isArray(types) ? types : Array.from(arguments);
-        if (!arrayTypes.length) {
-            return this.#negotiator.mediaTypes();
+        if (!mediaTypes || !mediaTypes.length) {
+            return negotiator.mediaTypes();
         }
-
-        const mimes = arrayTypes.map((type) => type.indexOf('/') === -1 ? mime_types.lookup(type) : type);
-        const first = this.#negotiator.mediaType(mimes.filter((type) => typeof type === 'string'));
-        return first ? arrayTypes[mimes.indexOf(first)] : false;
+        if (!this.headers.accept) {
+            return mediaTypes[0];
+        }
+        const mimes = mediaTypes.map((type) => type.indexOf('/') === -1 ? mime_types.lookup(type) : type);
+        const first = negotiator.mediaType(mimes.filter((type) => typeof type === 'string'));
+        return first ? mediaTypes[mimes.indexOf(first)] : false;
     }
 
     acceptsEncodings(encodings) {
-        if (arguments.length === 0) {
-            return this.#negotiator.encodings();
-        } else if (Array.isArray(encodings)) {
-            if (!encodings.length) return this.#negotiator.encodings();
-            return this.#negotiator.encoding(encodings) || false;
+        const negotiator = new Negotiator(this);
+        if (encodings && !Array.isArray(encodings)) {
+            encodings = Array.from(arguments);
         }
-        return this.#negotiator.encoding(Array.from(arguments)) || false;
+        if (!encodings || !encodings.length) {
+            return negotiator.encodings();
+        }
+        return negotiator.encodings(encodings)[0] || false;
     }
 
     acceptsCharsets(charsets) {
-        if (arguments.length === 0) {
-            return this.#negotiator.charsets();
-        } else if (Array.isArray(charsets)) {
-            if (!charsets.length) return this.#negotiator.charsets();
-            return this.#negotiator.charset(charsets) || false;
+        const negotiator = new Negotiator(this);
+        if (charsets && !Array.isArray(charsets)) {
+            charsets = Array.from(arguments);
         }
-        return this.#negotiator.charset(Array.from(arguments)) || false;
+        if (!charsets || !charsets.length) {
+            return negotiator.charsets();
+        }
+        return negotiator.charsets(charsets)[0] || false;
     }
 
     acceptsLanguages(languages) {
-        if (arguments.length === 0) {
-            return this.#negotiator.languages();
-        } else if (Array.isArray(languages)) {
-            if (!languages.length) return this.#negotiator.languages();
-            return this.#negotiator.language(languages) || false;
+        const negotiator = new Negotiator(this);
+        if (languages && !Array.isArray(languages)) {
+            languages = Array.from(arguments);
         }
-        return this.#negotiator.language(Array.from(arguments)) || false;
+        if (!languages || !languages.length) {
+            return negotiator.languages();
+        }
+        return negotiator.languages(languages)[0] || false;
     }
 
     range(size, options) {
