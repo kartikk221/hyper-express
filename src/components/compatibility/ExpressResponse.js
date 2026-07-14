@@ -14,6 +14,33 @@ class ExpressResponse {
         Object.keys(headers).forEach((name) => this.header(name, headers[name]));
     }
 
+    /**
+     * @benoitlahoz Only tested with `vite` middlewares used for SSR.
+     * `writeHead` method appears to have been removed from `express`
+     * but `vite` middlewares use it.
+     *
+     * Original `http` module method accepts 3 parameters, `headers` being the third
+     * but `vite` sends headers as second parameter and `undefined` as third.
+     *
+     * @see https://github.com/kartikk221/hyper-express/issues/324
+     * @see https://github.com/kartikk221/hyper-express/issues/22
+     *
+     * @see https://nodejs.org/api/http.html#responsewriteheadstatuscode-statusmessage-headers
+     */
+    writeHead(statusCode, msgOrHeaders, headersOrUndefined) {
+        this.status(statusCode);
+
+        const setHeaders = (headers) => {
+            Object.keys(headers).forEach((name) => this.header(name, headers[name]));
+        };
+
+        if (msgOrHeaders && typeof msgOrHeaders === 'object') {
+            setHeaders(msgOrHeaders);
+        } else if (headersOrUndefined && typeof headersOrUndefined === 'object') {
+            setHeaders(headersOrUndefined);
+        }
+    }
+
     setHeaders(headers) {
         this.writeHeaders(headers);
     }
