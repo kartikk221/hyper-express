@@ -6,11 +6,17 @@ const path = require('path');
 const endpoint = '/tests/response/send-file';
 const endpoint_url = server.base + endpoint;
 const test_file_path = path.resolve(__dirname, '../../../tests/content/test.html');
+const missing_file_endpoint = endpoint + '/missing';
 
 // Create Backend HTTP Route
 TEST_SERVER.get(endpoint, async (request, response) => {
     // We purposely delay 100ms so cached vs. uncached does not rely too much on system disk
     return response.download(test_file_path, 'something.html');
+});
+
+TEST_SERVER.get(missing_file_endpoint, (request, response) => {
+    request.expected_error = () => response.status(404).send('File Not Found');
+    return response.file(test_file_path + '.missing');
 });
 
 async function test_livefile_object() {
@@ -41,6 +47,15 @@ async function test_livefile_object() {
         group,
         `${candidate}.attachment() & ${candidate}.download()`,
         () => headers['content-disposition'][0] == 'attachment; filename="something.html"'
+    );
+
+    // Verify missing files are passed to the error handler without crashing the process
+    const missing_response = await fetch(server.base + missing_file_endpoint);
+    const missing_body = await missing_response.text();
+    assert_log(
+        group,
+        candidate + '.file() Missing File Error Test',
+        () => missing_response.status === 404 && missing_body === 'File Not Found'
     );
 }
 

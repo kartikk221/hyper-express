@@ -270,7 +270,7 @@ class Router {
             } else if (Array.isArray(candidate)) {
                 // Scenario: Array of functions
                 candidate.forEach((middleware) => this._register_middleware(pattern, middleware));
-            } else if (typeof candidate == 'object' && candidate.constructor.name === 'Router') {
+            } else if (candidate instanceof Router) {
                 // Scenario: Router instance
                 this._register_router(pattern, candidate);
             } else if (candidate && typeof candidate == 'object' && typeof candidate.middleware == 'function') {

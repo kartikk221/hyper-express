@@ -31,7 +31,7 @@ const LiveAssets = new LiveDirectory('/var/www/website/files', {
             // For example, the below is a simple dot-file ignore match which will prevent any files starting with a dot from being loaded into live-directory
             return path.startsWith('.');
         },
-    }
+    },
 
     // Optional: You can customize how LiveDirectory caches content under the hood
     cache: {

@@ -4,6 +4,7 @@ const router = new HyperExpress.Router();
 const endpoint = '/tests/response';
 const scenario_endpoint = '/send-no-body';
 const endpoint_url = server.base + endpoint + scenario_endpoint;
+const forbidden_statuses = [204, 304];
 
 // Create Backend HTTP Route
 const response_headers = [
@@ -19,6 +20,15 @@ router.head(scenario_endpoint, (_, response) => {
 
     // Should send without body under the hood with the custom content-length
     return response.vary('Accept-Encoding').send();
+});
+
+router.head(scenario_endpoint + '/payload', (_, response) => response.send('head payload'));
+
+router.get(scenario_endpoint + '/:status', (request, response) => {
+    return response
+        .status(Number(request.path_parameters.status))
+        .header('content-length', '100')
+        .send('forbidden payload');
 });
 
 // Bind router to webserver
@@ -42,6 +52,27 @@ async function test_response_send_no_body() {
         });
         return verdict;
     });
+
+    // HEAD responses should report the payload length without sending payload bytes
+    const head_response = await fetch(endpoint_url + '/payload', { method: 'HEAD' });
+    assert_log(
+        group,
+        `${candidate} HEAD Payload Suppression Test`,
+        () => head_response.headers.get('content-length') === Buffer.byteLength('head payload').toString()
+    );
+
+    // Status codes which forbid payloads must not send body bytes or an invalid content-length
+    for (const status of forbidden_statuses) {
+        const status_response = await fetch(endpoint_url + '/' + status);
+        const status_body = await status_response.text();
+        assert_log(
+            group,
+            `${candidate} ${status} Payload Suppression Test`,
+            () =>
+                status_body.length === 0 &&
+                (status === 304 || status_response.headers.get('content-length') !== '100')
+        );
+    }
 }
 
 module.exports = {

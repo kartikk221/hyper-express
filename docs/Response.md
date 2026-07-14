@@ -57,7 +57,7 @@ Below is a breakdown of the `Response` component which is an **extended** `Writa
   * **Note** the `total_size` is an **optional** number in `bytes` which can be specified if you need a `content-length` header on the receiver side.
   * **Note** you must do your own error handling on the readable stream to prevent triggering the global error handler.
 * `send(String|Buffer|ArrayBuffer?: body)`: Writes specified body and sends response.
-  * **Returns** a `Boolean` in which `false` signifies body was not fully sent due to built up backpressure.
+  * **Returns** current `Response` object to facilitate chain calls.
 * `json(Object: body)`: Alias of `send()`. Sets mime type to `json` and sends response.
 * `jsonp(Object: body, String?: name)`: Alias of `send()`. Sets mime type to `js` and sends response.
   * **Note!** This method uses `callback` query parameter as callback name by default if `name` parameter is not specified.

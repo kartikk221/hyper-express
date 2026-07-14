@@ -6,12 +6,6 @@ const type_is = require('type-is');
 const is_ip = require('net').isIP;
 
 class ExpressRequest {
-    #negotiator;
-
-    ExpressRequest() {
-        this.#negotiator = new Negotiator(this);
-    }
-
     /* Methods */
     get(name) {
         let lowercase = name.toLowerCase();
@@ -30,13 +24,14 @@ class ExpressRequest {
     }
 
     accepts(types) {
+        const negotiator = new Negotiator(this);
         if (arguments.length === 0) {
-            return this.#negotiator.mediaTypes();
+            return negotiator.mediaTypes();
         }
 
-        const arrayTypes = Array.isArray(types) ? types : Array.from(arguments);
-        if (!arrayTypes.length) {
-            return this.#negotiator.mediaTypes();
+        const array_types = Array.isArray(types) ? types : Array.from(arguments);
+        if (!array_types.length) {
+            return negotiator.mediaTypes();
         }
 
         const mimes = arrayTypes.map((type) => (type.indexOf('/') === -1 ? mime_types.lookup(type) : type));
@@ -45,33 +40,36 @@ class ExpressRequest {
     }
 
     acceptsEncodings(encodings) {
+        const negotiator = new Negotiator(this);
         if (arguments.length === 0) {
-            return this.#negotiator.encodings();
+            return negotiator.encodings();
         } else if (Array.isArray(encodings)) {
-            if (!encodings.length) return this.#negotiator.encodings();
-            return this.#negotiator.encoding(encodings) || false;
+            if (!encodings.length) return negotiator.encodings();
+            return negotiator.encoding(encodings) || false;
         }
-        return this.#negotiator.encoding(Array.from(arguments)) || false;
+        return negotiator.encoding(Array.from(arguments)) || false;
     }
 
     acceptsCharsets(charsets) {
+        const negotiator = new Negotiator(this);
         if (arguments.length === 0) {
-            return this.#negotiator.charsets();
+            return negotiator.charsets();
         } else if (Array.isArray(charsets)) {
-            if (!charsets.length) return this.#negotiator.charsets();
-            return this.#negotiator.charset(charsets) || false;
+            if (!charsets.length) return negotiator.charsets();
+            return negotiator.charset(charsets) || false;
         }
-        return this.#negotiator.charset(Array.from(arguments)) || false;
+        return negotiator.charset(Array.from(arguments)) || false;
     }
 
     acceptsLanguages(languages) {
+        const negotiator = new Negotiator(this);
         if (arguments.length === 0) {
-            return this.#negotiator.languages();
+            return negotiator.languages();
         } else if (Array.isArray(languages)) {
-            if (!languages.length) return this.#negotiator.languages();
-            return this.#negotiator.language(languages) || false;
+            if (!languages.length) return negotiator.languages();
+            return negotiator.language(languages) || false;
         }
-        return this.#negotiator.language(Array.from(arguments)) || false;
+        return negotiator.language(Array.from(arguments)) || false;
     }
 
     range(size, options) {

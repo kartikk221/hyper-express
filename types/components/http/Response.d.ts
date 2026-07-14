@@ -111,7 +111,7 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * This method is used to end the current request and send response with specified body and headers.
      *
      * @param {String|Buffer|ArrayBuffer} body Optional
-     * @returns {Boolean} 'false' signifies that the result was not sent due to built up backpressure.
+     * @returns {Response} Response (Chainable)
      */
     send(body?: SendableData, close_connection?: boolean): Response;
 
@@ -135,17 +135,17 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * This method is used to redirect an incoming request to a different url.
      *
      * @param {String} url Redirect URL
-     * @returns {Boolean}
+     * @returns {Response|Boolean} Response (Chainable) or false if already completed
      */
-    redirect(url: string): boolean;
+    redirect(url: string): Response | false;
 
     /**
      * This method is an alias of send() method except it accepts an object and automatically stringifies the passed payload object.
      *
      * @param {Object} body JSON body
-     * @returns {Boolean} Boolean
+     * @returns {Response} Response (Chainable)
      */
-    json(body: any): boolean;
+    json(body: any): Response;
 
     /**
      * This method is an alias of send() method except it accepts an object
@@ -154,18 +154,18 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      *
      * @param {Object} body
      * @param {String=} name
-     * @returns {Boolean} Boolean
+     * @returns {Response} Response (Chainable)
      */
-    jsonp(body: any, name?: string): boolean;
+    jsonp(body: any, name?: string): Response;
 
     /**
      * This method is an alias of send() method except it automatically sets
      * html as the response content type and sends provided html response body.
      *
      * @param {String} body
-     * @returns {Boolean} Boolean
+     * @returns {Response} Response (Chainable)
      */
-    html(body: string): boolean;
+    html(body: string): Response;
 
     /**
      * This method is an alias of send() method except it sends the file at specified path.
@@ -176,7 +176,7 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * @param {String} path
      * @param {function(Object):void=} callback Executed after file has been served with the parameter being the cache pool.
      */
-    file(path: string, callback?: (pool: FileCachePool) => void): void;
+    file(path: string, callback?: (pool: FileCachePool) => void): Promise<Response>;
 
     /**
      * Writes approriate headers to signify that file at path has been attached.
@@ -194,7 +194,7 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * @param {String} path
      * @param {String=} filename
      */
-    download(path: string, filename?: string): void;
+    download(path: string, filename?: string): Promise<Response>;
 
     /**
      * This method allows you to throw an error which will be caught by the global error handler (If one was setup with the Server instance).
@@ -250,28 +250,26 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      *
      * @returns {SSEventStream=}
      */
-    get sse(): SSEventStream | undefined
+    get sse(): SSEventStream | undefined;
 
     /* ExpressJS Methods */
     append(name: string, values: string | Array<string>): Response;
-    writeHead(name: string, values: string | Array<string>): Response;
     setHeader(name: string, values: string | Array<string>): Response;
     writeHeaders(headers: Object): void;
     setHeaders(headers: Object): void;
     writeHeaderValues(name: string, values: Array<string>): void;
     getHeader(name: string): string | Array<string> | void;
-    getHeaders(): { [key: string]: Array<string> };
     removeHeader(name: string): void;
     setCookie(name: string, value: string, options?: CookieOptions): Response;
-    hasCookie(name: string): Boolean;
+    hasCookie(name: string): boolean;
     removeCookie(name: string): Response;
     clearCookie(name: string): Response;
     get(name: string): string | Array<string>;
-    links(links: Object): string;
+    links(links: Object): void;
     location(path: string): Response;
-    sendFile(path: string): void;
+    sendFile(path: string): Promise<Response>;
     sendStatus(status_code: number): Response;
-    set(field: string | object, value?: string | Array<string>): Response | void;
+    set(field: string | object, value?: string | Array<string>): void;
     vary(name: string): Response;
 
     /* ExpressJS Properties */
