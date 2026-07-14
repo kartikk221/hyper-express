@@ -11,20 +11,17 @@ class MultipartField {
     #truncated;
 
     constructor(name, value, info) {
-        // Store general information about this field
         this.#name = name;
         this.#encoding = info.encoding;
         this.#mime_type = info.mimeType;
 
-        // Determine if this field is a file or a normal field
+        // Busboy represents file parts as streams and regular fields as scalar values
         if (value instanceof stream.Readable) {
-            // Store this file's supplied name and data stream
             this.#file = {
                 name: info.filename,
                 stream: value,
             };
         } else {
-            // Store field value and truncation information
             this.#value = value;
             this.#truncated = {
                 name: info.nameTruncated,
@@ -44,13 +41,13 @@ class MultipartField {
      * @returns {Promise}
      */
     write(path, options) {
-        // Throw an error if this method is called on a non file field
+        // Only file fields expose a stream that can be written to disk
         if (this.file === undefined)
             throw new Error(
                 'HyperExpress.Request.MultipartField.write(path, options) -> This method can only be called on a field that is a file type.'
             );
 
-        // Return a promise which resolves once write stream has finished
+        // Resolve after the destination stream has fully flushed
         const reference = this;
         return new Promise((resolve, reject) => {
             const writable = FileSystem.createWriteStream(path, options);

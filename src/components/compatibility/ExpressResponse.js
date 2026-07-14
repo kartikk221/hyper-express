@@ -17,10 +17,17 @@ class ExpressResponse {
                 throw new Error('HyperExpress.Response.writeHeaders(): Raw header arrays must contain name/value pairs.');
 
             for (let index = 0; index < headers.length; index += 2) {
-                this.header(headers[index], headers[index + 1]);
+                const header_key = headers[index];
+                const header_value = headers[index + 1];
+                this.header(header_key, header_value);
             }
         } else {
-            Object.keys(headers).forEach((name) => this.header(name, headers[name]));
+            const header_keys = Object.keys(headers);
+            for (let index = 0; index < header_keys.length; index++) {
+                const header_key = header_keys[index];
+                const header_value = headers[header_key];
+                this.header(header_key, header_value);
+            }
         }
     }
 
@@ -38,11 +45,8 @@ class ExpressResponse {
             status_message = undefined;
         }
 
-        // Store the response status and provided headers
         this.status(status_code, status_message);
         if (headers) this.writeHeaders(headers);
-
-        // Make chainable
         return this;
     }
 
@@ -51,7 +55,10 @@ class ExpressResponse {
     }
 
     writeHeaderValues(name, values) {
-        values.forEach((value) => this.header(name, value));
+        const header_values = values;
+        for (const header_value of header_values) {
+            this.header(name, header_value);
+        }
     }
 
     getHeader(name) {
@@ -92,14 +99,15 @@ class ExpressResponse {
     }
 
     links(links) {
-        // Build chunks of links and combine into header spec
+        // Serialize each relation using the HTTP Link header format
         let chunks = [];
-        Object.keys(links).forEach((rel) => {
-            let url = links[rel];
-            chunks.push(`<${url}>; rel="${rel}"`);
-        });
+        const relation_keys = Object.keys(links);
+        for (let index = 0; index < relation_keys.length; index++) {
+            const relation_key = relation_keys[index];
+            const relation_url = links[relation_key];
+            chunks.push(`<${relation_url}>; rel="${relation_key}"`);
+        }
 
-        // Write the link header
         this.header('link', chunks.join(', '));
     }
 
@@ -121,11 +129,12 @@ class ExpressResponse {
 
     set(field, value) {
         if (typeof field == 'object') {
-            const reference = this;
-            Object.keys(field).forEach((name) => {
-                let value = field[name];
-                reference.header(name, value);
-            });
+            const header_keys = Object.keys(field);
+            for (let index = 0; index < header_keys.length; index++) {
+                const header_key = header_keys[index];
+                const header_value = field[header_key];
+                this.header(header_key, header_value);
+            }
         } else {
             this.header(field, value);
         }

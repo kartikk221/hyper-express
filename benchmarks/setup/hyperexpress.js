@@ -9,12 +9,13 @@ const { status, headers, body } = get_simple_html_page({ server_name: 'HyperExpr
 
 // Bind the 'simple_html_page' scenario route
 app.get('/', (request, response) => {
-    // Write the status and headers
     response.status(status);
 
-    for (const key in headers) response.header(key, headers[key]);
+    for (const header_key in headers) {
+        const header_value = headers[header_key];
+        response.header(header_key, header_value);
+    }
 
-    // Write the body and end the response
     response.send(body);
 });
 

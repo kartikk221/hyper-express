@@ -41,7 +41,7 @@ class Server extends Router {
      * @param {String=} options.key_file_name Path to SSL private key file to be used for SSL/TLS.
      * @param {String=} options.passphrase Strong passphrase for SSL cryptographic purposes.
      * @param {String=} options.dh_params_file_name Path to SSL Diffie-Hellman parameters file.
-     * @param {Boolean=} options.ssl_prefer_low_memory_usage Specifies uWebsockets to prefer lower memory usage while serving SSL.
+     * @param {Boolean=} options.ssl_prefer_low_memory_usage Specifies uWebSockets to prefer lower memory usage while serving SSL.
      * @param {Boolean=} options.fast_buffers Buffer.allocUnsafe is used when set to true for faster performance.
      * @param {Boolean=} options.fast_abort Determines whether HyperExpress will abrubptly close bad requests. This can be much faster but the client does not receive an HTTP status code as it is a premature connection closure.
      * @param {Boolean=} options.trust_proxy Specifies whether to trust incoming request data from intermediate proxy(s)
@@ -54,49 +54,45 @@ class Server extends Router {
      * @param {import('stream').WritableOptions=} options.streaming.writable Global content streaming options for Writable streams.
      */
     constructor(options = {}) {
-        // Only accept object as a parameter type for options
         if (options == null || typeof options !== 'object')
             throw new Error(
                 'HyperExpress: HyperExpress.Server constructor only accepts an object type for the options parameter.'
             );
 
-        // Initialize extended Router instance
         super();
         super._is_app(true);
 
-        // Store options locally for access throughout processing
+        // Merge user options into defaults and expose them to request lifecycle components
         wrap_object(this.#options, options);
-
-        // Expose the options object for future use
         this._options = this.#options;
         try {
-            // Create underlying uWebsockets App or SSLApp to power HyperExpress
             const { cert_file_name, key_file_name } = options;
             this.#options.is_ssl = cert_file_name && key_file_name; // cert and key are required for SSL
             if (this.#options.is_ssl) {
-                // Convert the certificate and key file names to absolute system paths
+                // uWS expects normalized absolute paths for TLS certificate files
                 this.#options.cert_file_name = to_forward_slashes(path.resolve(cert_file_name));
                 this.#options.key_file_name = to_forward_slashes(path.resolve(key_file_name));
 
-                // Create an SSL app with the provided SSL options
                 this.#uws_instance = uWebSockets.SSLApp(this.#options);
             } else {
-                // Create a non-SSL app since no SSL options were provided
                 this.#uws_instance = uWebSockets.App(this.#options);
             }
         } catch (error) {
-            // Convert all the options to string values for logging purposes
-            const _options = Object.keys(options)
-                .map((key) => `options.${key}: "${options[key]}"`)
-                .join('\n');
+            // Format the provided options for the initialization error
+            const option_strings = [];
+            const option_keys = Object.keys(options);
+            for (let index = 0; index < option_keys.length; index++) {
+                const option_key = option_keys[index];
+                const option_value = options[option_key];
+                option_strings.push(`options.${option_key}: "${option_value}"`);
+            }
+            const _options = option_strings.join('\n');
 
-            // Throw error if uWebsockets.js fails to initialize
             throw new Error(
                 `new HyperExpress.Server(): Failed to create new Server instance due to an invalid configuration in options.\n${_options}`
             );
         }
 
-        // Initialize the HostManager for this Server instance
         this.#hosts = new HostManager(this);
     }
 
@@ -111,9 +107,10 @@ class Server extends Router {
      */
     _bind_auto_close() {
         const reference = this;
-        ['exit', 'SIGINT', 'SIGUSR1', 'SIGUSR2', 'SIGTERM'].forEach((type) =>
-            process.once(type, () => reference.close())
-        );
+        const exit_events = ['exit', 'SIGINT', 'SIGUSR1', 'SIGUSR2', 'SIGTERM'];
+        for (const event_type of exit_events) {
+            process.once(event_type, () => reference.close());
+        }
     }
 
     /**
@@ -128,23 +125,20 @@ class Server extends Router {
         let port;
         let path;
 
-        // Determine if first argument is a number or string castable to a port number
+        // Parse the overloaded port or UNIX socket argument
         if (typeof first == 'number' || (+first > 0 && +first < 65536)) {
-            // Parse the port number
             port = typeof first == 'string' ? +first : first;
         } else if (typeof first == 'string') {
-            // Parse the path to a UNIX domain socket
             path = first;
         }
 
-        let host = '0.0.0.0'; // Host by default is 0.0.0.0
-        let callback; // Callback may be optionally provided as second or third argument
+        let host = '0.0.0.0';
+        let callback;
         if (second) {
-            // If second argument is a function then it is the callback or else it is the host
+            // The second argument can be either a callback or a host followed by a callback
             if (typeof second === 'function') {
                 callback = second;
             } else {
-                // Ensure the second argument is a string
                 if (typeof second == 'string') {
                     host = second;
                 } else {
@@ -153,16 +147,14 @@ class Server extends Router {
                     );
                 }
 
-                // If we have a third argument and it is a function then it is the callback
                 if (third && typeof third === 'function') callback = third;
             }
         }
 
-        // If the server is using SSL then verify that the provided SSL certificate and key files exist and are readable
+        // Fail before listening if either configured TLS file is unreadable
         if (this.#options.is_ssl) {
             const { cert_file_name, key_file_name } = this.#options;
             try {
-                // Verify that both the key and cert files exist and are readable
                 await Promise.all([fs.access(key_file_name), fs.access(cert_file_name)]);
             } catch (error) {
                 throw new Error(
@@ -171,26 +163,20 @@ class Server extends Router {
             }
         }
 
-        // Bind the server to the specified port or unix domain socket with uWS.listen() or uWS.listen_unix()
+        // Bind with the uWS API matching the parsed TCP or UNIX socket target
         const reference = this;
         return await new Promise((resolve, reject) => {
-            // Define a callback to handle the listen socket from a listen event
             const on_listen_socket = (listen_socket) => {
-                // Compile the Server instance to cache the routes and middlewares
+                // Freeze and compile routing structures before accepting requests
                 reference._compile();
 
-                // Determine if we received a listen socket
                 if (listen_socket) {
-                    // Store the listen socket for future closure
                     reference.#listen_socket = listen_socket;
 
-                    // Bind the auto close handler if enabled from constructor options
                     if (reference.#options.auto_close) reference._bind_auto_close();
 
-                    // Serve the list socket over callback if provided
                     if (callback) callback(listen_socket);
 
-                    // Resolve the listen socket
                     resolve(listen_socket);
                 } else {
                     reject(
@@ -199,7 +185,6 @@ class Server extends Router {
                 }
             };
 
-            // Determine whether to bind on a port or unix domain socket with priority to port
             if (port !== undefined) {
                 if (reference.#options.exclusive_port) {
                     // uWebSockets.js only supports listen options without a custom host
@@ -235,12 +220,10 @@ class Server extends Router {
         // If we have no pending requests, we can shutdown immediately
         if (!this.#pending_requests_count) return Promise.resolve(this.close(listen_socket));
 
-        // Create a promise which resolves once all pending requests have been completed
+        // Defer closure until the final active request completes
         const scope = this;
         this.#shutdown_promise = new Promise((resolve) => {
-            // Bind a zero pending request handler to close the server
             scope.#pending_requests_zero_handler = () => {
-                // Close the server and resolve the returned boolean
                 resolve(scope.close(listen_socket));
             };
         });
@@ -255,13 +238,11 @@ class Server extends Router {
      * @returns {Boolean}
      */
     close(listen_socket) {
-        // Fall back to self listen socket if none provided by user
         const socket = listen_socket || this.#listen_socket;
         if (socket) {
-            // Close the determined socket
             uWebSockets.us_listen_socket_close(socket);
 
-            // Nullify the local socket reference if it was used
+            // Preserve externally supplied socket ownership
             if (!listen_socket) this.#listen_socket = null;
 
             return true;
@@ -273,10 +254,7 @@ class Server extends Router {
     #handlers = {
         on_not_found: (request, response) => response.status(404).send(),
         on_error: (request, response, error) => {
-            // Log the error to the console
             console.error(error);
-
-            // Throw on default if user has not bound an error handler
             return response.status(500).send('HyperExpress: Uncaught Exception Occured');
         },
     };
@@ -374,7 +352,6 @@ class Server extends Router {
      * @param {Object} record { method, pattern, options, handler }
      */
     _create_route(record) {
-        // Destructure record into route options
         const { method, pattern, options, handler } = record;
 
         // Do not allow route creation once it is locked after a not found handler has been bound
@@ -390,7 +367,6 @@ class Server extends Router {
                 `HyperExpress: Failed to create route as duplicate routes are not allowed. Ensure that you do not have any routers or routes that try to handle requests with the same pattern. [${method.toUpperCase()} ${pattern}]`
             );
 
-        // Create a Route object to contain route information through handling process
         const route = new Route({
             app: this,
             method,
@@ -405,7 +381,6 @@ class Server extends Router {
         // Handle websocket/upgrade routes separately as they follow a different lifecycle
         switch (method) {
             case 'ws':
-                // Create a WebsocketRoute which initializes uWS.ws() route
                 this.#routes[method][pattern] = new WebsocketRoute({
                     app: this,
                     pattern,
@@ -421,18 +396,16 @@ class Server extends Router {
                         `HyperExpress: Failed to create upgrade route as an upgrade route with the same pattern already exists and duplicate routes are not allowed. [${method.toUpperCase()} ${pattern}]`
                     );
 
-                // Overwrite the upgrade route that exists from WebsocketRoute with this custom route
+                // Replace the temporary upgrade route while retaining its companion WebSocket route
                 this.#routes[method][pattern] = route;
 
-                // Assign route to companion WebsocketRoute
                 const companion = this.#routes['ws'][pattern];
                 if (companion) companion._set_upgrade_route(route);
                 break;
             default:
-                // Store route in routes object for structural tracking
                 this.#routes[method][pattern] = route;
 
-                // Bind the uWS route handler which pipes all incoming uWS requests to the HyperExpress request lifecycle
+                // Bridge the native uWS callback into the HyperExpress request lifecycle
                 return this.#uws_instance[method](pattern, (response, request) => {
                     this._handle_uws_request(route, request, response, null);
                 });
@@ -446,26 +419,23 @@ class Server extends Router {
      * @param {Object} record
      */
     _create_middleware(record) {
-        // Destructure record from Router
         const { pattern, middleware } = record;
 
-        // Do not allow route creation once it is locked after a not found handler has been bound
+        // Do not allow middleware creation after routing structures have been compiled
         if (this.#routes_locked === true)
             throw new Error(
                 `HyperExpress: Routes/Routers must not be created or used after the Server.listen() has been called. [${method.toUpperCase()} ${pattern}]`
             );
 
-        // Initialize middlewares array for specified pattern
         if (this.#middlewares[pattern] == undefined) this.#middlewares[pattern] = [];
 
-        // Create a middleware object with an appropriate priority
+        // The shared ID preserves registration order across routes and middleware
         const object = {
             id: this._get_incremented_id(),
             pattern,
             handler: middleware,
         };
 
-        // Store middleware object in its pattern branch
         this.#middlewares[pattern].push(object);
     }
 
@@ -481,10 +451,18 @@ class Server extends Router {
             if (!exists) this.any('/*', (request, response) => this.#handlers.on_not_found(request, response));
         }
 
-        // Iterate through all routes
-        Object.keys(this.#routes).forEach((method) =>
-            Object.keys(this.#routes[method]).forEach((pattern) => this.#routes[method][pattern].compile())
-        );
+        // Compile every registered route grouped by HTTP method and pattern
+        const route_methods = Object.keys(this.#routes);
+        for (let method_index = 0; method_index < route_methods.length; method_index++) {
+            const route_method = route_methods[method_index];
+            const routes = this.#routes[route_method];
+            const route_patterns = Object.keys(routes);
+            for (let pattern_index = 0; pattern_index < route_patterns.length; pattern_index++) {
+                const route_pattern = route_patterns[pattern_index];
+                const route = routes[route_pattern];
+                route.compile();
+            }
+        }
 
         // Lock routes from further creation
         this.#routes_locked = true;
@@ -499,12 +477,10 @@ class Server extends Router {
      * Resolves a single pending request and ticks sthe pending request handler if one exists.
      */
     _resolve_pending_request() {
-        // Ensure we have at least one pending request
         if (this.#pending_requests_count > 0) {
-            // Decrement the pending request count
             this.#pending_requests_count--;
 
-            // If we have no more pending requests and a zero pending request handler was set, execute it
+            // Resolve graceful shutdown after the final active request completes
             if (this.#pending_requests_count === 0 && this.#pending_requests_zero_handler)
                 this.#pending_requests_zero_handler();
         }
@@ -520,11 +496,9 @@ class Server extends Router {
      * @param {uWebSockets.us_socket_context_t=} socket
      */
     _handle_uws_request(route, uws_request, uws_response, socket) {
-        // Construct the wrapper Request around uWS.HttpRequest
         const request = new Request(route, uws_request);
         request._raw_response = uws_response;
 
-        // Construct the wrapper Response around uWS.Response
         const response = new Response(uws_response);
         response.route = route;
         response._wrapped_request = request;
@@ -533,16 +507,13 @@ class Server extends Router {
         // If we are in the process of gracefully shutting down, we must immediately close the request
         if (this.#pending_requests_zero_handler) return response.close();
 
-        // Increment the pending request count
         this.#pending_requests_count++;
 
-        // Attempt to start the body parser for this request
-        // This method will return false If the request body is larger than the max_body_length
+        // Enter the route lifecycle only when body parsing remains within its configured limit
         if (request._body_parser_run(response, route.max_body_length)) {
-            // Handle this request with the associated route
             route.handle(request, response);
 
-            // If by this point the response has not been sent then this is request is being asynchronously handled hence we must cork when the response is sent
+            // Defer future writes through cork when handling continues asynchronously
             if (!response.completed) response._cork = true;
         }
     }
@@ -554,20 +525,16 @@ class Server extends Router {
      * @returns {Number}
      */
     get port() {
-        // Initialize port if it does not exist yet
-        // Ensure there is a listening socket before returning port
+        // Resolve and cache the bound port from the active listen socket
         if (this.#port === undefined) {
-            // Throw error if listening socket does not exist
             if (!this.#listen_socket)
                 throw new Error(
                     'HyperExpress: Server.port is not available as the server is not listening. Please ensure you called already Server.listen() OR have not yet called Server.close() when accessing this property.'
                 );
 
-            // Cache the resolved port
             this.#port = uWebSockets.us_socket_local_port(this.#listen_socket);
         }
 
-        // Return port
         return this.#port;
     }
 

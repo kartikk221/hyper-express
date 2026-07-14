@@ -9,11 +9,12 @@ app.get('/', (response, request) => {
     // Generate the scenario payload
     const { status, headers, body } = get_simple_html_page({ server_name: 'uWebSockets.js' });
 
-    // Write the status and headers
     response.writeStatus(`${status} OK`);
-    Object.keys(headers).forEach((header) => response.writeHeader(header, headers[header]));
+    for (const header_key in headers) {
+        const header_value = headers[header_key];
+        response.writeHeader(header_key, header_value);
+    }
 
-    // Write the body and end the response
     return response.end(body);
 });
 

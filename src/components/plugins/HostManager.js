@@ -6,13 +6,10 @@ class HostManager extends EventEmitter {
     #hosts = {};
 
     constructor(app) {
-        // Initialize event emitter
         super();
-
-        // Store app reference
         this.#app = app;
 
-        // Bind a listener which emits 'missing' events from uWS when a host is not found
+        // Forward missing uWS server names through the HostManager event API
         this.#app.uws_instance.missingServerName((hostname) => this.emit('missing', hostname));
     }
 
@@ -33,13 +30,8 @@ class HostManager extends EventEmitter {
      * @returns {HostManager}
      */
     add(hostname, options) {
-        // Store host options
         this.#hosts[hostname] = options;
-
-        // Register the host server with uWS
         this.#app.uws_instance.addServerName(hostname, options);
-
-        // Return this instance
         return this;
     }
 
@@ -50,13 +42,8 @@ class HostManager extends EventEmitter {
      * @returns {HostManager}
      */
     remove(hostname) {
-        // Remove host options
         delete this.#hosts[hostname];
-
-        // Un-Register the host server with uWS
         this.#app.uws_instance.removeServerName(hostname);
-
-        // Return this instance
         return this;
     }
 

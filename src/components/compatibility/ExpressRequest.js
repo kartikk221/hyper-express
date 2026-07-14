@@ -11,7 +11,7 @@ class ExpressRequest {
         let lowercase = name.toLowerCase();
         switch (lowercase) {
             case 'referer':
-            // Continue execution to below case for catching of both spelling variations
+            // Fall through so both standard spellings share the same lookup
             case 'referrer':
                 return this.headers['referer'] || this.headers['referrer'];
             default:
@@ -34,9 +34,20 @@ class ExpressRequest {
             return negotiator.mediaTypes();
         }
 
-        const mimes = array_types.map((type) => (type.indexOf('/') === -1 ? mime_types.lookup(type) : type));
-        const first = negotiator.mediaType(mimes.filter((type) => typeof type === 'string'));
-        return first ? array_types[mimes.indexOf(first)] : false;
+        // Resolve MIME aliases while preserving the original candidate returned to the caller
+        const candidates = [];
+        const mimes = [];
+        for (const candidate_type of array_types) {
+            const mime_type =
+                candidate_type.indexOf('/') === -1 ? mime_types.lookup(candidate_type) : candidate_type;
+            if (typeof mime_type === 'string') {
+                candidates.push(candidate_type);
+                mimes.push(mime_type);
+            }
+        }
+
+        const first = negotiator.mediaType(mimes);
+        return first ? candidates[mimes.indexOf(first)] : false;
     }
 
     acceptsEncodings(encodings) {
@@ -79,12 +90,11 @@ class ExpressRequest {
     }
 
     param(name, default_value) {
-        // Parse three dataset candidates
+        // Preserve Express lookup precedence across parameters, body and query values
         let body = this.body;
         let path_parameters = this.path_parameters;
         let query_parameters = this.query_parameters;
 
-        // First check path parameters, body, and finally query_parameters
         if (null != path_parameters[name] && path_parameters.hasOwnProperty(name)) return path_parameters[name];
         if (null != body[name]) return body[name];
         if (null != query_parameters[name]) return query_parameters[name];
@@ -93,11 +103,13 @@ class ExpressRequest {
     }
 
     is(types) {
-        // support flattened arguments
+        // Normalize flattened arguments into the array expected by type-is
         let arr = types;
         if (!Array.isArray(types)) {
             arr = new Array(arguments.length);
-            for (let i = 0; i < arr.length; i++) arr[i] = arguments[i];
+            for (let index = 0; index < arr.length; index++) {
+                arr[index] = arguments[index];
+            }
         }
         return type_is(this, arr);
     }
@@ -124,53 +136,48 @@ class ExpressRequest {
     }
 
     get hostname() {
-        // Retrieve the host header and determine if we can trust intermediary proxy servers
+        // Prefer the forwarded host only when intermediary proxies are trusted
         let host = this.get('X-Forwarded-Host');
         const trust_proxy = this.route.app._options.trust_proxy;
         if (!host || !trust_proxy) {
-            // Use the 'Host' header as fallback
             host = this.get('Host');
         } else {
-            // Note: X-Forwarded-Host is normally only ever a single value, but this is to be safe.
+            // Use the first forwarded value if a proxy supplied a list
             host = host.split(',')[0];
         }
 
-        // If we don't have a host, return undefined
         if (!host) return;
 
-        // IPv6 literal support
+        // Ignore colons inside bracketed IPv6 literals when stripping the port
         let offset = host[0] === '[' ? host.indexOf(']') + 1 : 0;
         let index = host.indexOf(':', offset);
         return index !== -1 ? host.substring(0, index) : host;
     }
 
     get ips() {
-        // Retrieve the client and proxy IP addresses
         const client_ip = this.ip;
         const proxy_ip = this.proxy_ip;
 
-        // Determine if we can trust intermediary proxy servers and have a x-forwarded-for header
+        // Expose the full forwarding chain only when intermediary proxies are trusted
         const trust_proxy = this.route.app._options.trust_proxy;
         const x_forwarded_for = this.get('X-Forwarded-For');
         if (trust_proxy && x_forwarded_for) {
-            // Will split and return all possible IP addresses in the x-forwarded-for header (e.g. "client, proxy1, proxy2")
             return x_forwarded_for.split(',');
         } else {
-            // Returns all valid IP addresses available from uWS
-            return [client_ip, proxy_ip].filter((ip) => ip);
+            const ips = [];
+            if (client_ip) ips.push(client_ip);
+            if (proxy_ip) ips.push(proxy_ip);
+            return ips;
         }
     }
 
     get protocol() {
-        // Resolves x-forwarded-proto header if trust proxy is enabled
+        // Resolve the forwarded protocol only when intermediary proxies are trusted
         const trust_proxy = this.route.app._options.trust_proxy;
         const x_forwarded_proto = this.get('X-Forwarded-Proto');
         if (trust_proxy && x_forwarded_proto) {
-            // Return the first protocol in the x-forwarded-proto header
-            // If the header contains a single value, the split will contain that value in the first index element anyways
             return x_forwarded_proto.split(',')[0];
         } else {
-            // Use HyperExpress/uWS initially defined protocol as fallback
             return this.route.app.is_ssl ? 'https' : 'http';
         }
     }

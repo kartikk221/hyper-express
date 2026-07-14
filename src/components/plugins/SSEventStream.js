@@ -9,21 +9,17 @@ class SSEventStream {
      * @returns {Boolean} Whether the headers were written
      */
     _initiate_sse_stream() {
-        // If the response has already been initiated, we cannot write headers anymore
+        // SSE headers can only be applied once and before the underlying response starts
         if (this._response.initiated) return false;
-
-        // If we have already written headers, we cannot write again
         if (this.#wrote_headers) return false;
         this.#wrote_headers = true;
 
-        // Write the headers for the SSE stream to the client
         this._response
             .header('content-type', 'text/event-stream')
             .header('cache-control', 'no-cache')
             .header('connection', 'keep-alive')
             .header('x-accel-buffering', 'no');
 
-        // Return true to signify that we have written headers
         return true;
     }
 
@@ -33,10 +29,8 @@ class SSEventStream {
      * @returns {Boolean} Whether the data was written
      */
     _write(data) {
-        // Initialize the SSE stream
+        // Lazily apply SSE headers before the first payload
         this._initiate_sse_stream();
-
-        // Write the data to the response stream
         return this._response.write(data);
     }
 
@@ -46,8 +40,7 @@ class SSEventStream {
      * @returns {Boolean}
      */
     open() {
-        // We simply send a comment-type message to the client to indicate that the connection has been established
-        // The "data" can be anything as it will not be handled by the client EventSource object
+        // An SSE comment confirms the connection without dispatching a client event
         return this.comment('open');
     }
 
@@ -57,7 +50,6 @@ class SSEventStream {
      * @returns {Boolean}
      */
     close() {
-        // Ends the connection by sending the final empty message
         return this._response.send();
     }
 
@@ -69,7 +61,7 @@ class SSEventStream {
      * @returns {Boolean}
      */
     comment(data) {
-        // Prefix the message with a colon character to signify a comment
+        // A leading colon marks an SSE comment rather than an event
         return this._write(`: ${data}\n`);
     }
 
@@ -88,16 +80,14 @@ class SSEventStream {
         const _event = id && event ? (_id ? event : id) : undefined;
         const _data = data || event || id;
 
-        // Build message parts to prepare a payload
         const parts = [];
         if (_id) parts.push(`id: ${_id}`);
         if (_event) parts.push(`event: ${_event}`);
         if (_data) parts.push(`data: ${_data}`);
 
-        // Push an empty line to indicate the end of the message
+        // A blank line terminates each SSE message
         parts.push('', '');
 
-        // Write the string based payload to the client
         return this._write(parts.join('\n'));
     }
 

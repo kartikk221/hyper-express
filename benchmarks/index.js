@@ -18,7 +18,7 @@ const configuration = JSON.parse(fs.readFileSync('./configuration.json', 'utf8')
 // Handle spawning of worker processes from the master process
 const numCPUs = configuration.multi_core ? os.cpus().length : 1;
 if (numCPUs > 1 && (cluster.isMaster || cluster.isPrimary)) {
-    for (let i = 0; i < numCPUs; i++) {
+    for (let worker_index = 0; worker_index < numCPUs; worker_index++) {
         cluster.fork();
     }
     log(`Forked ${numCPUs} workers for benchmarking on ${os.platform()}`);
@@ -62,11 +62,12 @@ if (numCPUs <= 1 || cluster.isWorker) {
 
             // Make HTTP GET requests to all used ports to test the servers
             log('Testing each webserver with a HTTP GET request...');
-            for (let i = initial_port; i <= configuration.port_start; i++) {
-                const response = await fetch(`http://localhost:${i}/`);
+            const final_port = configuration.port_start;
+            for (let port = initial_port; port <= final_port; port++) {
+                const response = await fetch(`http://localhost:${port}/`);
                 if (response.status !== 200)
-                    throw new Error(`HTTP request to port ${i} failed with status ${response.status}`);
-                log(`GET HTTP -> Port ${i} -> Status ${response.status} -> ${response.headers.get('content-type')}`);
+                    throw new Error(`HTTP request to port ${port} failed with status ${response.status}`);
+                log(`GET HTTP -> Port ${port} -> Status ${response.status} -> ${response.headers.get('content-type')}`);
             }
 
             log(
@@ -84,9 +85,10 @@ if (numCPUs <= 1 || cluster.isWorker) {
     })();
 }
 
-['exit', 'SIGINT', 'SIGUSR1', 'SIGUSR2', 'SIGTERM'].forEach((type) =>
-    process.once(type, () => {
-        // Close all the webserver instances
+const exit_events = ['exit', 'SIGINT', 'SIGUSR1', 'SIGUSR2', 'SIGTERM'];
+for (const event_type of exit_events) {
+    process.once(event_type, () => {
+        // Release every benchmark server before the worker exits
         try {
             if (uws_socket) uWebsocketsJS.us_listen_socket_close(uws_socket);
             NanoExpress.close();
@@ -96,7 +98,6 @@ if (numCPUs <= 1 || cluster.isWorker) {
             console.log(error);
         }
 
-        // Exit the process
         process.exit();
-    })
-);
+    });
+}

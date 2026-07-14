@@ -56,55 +56,44 @@ class Router {
      * @returns {this} Chainable instance
      */
     _register_route() {
-        // The first argument will always be the method (in lowercase)
         const method = arguments[0];
 
-        // The pattern, options and handler must be dynamically parsed depending on the arguments provided and router behavior
+        // Normalize route overloads into a pattern, options object and ordered callbacks
         let pattern, options, handler;
 
-        // Iterate through the remaining arguments to find the above values and also build an Array of middleware / handler callbacks
-        // The route handler will be the last one in the array
         const callbacks = [];
-        for (let i = 1; i < arguments.length; i++) {
-            const argument = arguments[i];
+        for (let argument_index = 1; argument_index < arguments.length; argument_index++) {
+            const argument = arguments[argument_index];
 
-            // The second argument should be the pattern. If it is a string, it is the pattern. If it is anything else and we do not have a context pattern, throw an error as that means we have no pattern.
-            if (i === 1) {
+            // Contextual routers may omit the pattern and begin with options or callbacks
+            if (argument_index === 1) {
                 if (typeof argument === 'string') {
                     if (this.#context_pattern) {
-                        // merge the provided pattern with the context pattern
                         pattern = merge_relative_paths(this.#context_pattern, argument);
                     } else {
-                        // The path is as is
                         pattern = argument;
                     }
 
-                    // Continue to the next argument as this is not the pattern but we have a context pattern
                     continue;
                 } else if (!this.#context_pattern) {
                     throw new Error(
                         'HyperExpress.Router: Route pattern is required unless created from a chainable route instance using Route.route() method.'
                     );
                 } else {
-                    // The path is the context pattern
                     pattern = this.#context_pattern;
                 }
             }
 
-            // Look for options, middlewares and handler in the remaining arguments
             if (typeof argument == 'function') {
-                // Scenario: Single function
                 callbacks.push(argument);
             } else if (Array.isArray(argument)) {
-                // Scenario: Array of functions
                 callbacks.push(...argument);
             } else if (argument && typeof argument == 'object') {
-                // Scenario: Route options object
                 options = argument;
             }
         }
 
-        // Write the route handler and route options object with fallback to the default options
+        // The final callback handles the route while preceding callbacks act as middleware
         handler = callbacks.pop();
         options = {
             streaming: {},
@@ -115,23 +104,18 @@ class Router {
         // Make a shallow copy of the options object to avoid mutating the original
         options = Object.assign({}, options);
 
-        // Enforce a leading slash on the pattern if it begins with a catchall star
-        // This is because uWebsockets.js does not treat non-leading slashes as catchall stars
+        // uWS requires catch-all patterns to begin with a slash
         if (pattern.startsWith('*')) pattern = '/' + pattern;
 
-        // Parse the middlewares into a new array to prevent mutating the original
+        // Merge configured and positional middleware without mutating caller-owned arrays
         const middlewares = [];
 
-        // Push all the options provided middlewares into the middlewares array
         if (Array.isArray(options.middlewares)) middlewares.push(...options.middlewares);
 
-        // Push all the callback provided middlewares into the middlewares array
         if (callbacks.length > 0) middlewares.push(...callbacks);
 
-        // Write the middlewares into the options object
         options.middlewares = middlewares;
 
-        // Initialize the record object which will hold information about this route
         const record = {
             method,
             pattern,
@@ -142,13 +126,15 @@ class Router {
         // Store record for future subscribers
         this.#records.routes.push(record);
 
-        // Create route if this is a Server extended Router instance (ROOT)
+        // Server instances materialize records directly; routers notify their mounted parents
         if (this.#is_app) return this._create_route(record);
 
-        // Alert all subscribers of the new route that was created
-        this.#subscribers.forEach((subscriber) => subscriber('route', record));
+        // Notify mounted parent routers about the new route
+        const subscribers = this.#subscribers;
+        for (const subscriber of subscribers) {
+            subscriber('route', record);
+        }
 
-        // Return this to make the Router chainable
         return this;
     }
 
@@ -161,18 +147,21 @@ class Router {
      */
     _register_middleware(pattern, middleware) {
         const record = {
-            pattern: pattern.endsWith('/') ? pattern.slice(0, -1) : pattern, // Do not allow trailing slash in middlewares
+            pattern: pattern.endsWith('/') ? pattern.slice(0, -1) : pattern, // Normalize middleware path boundaries
             middleware,
         };
 
         // Store record for future subscribers
         this.#records.middlewares.push(record);
 
-        // Create middleware if this is a Server extended Router instance (ROOT)
+        // Server instances materialize records directly; routers notify their mounted parents
         if (this.#is_app) return this._create_middleware(record);
 
-        // Alert all subscribers of the new middleware that was created
-        this.#subscribers.forEach((subscriber) => subscriber('middleware', record));
+        // Notify mounted parent routers about the new middleware
+        const subscribers = this.#subscribers;
+        for (const subscriber of subscribers) {
+            subscriber('middleware', record);
+        }
     }
 
     /**
@@ -187,23 +176,26 @@ class Router {
         router._subscribe((event, object) => {
             switch (event) {
                 case 'records':
-                    // Destructure records from router
                     const { routes, middlewares } = object;
 
-                    // Register routes from router locally with adjusted pattern
-                    routes.forEach((record) =>
+                    // Replay existing child routes beneath the mounted path
+                    for (const route_record of routes) {
                         reference._register_route(
-                            record.method,
-                            merge_relative_paths(pattern, record.pattern),
-                            record.options,
-                            record.handler
-                        )
-                    );
+                            route_record.method,
+                            merge_relative_paths(pattern, route_record.pattern),
+                            route_record.options,
+                            route_record.handler
+                        );
+                    }
 
-                    // Register middlewares from router locally with adjusted pattern
-                    return middlewares.forEach((record) =>
-                        reference._register_middleware(merge_relative_paths(pattern, record.pattern), record.middleware)
-                    );
+                    // Replay existing child middleware beneath the mounted path
+                    for (const middleware_record of middlewares) {
+                        reference._register_middleware(
+                            merge_relative_paths(pattern, middleware_record.pattern),
+                            middleware_record.middleware
+                        );
+                    }
+                    return;
                 case 'route':
                     // Register route from router locally with adjusted pattern
                     return reference._register_route(
@@ -225,16 +217,15 @@ class Router {
     /* Router public methods */
 
     /**
-     * Subscribes a handler which will be invocated with changes.
+     * Subscribes a handler which will be invoked with changes.
      *
      * @private
      * @param {*} handler
      */
     _subscribe(handler) {
-        // Pipe all records on first subscription to synchronize
+        // Replay existing records before subscribing to future registrations
         handler('records', this.#records);
 
-        // Register subscriber handler for future updates
         this.#subscribers.push(handler);
     }
 
@@ -261,17 +252,17 @@ class Router {
                 'HyperExpress: Server/Router.use() -> Wildcard "*" & ":parameter" prefixed paths are not allowed when binding middlewares or routers using this method.'
             );
 
-        // Register each candidate individually depending on the type of candidate value
-        for (let i = 0; i < arguments.length; i++) {
-            const candidate = arguments[i];
+        // Register middleware, arrays, mounted routers and third-party middleware wrappers
+        for (let candidate_index = 0; candidate_index < arguments.length; candidate_index++) {
+            const candidate = arguments[candidate_index];
             if (typeof candidate == 'function') {
-                // Scenario: Single function
                 this._register_middleware(pattern, candidate);
             } else if (Array.isArray(candidate)) {
-                // Scenario: Array of functions
-                candidate.forEach((middleware) => this._register_middleware(pattern, middleware));
+                const middlewares = candidate;
+                for (const middleware_handler of middlewares) {
+                    this._register_middleware(pattern, middleware_handler);
+                }
             } else if (candidate instanceof Router) {
-                // Scenario: Router instance
                 this._register_router(pattern, candidate);
             } else if (candidate && typeof candidate == 'object' && typeof candidate.middleware == 'function') {
                 // Scenario: Inferred middleware for third-party middlewares which support the Middleware.middleware property
@@ -279,7 +270,6 @@ class Router {
             }
         }
 
-        // Return this to make the Router chainable
         return this;
     }
 
@@ -300,16 +290,14 @@ class Router {
      * @returns {this} A Chainable instance with a context pattern set to this router's pattern.
      */
     route(pattern) {
-        // Ensure that the pattern is a string
         if (!pattern || typeof pattern !== 'string')
             throw new Error('HyperExpress.Router.route(pattern) -> pattern must be a string.');
 
-        // Create a new router instance with the context pattern set to the provided pattern
+        // Bind subsequent route calls to the provided context pattern
         const router = new Router();
         router._set_context_pattern(pattern);
         this.use(router);
 
-        // Return the router instance to allow for chainable bindings
         return router;
     }
 
@@ -333,7 +321,6 @@ class Router {
      * @param {...(RouteOptions|MiddlewareHandler)} args
      */
     all() {
-        // Alias of any() method
         return this.any(...arguments);
     }
 

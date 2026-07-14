@@ -6,15 +6,25 @@
  * @param {Object} obj2 Focus Object
  */
 function wrap_object(original, target) {
-    Object.keys(target).forEach((key) => {
-        if (typeof target[key] == 'object') {
-            if (Array.isArray(target[key])) return (original[key] = target[key]); // lgtm [js/prototype-pollution-utility]
-            if (original[key] === null || typeof original[key] !== 'object') original[key] = {};
-            wrap_object(original[key], target[key]);
+    // Copy own values while recursively merging nested option objects
+    const target_keys = Object.keys(target);
+    for (let index = 0; index < target_keys.length; index++) {
+        const target_key = target_keys[index];
+        const target_value = target[target_key];
+        if (typeof target_value == 'object') {
+            if (Array.isArray(target_value)) {
+                original[target_key] = target_value; // lgtm [js/prototype-pollution-utility]
+                continue;
+            }
+            if (original[target_key] === null || typeof original[target_key] !== 'object') {
+                original[target_key] = {};
+            }
+            const original_value = original[target_key];
+            wrap_object(original_value, target_value);
         } else {
-            original[key] = target[key];
+            original[target_key] = target_value;
         }
-    });
+    }
 }
 
 /**
@@ -28,11 +38,10 @@ function parse_path_parameters(pattern) {
     let results = [];
     let counter = 0;
     if (pattern.indexOf('/:') > -1) {
-        let chunks = pattern.split('/').filter((chunk) => chunk.length > 0);
-        for (let index = 0; index < chunks.length; index++) {
-            let current = chunks[index];
-            if (current.startsWith(':') && current.length > 2) {
-                results.push([current.substring(1), counter]);
+        const path_chunks = pattern.split('/');
+        for (const path_chunk of path_chunks) {
+            if (path_chunk.startsWith(':') && path_chunk.length > 2) {
+                results.push([path_chunk.substring(1), counter]);
                 counter++;
             }
         }
@@ -80,22 +89,18 @@ function async_wait(delay) {
  * @returns {String} path
  */
 function merge_relative_paths(base_path, new_path) {
-    // handle both roots merger case
+    // Preserve root semantics before normalizing the path boundary
     if (base_path == '/' && new_path == '/') return '/';
 
-    // Inject leading slash to new_path
     if (!new_path.startsWith('/')) new_path = '/' + new_path;
 
-    // handle base root merger case
     if (base_path == '/') return new_path;
 
-    // handle new path root merger case
     if (new_path == '/') return base_path;
 
-    // strip away leading slash from base path
+    // Ensure the paths join across exactly one slash
     if (base_path.endsWith('/')) base_path = base_path.substr(0, base_path.length - 1);
 
-    // Merge path and add a slash in between if new_path does not have a starting slash
     return `${base_path}${new_path}`;
 }
 
@@ -105,17 +110,14 @@ function merge_relative_paths(base_path, new_path) {
  * @param {Object} prototype
  */
 function get_all_property_descriptors(prototype) {
-    // Retrieve initial property descriptors
     const descriptors = Object.getOwnPropertyDescriptors(prototype);
 
-    // Determine if we have a parent prototype with a custom name
+    // Include custom ancestors while stopping before the base Object prototype
     const parent = Object.getPrototypeOf(prototype);
     if (parent && parent.constructor.name !== 'Object') {
-        // Merge and return property descriptors along with parent prototype
         return Object.assign(descriptors, get_all_property_descriptors(parent));
     }
 
-    // Return property descriptors
     return descriptors;
 }
 
@@ -130,30 +132,35 @@ function get_all_property_descriptors(prototype) {
  * @param {Array<string>} options.ignore - The property names to ignore
  */
 function inherit_prototype({ from, to, method, override, ignore = ['constructor'] }) {
-    // Recursively call self if the from prototype is an Array of prototypes
-    if (Array.isArray(from)) return from.forEach((f) => inherit_prototype({ from: f, to, override, method, ignore }));
+    // Apply each source prototype in order when multiple sources are provided
+    if (Array.isArray(from)) {
+        const prototypes = from;
+        for (const prototype of prototypes) {
+            inherit_prototype({ from: prototype, to, override, method, ignore });
+        }
+        return;
+    }
 
-    // Inherit the descriptors from the "from" prototype to the "to" prototype
+    // Collect source and target descriptors once before matching members
     const to_descriptors = get_all_property_descriptors(to);
     const from_descriptors = get_all_property_descriptors(from);
-    Object.keys(from_descriptors).forEach((name) => {
-        // Ignore the properties specified in the ignore array
-        if (ignore.includes(name)) return;
+    const descriptor_names = Object.keys(from_descriptors);
+    for (let index = 0; index < descriptor_names.length; index++) {
+        let descriptor_name = descriptor_names[index];
+        if (ignore.includes(descriptor_name)) continue;
 
-        // Destructure the descriptor function properties
-        const { value, get, set } = from_descriptors[name];
+        const descriptor = from_descriptors[descriptor_name];
+        const { value, get, set } = descriptor;
 
-        // Determine if this descriptor name would be an override
-        // Override the original name with the provided name resolver for overrides
-        if (typeof override == 'function' && to_descriptors[name]?.value) name = override(name) || name;
+        // Redirect collisions to the configured override name
+        if (typeof override == 'function' && to_descriptors[descriptor_name]?.value) {
+            descriptor_name = override(descriptor_name) || descriptor_name;
+        }
 
-        // Determine if the descriptor is a method aka. a function
         if (typeof value === 'function') {
-            // Inject a middleman method into the "to" prototype
-            const middleman = method('FUNCTION', name, value);
+            const middleman = method('FUNCTION', descriptor_name, value);
             if (middleman) {
-                // Define the middleman method on the "to" prototype
-                Object.defineProperty(to, name, {
+                Object.defineProperty(to, descriptor_name, {
                     configurable: true,
                     enumerable: true,
                     writable: true,
@@ -161,19 +168,15 @@ function inherit_prototype({ from, to, method, override, ignore = ['constructor'
                 });
             }
         } else {
-            // Initialize a definition object
             const definition = {};
 
-            // Initialize a middleman getter method
-            if (typeof get === 'function') definition.get = method('GETTER', name, get);
+            if (typeof get === 'function') definition.get = method('GETTER', descriptor_name, get);
 
-            // Initialize a middleman setter method
-            if (typeof set === 'function') definition.set = method('SETTER', name, set);
+            if (typeof set === 'function') definition.set = method('SETTER', descriptor_name, set);
 
-            // Inject the definition into the "to" prototype
-            if (definition.get || definition.set) Object.defineProperty(to, name, definition);
+            if (definition.get || definition.set) Object.defineProperty(to, descriptor_name, definition);
         }
-    });
+    }
 }
 
 /**

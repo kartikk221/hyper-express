@@ -17,14 +17,13 @@ class WebsocketRoute extends Route {
     };
 
     constructor({ app, pattern, handler, options }) {
-        // Initialize the super Router class
         super({ app, method: 'ws', pattern, options, handler });
 
-        // Wrap local default options with user specified options
+        // Merge route options before creating the native uWS route
         wrap_object(this.options, options);
         this.#message_parser = this._get_message_parser(this.options.message_type);
 
-        // Load companion upgrade route and initialize uWS.ws() route
+        // Pair the WebSocket route with its HTTP upgrade lifecycle
         this._load_companion_route();
         this._create_uws_route();
     }
@@ -37,17 +36,13 @@ class WebsocketRoute extends Route {
     _get_message_parser(type) {
         switch (type) {
             case 'String':
-                // Converts ArrayBuffer -> String
                 return (array_buffer) => array_buffer_to_string(array_buffer);
             case 'Buffer':
-                // Converts & Copies ArrayBuffer -> Buffer
-                // We concat (copy) because ArrayBuffer from uWS is deallocated after initial synchronous execution
+                // Copy because uWS invalidates the message ArrayBuffer after the synchronous callback
                 return (array_buffer) => Buffer.concat([Buffer.from(array_buffer)]);
             case 'ArrayBuffer':
-                // Simply return the ArrayBuffer from uWS handler
                 return (array_buffer) => array_buffer;
             default:
-                // Throw error on invalid type
                 throw new Error(
                     "Server.ws(options) -> options.message_type must be one of ['String', 'Buffer', 'ArrayBuffer']"
                 );
@@ -61,11 +56,10 @@ class WebsocketRoute extends Route {
     _load_companion_route() {
         const companion = this.app.routes['upgrade'][this.pattern];
         if (companion) {
-            // Use existing companion route as it is a user assigned route
+            // Preserve a user-defined upgrade route when one already exists
             this.#upgrade_with = companion;
         } else {
-            // Create and use a temporary default route to allow for healthy upgrade request cycle
-            // Default route will upgrade all incoming requests automatically
+            // Create a temporary upgrade route that accepts matching WebSocket requests by default
             this.app._create_route({
                 method: 'upgrade',
                 pattern: this.pattern,
@@ -75,8 +69,7 @@ class WebsocketRoute extends Route {
                 },
             });
 
-            // Store created route locally as Server will not call _set_upgrade_route
-            // This is because this WebsocketRoute has not been created synchronously yet
+            // Capture the temporary companion before this WebsocketRoute is stored by Server
             this.#upgrade_with = this.app.routes['upgrade'][this.pattern];
         }
     }
@@ -95,7 +88,7 @@ class WebsocketRoute extends Route {
      * @private
      */
     _create_uws_route() {
-        // Destructure and convert HyperExpress options to uWS.ws() route options
+        // Translate HyperExpress option names into the native uWS WebSocket configuration
         const { compression, idle_timeout, max_backpressure, max_payload_length } = this.options;
         const uws_options = {
             compression,
@@ -104,11 +97,10 @@ class WebsocketRoute extends Route {
             maxPayloadLength: max_payload_length,
         };
 
-        // Create middleman upgrade route that pipes upgrade requests to HyperExpress request handler
+        // Bridge upgrade requests and WebSocket events into HyperExpress lifecycle handlers
         uws_options.upgrade = (uws_response, uws_request, socket_context) =>
             this.app._handle_uws_request(this.#upgrade_with, uws_request, uws_response, socket_context);
 
-        // Bind middleman routes to pipe uws events into poly handlers
         uws_options.open = (ws) => this._on_open(ws);
         uws_options.drain = (ws) => this._on_drain(ws);
         uws_options.ping = (ws, message) => this._on_ping(ws, message);
@@ -116,7 +108,6 @@ class WebsocketRoute extends Route {
         uws_options.close = (ws, code, message) => this._on_close(ws, code, message);
         uws_options.message = (ws, message, isBinary) => this._on_message(ws, message, isBinary);
 
-        // Create uWebsockets instance route
         this.app.uws_instance.ws(this.pattern, uws_options);
     }
 
@@ -126,10 +117,8 @@ class WebsocketRoute extends Route {
      * @param {uWS.Websocket} ws
      */
     _on_open(ws) {
-        // Create and attach HyperExpress.Websocket polyfill component to uWS websocket
         ws.poly = new Websocket(ws);
 
-        // Trigger WebsocketRoute handler on new connection open so user can listen for events
         this.handler(ws.poly);
     }
 
@@ -140,7 +129,6 @@ class WebsocketRoute extends Route {
      * @param {ArrayBuffer=} message
      */
     _on_ping(ws, message = '') {
-        // Emit 'ping' event on websocket poly component
         ws.poly.emit('ping', this.#message_parser(message));
     }
 
@@ -151,7 +139,6 @@ class WebsocketRoute extends Route {
      * @param {ArrayBuffer=} message
      */
     _on_pong(ws, message = '') {
-        // Emit 'pong' event on websocket poly component
         ws.poly.emit('pong', this.#message_parser(message));
     }
 
@@ -161,7 +148,6 @@ class WebsocketRoute extends Route {
      * @param {uWS.Websocket} ws
      */
     _on_drain(ws) {
-        // Emit 'drain' event on websocket poly component
         ws.poly.emit('drain');
     }
 
@@ -173,7 +159,6 @@ class WebsocketRoute extends Route {
      * @param {Boolean} is_binary
      */
     _on_message(ws, message = '', is_binary) {
-        // Emit 'message' event with parsed message from uWS
         ws.poly.emit('message', this.#message_parser(message), is_binary);
     }
 
@@ -184,13 +169,12 @@ class WebsocketRoute extends Route {
      * @param {ArrayBuffer} message
      */
     _on_close(ws, code, message = '') {
-        // Mark websocket poly component as closed
+        // Mark the wrapper disconnected before close observers run
         ws.poly._destroy();
 
-        // Emit 'close' event with parsed message
         ws.poly.emit('close', code, this.#message_parser(message));
 
-        // De-reference the attached polyfill Websocket component so it can ne garbage collected
+        // Release the wrapper after all close observers have run
         delete ws.poly;
     }
 }

@@ -17,10 +17,8 @@ class Websocket extends EventEmitter {
     #closed = false;
 
     constructor(ws) {
-        // Initialize event emitter
         super();
 
-        // Parse information about websocket connection
         this.#ws = ws;
         this.#context = ws.context || {};
         this.#ip = array_buffer_to_string(ws.getRemoteAddressAsText());
@@ -36,7 +34,6 @@ class Websocket extends EventEmitter {
      * @returns {Websocket}
      */
     on(eventName, listener) {
-        // Pass all events to EventEmitter
         super.on(eventName, listener);
         return this;
     }
@@ -49,7 +46,6 @@ class Websocket extends EventEmitter {
      * @returns {Websocket}
      */
     once(eventName, listener) {
-        // Pass all events to EventEmitter
         super.once(eventName, listener);
         return this;
     }
@@ -67,7 +63,7 @@ class Websocket extends EventEmitter {
     /**
      * Sends a message to websocket connection.
      * Returns true if message was sent successfully.
-     * Returns false if message was not sent due to buil up backpressure.
+     * Returns false if message was not sent due to built-up backpressure.
      *
      * @param {String|Buffer|ArrayBuffer} message
      * @param {Boolean=} is_binary
@@ -75,7 +71,6 @@ class Websocket extends EventEmitter {
      * @returns {Boolean}
      */
     send(message, is_binary, compress) {
-        // Send message through uWS connection
         if (this.#ws) return this.#ws.send(message, is_binary, compress);
         return false;
     }
@@ -88,12 +83,11 @@ class Websocket extends EventEmitter {
      * @returns {Boolean}
      */
     ping(message) {
-        // Send ping OPCODE message through uWS connection
         return this.#ws ? this.#ws.ping(message) : false;
     }
 
     /**
-     * Destroys this polyfill Websocket component and derefernces the underlying ws object
+     * Destroys this polyfill Websocket component and dereferences the underlying ws object
      * @private
      */
     _destroy() {
@@ -108,7 +102,6 @@ class Websocket extends EventEmitter {
      * @param {(String|Buffer|ArrayBuffer)=} message
      */
     close(code, message) {
-        // Close websocket using uWS.end() method which gracefully closes connections
         if (this.#ws) this.#ws.end(code, message);
     }
 
@@ -190,9 +183,8 @@ class Websocket extends EventEmitter {
      * @returns {Boolean}
      */
     _write(type, chunk, is_binary, compress, callback) {
-        // Ensure websocket still exists before attempting to write
         if (this.#ws) {
-            // Attempt to send this fragment using the appropriate fragment method from uWS
+            // Map the fragment position to the corresponding uWS send operation
             let sent;
             switch (type) {
                 case FRAGMENTS.FIRST:
@@ -209,18 +201,15 @@ class Websocket extends EventEmitter {
             }
 
             if (sent) {
-                // Invoke the callback if chunk was sent successfully
                 if (callback) callback();
             } else {
-                // Wait for this connection to drain before retrying this chunk
+                // Retry the fragment after uWS backpressure drains
                 this.once('drain', () => this._write(type, chunk, is_binary, compress, callback));
             }
 
-            // Return the sent status for consumer
             return sent;
         }
 
-        // Throw an error with NOT_CONNECTED message to be caught by executor
         throw new Error('Websocket is no longer connected.');
     }
 
@@ -233,19 +222,16 @@ class Websocket extends EventEmitter {
      * @param {Boolean} is_binary
      */
     _stream_chunk(stream, type, chunk, is_binary) {
-        // Break execution if connection is no longer connected
         if (this.#ws === null) return;
 
-        // Attempt to write this chunk
         const sent = this._write(type, chunk, is_binary);
         if (!sent) {
-            // Pause the readable stream as we failed to write this chunk
+            // Pause source consumption until the WebSocket drains
             stream.pause();
 
-            // Wait for this connection to be drained before trying again
             this.once('drain', () => this._stream_chunk(stream, type, chunk, is_binary));
         } else if (stream.isPaused()) {
-            // Resume the stream if it has been paused and we sent a chunk successfully
+            // Resume only after the previously blocked fragment is accepted
             stream.resume();
         }
     }
@@ -260,55 +246,44 @@ class Websocket extends EventEmitter {
      * @returns {Promise}
      */
     stream(readable, is_binary = true) {
-        // Ensure readable is an instance of a stream.Readable
         if (!(readable instanceof Readable))
             throw new Error('Websocket.stream(readable) -> readable must be a Readable stream.');
 
-        // Prevent multiple streams from taking place
+        // Fragment state is connection-wide, so only one stream may run at a time
         if (this.#stream)
             throw new Error(
                 'Websocket.stream(readable) -> You may not stream data while another stream operation is active on this websocket. Make sure you are not already streaming or piping a stream to this websocket.'
             );
 
-        // Return a promise which resolves once stream has finished
         const scope = this;
         return new Promise((resolve) => {
-            // Store the readable as the pending stream for this connection
             scope.#stream = readable;
 
-            // Bind a listener for the 'data' event to consume chunks
-            let is_first = true; // By default, we will send the first chunk as a fragment
+            // Delay one fragment so the final fragment can use the correct uWS opcode
+            let is_first = true;
             readable.on('data', (chunk) => {
-                // Check to see if we have a fragment to send post buffering
                 const fragment = scope._buffer_fragment(chunk);
                 if (fragment) {
-                    // Stream the retrieved current fragment
                     scope._stream_chunk(readable, is_first ? FRAGMENTS.FIRST : FRAGMENTS.MIDDLE, fragment, is_binary);
 
-                    // If this was the first chunk, invert the is_first boolean
                     if (is_first) is_first = false;
                 }
             });
 
-            // Create a callback for ending the readable consumption
             const end_stream = () => {
-                // Retrieve the last buffered fragment to send as last or only chunk
                 const fragment = scope._buffer_fragment();
 
-                // If we streamed no individual fragments aka. the is_first flag was set to true, then we did no streaming and can simply send the last fragment as a message
+                // A single buffered fragment can be sent as a complete message
                 if (is_first) {
                     scope.#ws.send(fragment, is_binary);
                 } else {
-                    // Stream the final chunk as last fragment
                     scope._stream_chunk(scope.#stream, FRAGMENTS.LAST, fragment, is_binary);
                 }
 
-                // Clean up the readable
                 scope.#stream = undefined;
                 resolve();
             };
 
-            // Bind listeners to end the framented write procedure
             readable.once('end', end_stream);
         });
     }
@@ -370,52 +345,43 @@ class Websocket extends EventEmitter {
      * @returns {Writable}
      */
     get writable() {
-        // Prevent multiple streaming operations from taking place
+        // Writable and readable streaming share the same connection fragment state
         const scope = this;
         if (this.#stream)
             throw new Error(
                 'Websocket.writable -> You may only access and utilize one writable stream at any given time. Make sure you are not already streaming or piping a stream to this websocket.'
             );
 
-        // Create a new writable stream object which will write with the _write method
+        // Delay one fragment so finish can emit the correct final opcode
         let is_first = true;
         this.#stream = new Writable({
             write: (chunk, encoding, callback) => {
-                // Buffer the incoming chunk as a fragment
                 const fragment = scope._buffer_fragment(chunk);
 
-                // Check to see if we have a fragment to send post buffering
                 if (fragment) {
-                    // Write the current retrieved fragment
                     scope._write(is_first ? FRAGMENTS.FIRST : FRAGMENTS.MIDDLE, fragment, true, false, callback);
 
-                    // Invert the is_first boolean after first fragment
                     if (is_first) is_first = false;
                 } else {
-                    // Trigger the callback even if don't have a fragment to continue consuming
+                    // Continue consumption while the first fragment remains buffered
                     callback();
                 }
             },
         });
 
-        // Create a callback for ending the writable usage
         const end_stream = () => {
-            // Retrieve the last buffered fragment to write as last or only chunk
             const fragment = scope._buffer_fragment();
 
             if (is_first) {
                 scope.#ws.send(fragment, true, false);
                 scope.#ws.stream = undefined;
             } else {
-                // Write the final empty chunk as last fragment and cleanup the writable
                 scope._write(FRAGMENTS.LAST, fragment, true, false, () => (scope.#stream = undefined));
             }
         };
 
-        // Bind listeners to end the fragmented write procedure
         this.#stream.on('finish', end_stream);
 
-        // Return the writable stream
         return this.#stream;
     }
 }
