@@ -18,6 +18,9 @@ Below is a breakdown of the `Server` component which is an extended `Router` ins
 * `ssl_prefer_low_memory_usage` [`Boolean`]: Specifies uWebsockets to prefer lower memory usage while serving SSL requests.
 * `auto_close` [`Boolean`]: Specifies whether the `Server` instance should automatically be closed when process exits.
   * **Default:** `true`
+* `exclusive_port` [`Boolean`]: Exclusively binds the listening port so another process cannot listen on the same port.
+  * **Default:** `false`
+  * **Note:** uWebSockets.js does not support combining listen options with a custom host. When enabled, omit the host argument to `listen()` to use the default `0.0.0.0` host.
 * `fast_buffers` [`Boolean`]: Specifies HyperExpress to use `Buffer.allocUnsafe` for storing incoming request body data for faster performance.
   * **Default:** `false`
   * **Note!** Any data in the unsafely allocated buffer will always be written over thus this option is provided for those working with strict regulatory requirements.

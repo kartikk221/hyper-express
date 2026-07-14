@@ -12,6 +12,7 @@ const { test_response_sync_writes } = require('./scenarios/response_stream_sync_
 const { test_response_custom_content_length } = require('./scenarios/response_custom_content_length.js');
 const { test_response_sse } = require('./scenarios/response_sse.js');
 const { test_response_set_header } = require('./scenarios/response_set_header.js');
+const { test_response_write_head } = require('./scenarios/response_write_head.js');
 const router = new HyperExpress.Router();
 const endpoint = '/tests/response/operators';
 const endpoint_url = server.base + endpoint;
@@ -138,6 +139,9 @@ async function test_response_object() {
 
     // Verify the custom HTTP status code and message support
     await test_response_custom_status();
+
+    // Verify Node.js ServerResponse.writeHead() compatibility
+    await test_response_write_head();
 
     // Verify the custom HTTP status code and message support
     await test_response_send_status();

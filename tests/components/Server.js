@@ -1,5 +1,47 @@
 const { server, HyperExpress } = require('../configuration.js');
 const { log, assert_log } = require('../scripts/operators.js');
+const net = require('net');
+
+function get_available_port() {
+    return new Promise((resolve, reject) => {
+        const socket = net.createServer();
+
+        socket.once('error', reject);
+        socket.listen(0, '0.0.0.0', () => {
+            const port = socket.address().port;
+            socket.close((error) => (error ? reject(error) : resolve(port)));
+        });
+    });
+}
+
+async function test_server_exclusive_port() {
+    const server = new HyperExpress.Server({
+        auto_close: false,
+        exclusive_port: true,
+    });
+    const port = await get_available_port();
+    let listening = false;
+    let custom_host_rejected = false;
+
+    try {
+        await server.listen(port);
+        listening = server.port === port;
+    } finally {
+        server.close();
+    }
+
+    try {
+        await server.listen(port, '127.0.0.1');
+    } catch (error) {
+        custom_host_rejected = String(error).includes('custom host');
+    }
+
+    assert_log(
+        'Server',
+        'Server Exclusive Port Listen Option Test',
+        () => listening && custom_host_rejected
+    );
+}
 
 // Create a test HyperExpress instance
 const TEST_SERVER = new HyperExpress.Server({
@@ -106,5 +148,6 @@ async function test_server_shutdown() {
 module.exports = {
     TEST_SERVER,
     not_found_handler,
+    test_server_exclusive_port,
     test_server_shutdown,
 };

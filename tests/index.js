@@ -10,7 +10,12 @@ const { test_websocket_component } = require('./components/ws/Websocket.js');
 // const { test_body_parser_middleware } = require('./middlewares/hyper-express-body-parser/index.js');
 
 const { server } = require('./configuration.js');
-const { TEST_SERVER, not_found_handler, test_server_shutdown } = require('./components/Server.js');
+const {
+    TEST_SERVER,
+    not_found_handler,
+    test_server_exclusive_port,
+    test_server_shutdown,
+} = require('./components/Server.js');
 (async () => {
     try {
         // While this is effectively doing the same thing as the not_found_handler, we do not want HyperExpress to also bind its own not found handler which would throw a duplicate route error
@@ -24,6 +29,9 @@ const { TEST_SERVER, not_found_handler, test_server_shutdown } = require('./comp
 
         // Assert that the server port matches the configuration port
         assert_log(group, 'Server Listening Port Test', () => +server.port === TEST_SERVER.port);
+
+        // Verify exclusive port listen option delegation
+        await test_server_exclusive_port();
 
         // Assert that a server instance with a bad SSL configuration throws an error
         await assert_log(group, 'Good SSL Configuration Initialization Test', async () => {

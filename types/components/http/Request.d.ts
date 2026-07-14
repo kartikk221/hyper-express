@@ -129,14 +129,9 @@ export class Request<Locals = DefaultRequestLocals> extends Readable {
     get url(): string;
 
     /**
-     * Allow to change request url.
-     *
-     * @benoitlahoz Only tested with `vite` middlewares used for SSR
-     * that actually change the `originalUrl` of the request.
-     *
-     * @see https://github.com/kartikk221/hyper-express/issues/324
+     * Sets full request url for incoming request (path + query).
      */
-    set url(url: string);
+    set url(value: string);
 
     /**
      * Returns path for incoming request.
@@ -173,6 +168,11 @@ export class Request<Locals = DefaultRequestLocals> extends Readable {
      * @returns {Object.<string, string>}
      */
     get query_parameters(): { [key: string]: string };
+
+    /**
+     * Sets query parameters for incoming request.
+     */
+    set query_parameters(value: { [key: string]: string });
 
     /**
      * Returns remote IP address in string format from incoming request.

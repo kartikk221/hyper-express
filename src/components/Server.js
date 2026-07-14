@@ -20,6 +20,7 @@ class Server extends Router {
     #options = {
         is_ssl: false,
         auto_close: true,
+        exclusive_port: false,
         fast_abort: false,
         trust_proxy: false,
         fast_buffers: false,
@@ -47,6 +48,7 @@ class Server extends Router {
      * @param {Number=} options.max_body_buffer Maximum body content to buffer in memory before a request data is handled. Behaves similar to `highWaterMark` in Node.js streams.
      * @param {Number=} options.max_body_length Maximum body content length allowed in bytes. For Reference: 1kb = 1024 bytes and 1mb = 1024kb.
      * @param {Boolean=} options.auto_close Whether to automatically close the server instance when the process exits. Default: true
+     * @param {Boolean=} options.exclusive_port Whether to exclusively bind the listening port. Default: false
      * @param {Object} options.streaming Global content streaming options.
      * @param {import('stream').ReadableOptions=} options.streaming.readable Global content streaming options for Readable streams.
      * @param {import('stream').WritableOptions=} options.streaming.writable Global content streaming options for Writable streams.
@@ -199,7 +201,21 @@ class Server extends Router {
 
             // Determine whether to bind on a port or unix domain socket with priority to port
             if (port !== undefined) {
-                reference.#uws_instance.listen(host, port, on_listen_socket);
+                if (reference.#options.exclusive_port) {
+                    // uWebSockets.js only supports listen options without a custom host
+                    if (host !== '0.0.0.0')
+                        return reject(
+                            'HyperExpress.Server.listen(): A custom host cannot be used with the exclusive_port option.'
+                        );
+
+                    reference.#uws_instance.listen(
+                        port,
+                        uWebSockets.LIBUS_LISTEN_EXCLUSIVE_PORT,
+                        on_listen_socket
+                    );
+                } else {
+                    reference.#uws_instance.listen(host, port, on_listen_socket);
+                }
             } else {
                 reference.#uws_instance.listen_unix(on_listen_socket, path);
             }

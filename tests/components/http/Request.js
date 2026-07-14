@@ -8,6 +8,7 @@ const { test_request_uncaught_rejections } = require('./scenarios/request_uncaug
 const { test_request_router_paths_test } = require('./scenarios/request_router_paths_test.js');
 const { test_request_chunked_json } = require('./scenarios/request_chunked_json.js');
 const { test_request_accepts } = require('./scenarios/request_accepts.js');
+const { test_request_compatibility_setters } = require('./scenarios/request_compatibility_setters.js');
 const fs = require('fs');
 const _path = require('path');
 const crypto = require('crypto');
@@ -327,6 +328,9 @@ async function test_request_object() {
 
     // Verify ExpressJS request content negotiation methods
     await test_request_accepts();
+
+    // Verify mutable ExpressJS compatibility properties
+    await test_request_compatibility_setters();
 
     // Verify chunked transfer request stream
     await test_request_chunked_stream();

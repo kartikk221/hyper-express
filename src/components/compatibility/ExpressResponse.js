@@ -11,34 +11,39 @@ class ExpressResponse {
     }
 
     writeHeaders(headers) {
-        Object.keys(headers).forEach((name) => this.header(name, headers[name]));
+        // Node.js also accepts an Array of raw header name/value pairs
+        if (Array.isArray(headers)) {
+            if (headers.length % 2 !== 0)
+                throw new Error('HyperExpress.Response.writeHeaders(): Raw header arrays must contain name/value pairs.');
+
+            for (let index = 0; index < headers.length; index += 2) {
+                this.header(headers[index], headers[index + 1]);
+            }
+        } else {
+            Object.keys(headers).forEach((name) => this.header(name, headers[name]));
+        }
     }
 
     /**
-     * @benoitlahoz Only tested with `vite` middlewares used for SSR.
-     * `writeHead` method appears to have been removed from `express`
-     * but `vite` middlewares use it.
-     *
-     * Original `http` module method accepts 3 parameters, `headers` being the third
-     * but `vite` sends headers as second parameter and `undefined` as third.
-     *
-     * @see https://github.com/kartikk221/hyper-express/issues/324
-     * @see https://github.com/kartikk221/hyper-express/issues/22
-     *
-     * @see https://nodejs.org/api/http.html#responsewriteheadstatuscode-statusmessage-headers
+     * Provides compatibility with Node.js ServerResponse.writeHead().
+     * @param {Number} status_code
+     * @param {String|Object|Array<String>=} status_message
+     * @param {Object|Array<String>=} headers
+     * @returns {Response} Response (Chainable)
      */
-    writeHead(statusCode, msgOrHeaders, headersOrUndefined) {
-        this.status(statusCode);
-
-        const setHeaders = (headers) => {
-            Object.keys(headers).forEach((name) => this.header(name, headers[name]));
-        };
-
-        if (msgOrHeaders && typeof msgOrHeaders === 'object') {
-            setHeaders(msgOrHeaders);
-        } else if (headersOrUndefined && typeof headersOrUndefined === 'object') {
-            setHeaders(headersOrUndefined);
+    writeHead(status_code, status_message, headers) {
+        // Support the writeHead(statusCode, headers) overload
+        if (status_message && typeof status_message === 'object') {
+            headers = status_message;
+            status_message = undefined;
         }
+
+        // Store the response status and provided headers
+        this.status(status_code, status_message);
+        if (headers) this.writeHeaders(headers);
+
+        // Make chainable
+        return this;
     }
 
     setHeaders(headers) {

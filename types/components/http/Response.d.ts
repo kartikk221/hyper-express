@@ -255,7 +255,9 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
     /* ExpressJS Methods */
     append(name: string, values: string | Array<string>): Response;
     setHeader(name: string, values: string | Array<string>): Response;
-    writeHeaders(headers: Object): void;
+    writeHead(status_code: number, headers?: Object | Array<string>): Response;
+    writeHead(status_code: number, status_message?: string, headers?: Object | Array<string>): Response;
+    writeHeaders(headers: Object | Array<string>): void;
     setHeaders(headers: Object): void;
     writeHeaderValues(name: string, values: Array<string>): void;
     getHeader(name: string): string | Array<string> | void;

@@ -828,15 +828,18 @@ class Request {
     }
 
     /**
-     * Allow to change request url.
-     *
-     * @benoitlahoz Only tested with `vite` middlewares used for SSR
-     * that actually change the `originalUrl` of the request.
-     *
-     * @see https://github.com/kartikk221/hyper-express/issues/324
+     * Sets full request url for incoming request (path + query).
+     * @param {String} value
      */
-    set url(url) {
-        this._url = url;
+    set url(value) {
+        // Split the provided URL into path and query components
+        const query_index = value.indexOf('?');
+        this._path = query_index === -1 ? value : value.substring(0, query_index);
+        this._query = query_index === -1 ? '' : value.substring(query_index + 1);
+
+        // Store the provided URL and invalidate derived query parameters
+        this._url = value;
+        this._query_parameters = undefined;
     }
 
     /**
@@ -891,14 +894,13 @@ class Request {
         this._query_parameters = querystring.parse(this._query);
         return this._query_parameters;
     }
+
     /**
      * Sets query parameters for incoming request.
      * @param {Object.<string, string>} value
-     * @returns {Object.<string, string>}
      */
     set query_parameters(value) {
         this._query_parameters = value;
-        return this._query_parameters;
     }
 
     /**

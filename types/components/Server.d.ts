@@ -13,6 +13,7 @@ export interface ServerConstructorOptions {
     dh_params_file_name?: string;
     ssl_prefer_low_memory_usage?: boolean;
     auto_close?: boolean;
+    exclusive_port?: boolean;
     fast_buffers?: boolean;
     fast_abort?: boolean;
     trust_proxy?: boolean;

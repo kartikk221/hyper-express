@@ -25,10 +25,12 @@ Some of the prominent highlights are:
 See [`> [Benchmarks]`](https://web-frameworks-benchmark.netlify.app/result?l=javascript) for **performance metrics** against other webservers in real world deployments.
 
 ## Documentation
-HyperExpress **supports** the latest three LTS (Long-term Support) Node.js versions only and can be installed using Node Package Manager (`npm`).
+HyperExpress v6 **supports** Node.js 18, 20, 22 and 23 and can be installed using Node Package Manager (`npm`).
 ```
 npm i hyper-express
 ```
+
+HyperExpress uses the native uWebSockets.js addon. Its prebuilt binaries support Tier 1 macOS and Windows platforms, and glibc-based Tier 1 Linux distributions. Alpine Linux uses musl instead of glibc and is not officially supported by uWebSockets.js; use a Debian or Ubuntu based Node.js image for reliable container deployments.
 
 - See [`> [Examples & Snippets]`](./docs/Examples.md) for small and **easy-to-use snippets** with HyperExpress.
 - See [`> [Server]`](./docs/Server.md) for creating a webserver and working with the **Server** component.
