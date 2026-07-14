@@ -185,6 +185,11 @@ class ExpressRequest {
         return this.query_parameters;
     }
 
+    set query(value) {
+        this.query_parameters = value;
+        return this.query_parameters;
+    }
+
     get secure() {
         return this.protocol === 'https';
     }

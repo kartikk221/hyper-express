@@ -891,6 +891,15 @@ class Request {
         this._query_parameters = querystring.parse(this._query);
         return this._query_parameters;
     }
+    /**
+     * Sets query parameters for incoming request.
+     * @param {Object.<string, string>} value
+     * @returns {Object.<string, string>}
+     */
+    set query_parameters(value) {
+        this._query_parameters = value;
+        return this._query_parameters;
+    }
 
     /**
      * Returns remote IP address in string format from incoming request.
