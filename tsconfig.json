@@ -1,9 +1,13 @@
 {
     "compilerOptions": {
-        "target": "ES2021",
+        "target": "ES2022",
+        "module": "CommonJS",
         "moduleResolution": "node",
-        "typeRoots": ["./types/*.d.ts", "./node_modules/@types"],
-        "types": ["node", "express"]
+        "strict": true,
+        "noEmit": true,
+        "skipLibCheck": false,
+        "types": ["node"]
     },
-    "exclude": ["./src"]
+    "include": ["./types/**/*.d.ts", "./tests/types/**/*.ts"],
+    "exclude": ["./src", "./middlewares", "./benchmarks", "./node_modules"]
 }

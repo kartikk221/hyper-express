@@ -1,1 +1,1 @@
-export type MiddlewareNext = (error?: Error) => void;
+export type MiddlewareNext = (error?: Error) => boolean;

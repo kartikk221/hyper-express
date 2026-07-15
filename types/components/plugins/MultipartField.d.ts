@@ -1,14 +1,14 @@
 import { Readable, WritableOptions } from 'stream';
 
 export type MultipartFile = {
-    name?: string,
-    stream: Readable
-}
+    name?: string;
+    stream: Readable;
+};
 
 export type Truncations = {
-    name: boolean,
-    value: boolean
-}
+    name: boolean;
+    value: boolean;
+};
 
 export class MultipartField {
     /* MultipartField Methods */
@@ -68,6 +68,9 @@ export class MultipartField {
     get truncated(): Truncations | void;
 }
 
-export type MultipartHandler = (field: MultipartField) => void | Promise<void>;
+export type MultipartHandler = (field: MultipartField) => void | PromiseLike<void>;
 
-export type MultipartLimitReject = "PARTS_LIMIT_REACHED" | "FILES_LIMIT_REACHED" | "FIELDS_LIMIT_REACHED";
+export type MultipartLimitReject =
+    | 'PARTS_LIMIT_REACHED'
+    | 'FILES_LIMIT_REACHED'
+    | 'FIELDS_LIMIT_REACHED';

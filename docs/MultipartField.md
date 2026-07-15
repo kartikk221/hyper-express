@@ -31,7 +31,7 @@ webserver.post('/profile/image/upload', async (request, response) => {
     } catch (error) {
         // The multipart parser may throw a string constant as an error
         // Be sure to handle these as stated in the documentation
-        if (typeof error === 'FILES_LIMIT_REACHED') {
+        if (error === 'FILES_LIMIT_REACHED') {
             return response.status(403).send('You sent too many files! Try again.');
         } else {
             return response.status(500).send('Oops! An uncaught error occured on our end.');
@@ -70,4 +70,5 @@ webserver.post('/profile/image/upload', async (request, response) => {
 * `write(path: String, options?: stream.WritableOptions)`: Writes/Saves file content to the specified path and name.
     * **Returns** a `Promise` which is resolved once file writing has completed.
     * **Note** this method is **only** available for file-type fields.
+    * **Note** this method uses `stream.pipeline()` semantics, rejects source and destination errors, and settles exactly once.
     * **Note** this method uses the `field.file.stream` stream therefore you will not be able to re-use this field's file stream after running this method.

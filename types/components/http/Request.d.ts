@@ -15,7 +15,7 @@ interface ParsedQs {
     [key: string]: undefined | string | string[] | ParsedQs | ParsedQs[];
 }
 
-type DefaultRequestLocals = {
+export type DefaultRequestLocals = {
     [key: string]: any;
 };
 
@@ -185,6 +185,12 @@ export class Request<Locals = DefaultRequestLocals> extends Readable {
      * @returns {String}
      */
     get proxy_ip(): string;
+
+    /** Returns the remote TCP port for the incoming request. */
+    get port(): number;
+
+    /** Returns the remote TCP port reported by a PROXY Protocol v2 compatible proxy. */
+    get proxy_port(): number;
 
     /* ExpressJS Methods */
     get(name: 'set-cookie'): string[];

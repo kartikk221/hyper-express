@@ -53,7 +53,7 @@ async function test_request_chunked_stream() {
         method: 'POST',
         headers: {
             'transfer-encoding': 'chunked',
-            'x-file-name': 'request_upload_buffer.jpg',
+            'x-file-name': `request_upload_buffer-${process.pid}.jpg`,
         },
         body: fs.createReadStream(test_file_path),
     });

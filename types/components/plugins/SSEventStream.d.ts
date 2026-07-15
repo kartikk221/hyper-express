@@ -1,7 +1,6 @@
-import { Response } from "../http/Response";
-
 export class SSEventStream {
-    constructor(response: Response)
+    /** SSE streams are exposed by Response.sse. */
+    constructor();
 
     /**
      * Opens the "Server-Sent Events" connection to the client.

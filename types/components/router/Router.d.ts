@@ -1,4 +1,4 @@
-import { ReadableOptions } from 'stream';
+import { ReadableOptions, WritableOptions } from 'stream';
 import { Request } from '../http/Request';
 import { Response } from '../http/Response';
 import { Websocket } from '../ws/Websocket';
@@ -6,22 +6,31 @@ import { CompressOptions } from 'uWebSockets.js';
 import { MiddlewareHandler } from '../middleware/MiddlewareHandler';
 
 // Define types for HTTP Route Creators
-export type UserRouteHandler = (request: Request, response: Response) => void;
+export type UserRouteHandler = (request: Request, response: Response) => unknown;
 export interface UserRouteOptions {
     middlewares?: Array<MiddlewareHandler>;
-    stream_options?: ReadableOptions;
+    streaming?: {
+        readable?: ReadableOptions;
+        writable?: WritableOptions;
+    };
     max_body_length?: number;
 }
 
 // Define types for Websocket Route Creator
-export type WSRouteHandler<TUserData = unknown> = (websocket: Websocket<TUserData>) => void;
+export type WSRouteHandler<TUserData = unknown> = (websocket: Websocket<TUserData>) => unknown;
 export interface WSRouteOptions {
     message_type?: 'String' | 'Buffer' | 'ArrayBuffer';
     compression?: CompressOptions;
     idle_timeout?: number;
     max_backpressure?: number;
     max_payload_length?: number;
+    close_on_backpressure_limit?: boolean;
+    max_lifetime?: number;
+    send_pings_automatically?: boolean;
 }
+
+export type RouterErrorHandler = (request: Request, response: Response, error: Error) => unknown;
+export type RouterNotFoundHandler = (request: Request, response: Response) => unknown;
 
 // Define types for internal route/middleware records
 export interface RouteRecord {
@@ -41,7 +50,6 @@ type UsableSpreadableArguments = (string | Router | MiddlewareHandler | Middlewa
 type RouteSpreadableArguments = (
     | string
     | UserRouteOptions
-    // | UserRouteHandler - Temporarily disabled because Typescript cannot do "UserRouteHandler | MiddlewareHandler" due to the next parameter confusing it
     | MiddlewareHandler
     | MiddlewareHandler[]
 )[];
@@ -65,6 +73,12 @@ export class Router {
      * @param {...(String|MiddlewareHandler|Router)} args (request, response, next) => {} OR (request, response) => new Promise((resolve, reject) => {})
      */
     use(...args: UsableSpreadableArguments): this;
+
+    /** Sets the error handler scoped to this router and its mounted descendants. */
+    set_error_handler(handler: RouterErrorHandler): this;
+
+    /** Sets the not-found handler scoped to this router mount boundary. */
+    set_not_found_handler(handler: RouterNotFoundHandler): this;
 
     /**
      * Creates an HTTP route that handles any HTTP method requests.

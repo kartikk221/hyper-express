@@ -25,13 +25,14 @@ Some of the prominent highlights are:
 See [`> [Benchmarks]`](https://web-frameworks-benchmark.netlify.app/result?l=javascript) for **performance metrics** against other webservers in real world deployments.
 
 ## Documentation
-HyperExpress v6 **supports** Node.js 18, 20, 22 and 23 and can be installed using Node Package Manager (`npm`).
+HyperExpress v7 supports the active even-numbered Node.js release lines **22, 24, and 26** and can be installed using Node Package Manager (`npm`). HyperExpress remains CommonJS-only and preserves its existing snake_case API.
 ```
 npm i hyper-express
 ```
 
-HyperExpress uses the native uWebSockets.js addon. Its prebuilt binaries support Tier 1 macOS and Windows platforms, and glibc-based Tier 1 Linux distributions. Alpine Linux uses musl instead of glibc and is not officially supported by uWebSockets.js; use a Debian or Ubuntu based Node.js image for reliable container deployments.
+HyperExpress uses the native uWebSockets.js addon. Its prebuilt binaries support Tier 1 macOS and Windows platforms, and glibc-based Tier 1 Linux distributions. Alpine Linux uses musl instead of glibc; plain Alpine and Alpine with `gcompat` are not supported because the native addon can terminate with `SIGSEGV`. Use a Debian or Ubuntu based Node.js image for reliable container deployments.
 
+- See [`> [Migrating from v6 to v7]`](./docs/Migration-v7.md) for breaking changes and newly exposed APIs.
 - See [`> [Examples & Snippets]`](./docs/Examples.md) for small and **easy-to-use snippets** with HyperExpress.
 - See [`> [Server]`](./docs/Server.md) for creating a webserver and working with the **Server** component.
 - See [`> [Router]`](./docs/Router.md) for working with the modular **Router** component.
@@ -53,10 +54,10 @@ HyperExpress uses the native uWebSockets.js addon. Its prebuilt binaries support
 ## Testing Changes
 To run HyperExpress functionality tests locally on your machine, you must follow the steps below.
 1. Clone the HyperExpress repository to your machine.
-2. Initialize and pull any submodule(s) which are used throughout the tests.
-3. Run `npm install` in the root directory.
-4. Run `npm install` in the `/tests` directory.
-5. Run `npm test` to run all tests with your local changes.
+2. Run `npm ci` in the root directory. Test-only dependencies are installed from the root lockfile.
+3. Run `npm test` for runtime tests.
+4. Run `npm run test:types` for positive and negative TypeScript fixtures.
+5. Run `npm run test:load` for the heavier HTTP, multipart, abort, WebSocket, and memory stress gate.
 
 ## License
 [MIT](./LICENSE)

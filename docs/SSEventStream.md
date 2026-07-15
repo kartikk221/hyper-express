@@ -56,12 +56,16 @@ webserver.get('/news/events', (request, response) => {
 * `comment(data: string)`: Sends a comment type message to the client that will **NOT** be handled by the client EventSource.
     * **Returns** a `Boolean` which signifies whether this comment was successfully sent or not.
     * **Note** this can be useful as a keep-alive mechanism if messages might not be sent regularly.
+    * **Note** each line is serialized as its own SSE comment line, including empty values.
 * `send(...3 Overloads)`: Sends a message to the client with the specified custom id, event and data.
     * **Overload Types:**
         * `send(data: string)`: Sends a message with the specified `data`.
         * `send(event: string, data: string)`: Sends a message on the custom `event` with the specified `data`.
         * `send(id: string, event: string, data: string)`: Sends a message with a custom `id` on the custom `event` with the specified `data`.
-    * **Returns** as `Boolean` which signifies whether this message was sent or not.
+    * **Returns** a `Boolean` which signifies whether the complete serialized event was accepted. `false` reports response backpressure.
     * **Note** this method will automatically call the `open()` method if not already called yet.
     * **Note** messages sent with just the `data` parameter will be handled by `source.onmessage`/`message` event on the client-side `EventSource`.
     * **Note** messages sent with both the `event`/`data` parameters will be handled by the appropriate `event` listener on the client-side `EventSource`.
+    * **Note** multiline data is emitted as one `data:` line per input line. Empty IDs, events, values, and comments are preserved without allowing newline injection into another SSE field.
+
+Opening an SSE stream assigns only `Content-Type: text/event-stream; charset=utf-8` and `Cache-Control: no-cache`; application-specific headers remain the application's responsibility.

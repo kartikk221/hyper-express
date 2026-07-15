@@ -202,8 +202,8 @@ class Websocket extends EventEmitter {
     }
 
     /**
-     * Attempts a native send exactly once per invocation and waits for one drain before retrying
-     * a status-0 backpressured send. Accepted and dropped fragments are never retried.
+     * Attempts a native send exactly once per invocation. A status-0 send has already been
+     * accepted into native backpressure, so wait for drain before continuing without retrying it.
      * @private
      * @param {Function} attempt
      * @returns {Promise<Number>}
@@ -244,7 +244,7 @@ class Websocket extends EventEmitter {
                 drain_handler = () => {
                     this.removeListener('drain', drain_handler);
                     drain_handler = undefined;
-                    run();
+                    settle(undefined, status);
                 };
                 this.once('drain', drain_handler);
             };

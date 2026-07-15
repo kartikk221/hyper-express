@@ -184,9 +184,9 @@ async function test_websocket_units() {
 
     {
         const raw = new FakeSocket();
-        raw.first_statuses.push(0, 1);
+        raw.first_statuses.push(0);
         raw.middle_statuses.push(1);
-        raw.last_statuses.push(0, 1);
+        raw.last_statuses.push(0);
         const ws = new HyperWebsocket(raw);
         let resolved = false;
         const operation = ws
@@ -200,9 +200,9 @@ async function test_websocket_units() {
         ws.emit('drain');
         await operation;
 
-        assert.deepEqual(raw.first.map(([chunk]) => chunk.toString()), ['a', 'a']);
+        assert.deepEqual(raw.first.map(([chunk]) => chunk.toString()), ['a']);
         assert.deepEqual(raw.middle.map(([chunk]) => chunk.toString()), ['b']);
-        assert.deepEqual(raw.last.map(([chunk]) => chunk.toString()), ['c', 'c']);
+        assert.deepEqual(raw.last.map(([chunk]) => chunk.toString()), ['c']);
     }
 
     {

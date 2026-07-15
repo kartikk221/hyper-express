@@ -16,6 +16,7 @@ export interface ServerConstructorOptions {
     exclusive_port?: boolean;
     fast_buffers?: boolean;
     fast_abort?: boolean;
+    strict_middleware?: boolean;
     trust_proxy?: boolean;
     max_body_buffer?: number;
     max_body_length?: number;
@@ -25,8 +26,8 @@ export interface ServerConstructorOptions {
     };
 }
 
-export type GlobalErrorHandler = (request: Request, response: Response, error: Error) => void;
-export type GlobalNotFoundHandler = (request: Request, response: Response) => void;
+export type GlobalErrorHandler = (request: Request, response: Response, error: Error) => unknown;
+export type GlobalNotFoundHandler = (request: Request, response: Response) => unknown;
 
 export class Server extends Router {
     constructor(options?: ServerConstructorOptions);
@@ -61,7 +62,8 @@ export class Server extends Router {
     ): Promise<uWebsockets.us_listen_socket>;
 
     /**
-     * Performs a graceful shutdown of the server and closes the listen socket once all pending requests have been completed.
+     * Stops accepting new connections, then resolves after all pending HTTP requests complete.
+     * WebSocket connections are not part of the graceful drain count.
      *
      * @param {uWebSockets.us_listen_socket=} [listen_socket] Optional
      * @returns {Promise<Boolean>}
@@ -76,20 +78,22 @@ export class Server extends Router {
      */
     close(listen_socket?: uWebsockets.us_listen_socket): boolean;
 
+    /** Forcefully closes all native listen, HTTP, and WebSocket sockets. */
+    force_close(): boolean;
+
     /**
      * Sets a global error handler which will catch most uncaught errors across all routes/middlewares.
      *
      * @param {GlobalErrorHandler} handler
      */
-    set_error_handler(handler: GlobalErrorHandler): void;
+    set_error_handler(handler: GlobalErrorHandler): this;
 
     /**
      * Sets a global not found handler which will handle all requests that are unhandled by any registered route.
-     * Note! This handler must be registered after all routes and routers.
      *
      * @param {GlobalNotFoundHandler} handler
      */
-    set_not_found_handler(handler: GlobalNotFoundHandler): void;
+    set_not_found_handler(handler: GlobalNotFoundHandler): this;
 
     /**
      * Publish a message to a topic in MQTT syntax to all WebSocket connections on this Server instance.
@@ -110,6 +114,15 @@ export class Server extends Router {
      * @returns {Number}
      */
     num_of_subscribers(topic: string): number;
+
+    /** Returns the native application descriptor for worker distribution. */
+    get_descriptor(): uWebsockets.AppDescriptor;
+
+    /** Adds a child application descriptor for worker distribution. */
+    add_child_app_descriptor(descriptor: uWebsockets.AppDescriptor): this;
+
+    /** Removes a child application descriptor from worker distribution. */
+    remove_child_app_descriptor(descriptor: uWebsockets.AppDescriptor): this;
 
     /* Server Properties */
 

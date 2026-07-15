@@ -3,23 +3,18 @@ import * as uWebsockets from 'uWebSockets.js';
 import { LiveFile } from '../plugins/LiveFile';
 import { Server } from '../Server';
 import { SSEventStream } from '../plugins/SSEventStream';
+import { SerializeOptions } from 'cookie';
 
-export type SendableData = string | Buffer | ArrayBuffer;
+export type SendableData = string | ArrayBuffer | SharedArrayBuffer | ArrayBufferView;
 export type FileCachePool = {
     [key: string]: LiveFile;
 };
 
-export interface CookieOptions {
-    domain?: string;
-    path?: string;
-    maxAge?: number;
-    secure?: boolean;
-    httpOnly?: boolean;
-    sameSite?: boolean | 'none' | 'lax' | 'strict';
+export interface CookieOptions extends SerializeOptions {
     secret?: string;
 }
 
-type DefaultResponseLocals = {
+export type DefaultResponseLocals = {
     [key: string]: any;
 };
 
@@ -43,7 +38,7 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * @param {Function} handler
      * @returns {Response} Response (Chainable)
      */
-    atomic(handler: () => void): Response;
+    atomic(handler: () => unknown): this;
 
     /**
      * This method is used to set a custom response code.
@@ -52,7 +47,7 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * @param {String=} message Example: response.status(403, 'Forbidden')
      * @returns {Response} Response (Chainable)
      */
-    status(code: number, message?: string): Response;
+    status(code: number, message?: string): this;
 
     /**
      * This method is used to set the response content type header
@@ -61,7 +56,7 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * @param {String} mime_type Mime type
      * @returns {Response} Response (Chainable)
      */
-    type(mime_type: string): Response;
+    type(mime_type: string): this;
 
     /**
      * This method can be used to write a response header and supports chaining.
@@ -71,7 +66,7 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * @param {Boolean=} overwrite If true, overwrites existing header value with same name
      * @returns {Response} Response (Chainable)
      */
-    header(name: string, value: string | Array<string>, overwrite?: boolean): Response;
+    header(name: string, value: string | Array<string>, overwrite?: boolean): this;
 
     /**
      * This method is used to write a cookie to incoming request.
@@ -90,13 +85,13 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
         expiry?: number,
         options?: CookieOptions,
         sign_cookie?: boolean
-    ): Response;
+    ): this;
 
     /**
      * This method is used to upgrade an incoming upgrade HTTP request to a Websocket connection.
      * @param {Object=} context Store information about the websocket connection
      */
-    upgrade(context?: Object): void;
+    upgrade(context?: Object): this | void;
 
     /**
      * Binds a drain handler which gets called with a byte offset that can be used to try a failed chunk write.
@@ -105,7 +100,10 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      *
      * @param {function(number):boolean} handler Synchronous callback only
      */
-    drain(handler: (offset: number) => boolean): void;
+    drain(handler: (offset: number) => boolean): this;
+
+    /** Begins chunked encoding and flushes the current native status and headers. */
+    begin_write(): this;
 
     /**
      * This method is used to end the current request and send response with specified body and headers.
@@ -113,7 +111,7 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * @param {String|Buffer|ArrayBuffer} body Optional
      * @returns {Response} Response (Chainable)
      */
-    send(body?: SendableData, close_connection?: boolean): Response;
+    send(body?: SendableData, close_connection?: boolean): this;
 
     /**
      * This method is used to pipe a readable stream as response body and send response.
@@ -123,13 +121,13 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * @param {Readable} readable A Readable stream which will be piped as response body
      * @param {Number=} total_size Total size of the Readable stream source in bytes (Optional)
      */
-    stream(readable: Readable, total_size?: number): Promise<void>;
+    stream(readable: Readable, total_size?: number): Promise<this>;
 
     /**
      * Instantly aborts/closes current request without writing a status response code.
      * Use this only in extreme situations to abort a request where a proper response is not neccessary.
      */
-    close(): void;
+    close(): this;
 
     /**
      * This method is used to redirect an incoming request to a different url.
@@ -137,7 +135,7 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * @param {String} url Redirect URL
      * @returns {Response|Boolean} Response (Chainable) or false if already completed
      */
-    redirect(url: string): Response | false;
+    redirect(url: string): this | false;
 
     /**
      * This method is an alias of send() method except it accepts an object and automatically stringifies the passed payload object.
@@ -145,7 +143,7 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * @param {Object} body JSON body
      * @returns {Response} Response (Chainable)
      */
-    json(body: any): Response;
+    json(body: any): this;
 
     /**
      * This method is an alias of send() method except it accepts an object
@@ -156,7 +154,7 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * @param {String=} name
      * @returns {Response} Response (Chainable)
      */
-    jsonp(body: any, name?: string): Response;
+    jsonp(body: any, name?: string): this;
 
     /**
      * This method is an alias of send() method except it automatically sets
@@ -165,7 +163,7 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * @param {String} body
      * @returns {Response} Response (Chainable)
      */
-    html(body: string): Response;
+    html(body: string): this;
 
     /**
      * This method is an alias of send() method except it sends the file at specified path.
@@ -185,7 +183,7 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * @param {String=} name
      * @returns {Response} Chainable
      */
-    attachment(path: string, name?: string): Response;
+    attachment(path: string, name?: string): this;
 
     /**
      * Writes appropriate attachment headers and sends file content for download on user browser.
@@ -201,7 +199,7 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      *
      * @param {Error} error
      */
-    throw(error: Error): Response;
+    throw(error: Error): this;
 
     /* HyperExpress Properties */
 
@@ -253,26 +251,26 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
     get sse(): SSEventStream | undefined;
 
     /* ExpressJS Methods */
-    append(name: string, values: string | Array<string>): Response;
-    setHeader(name: string, values: string | Array<string>): Response;
-    writeHead(status_code: number, headers?: Object | Array<string>): Response;
-    writeHead(status_code: number, status_message?: string, headers?: Object | Array<string>): Response;
-    writeHeaders(headers: Object | Array<string>): void;
-    setHeaders(headers: Object): void;
-    writeHeaderValues(name: string, values: Array<string>): void;
+    append(name: string, values: string | Array<string>): this;
+    setHeader(name: string, values: string | Array<string>): this;
+    writeHead(status_code: number, headers?: Object | Array<string>): this;
+    writeHead(status_code: number, status_message?: string, headers?: Object | Array<string>): this;
+    writeHeaders(headers: Object | Array<string>): this;
+    setHeaders(headers: Object): this;
+    writeHeaderValues(name: string, values: Array<string>): this;
     getHeader(name: string): string | Array<string> | void;
-    removeHeader(name: string): void;
-    setCookie(name: string, value: string, options?: CookieOptions): Response;
+    removeHeader(name: string): this;
+    setCookie(name: string, value: string, options?: CookieOptions): this;
     hasCookie(name: string): boolean;
-    removeCookie(name: string): Response;
-    clearCookie(name: string): Response;
+    removeCookie(name: string, options?: CookieOptions): this;
+    clearCookie(name: string, options?: CookieOptions): this;
     get(name: string): string | Array<string>;
-    links(links: Object): void;
-    location(path: string): Response;
+    links(links: Object): this;
+    location(path: string): this;
     sendFile(path: string): Promise<Response>;
-    sendStatus(status_code: number): Response;
-    set(field: string | object, value?: string | Array<string>): void;
-    vary(name: string): Response;
+    sendStatus(status_code: number): this;
+    set(field: string | object, value?: string | Array<string>): this;
+    vary(name: string): this;
 
     /* ExpressJS Properties */
     get headersSent(): boolean;

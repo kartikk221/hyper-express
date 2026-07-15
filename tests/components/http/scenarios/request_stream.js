@@ -52,7 +52,7 @@ async function test_request_stream_pipe() {
     const buffer_upload_response = await fetch(endpoint_url, {
         method: 'POST',
         headers: {
-            'x-file-name': 'request_upload_buffer.jpg',
+            'x-file-name': `request_upload_buffer-${process.pid}.jpg`,
         },
         body: expected_buffer,
     });

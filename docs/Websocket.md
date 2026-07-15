@@ -46,6 +46,7 @@ Router.upgrade('/connect', {
 | :-------- | :------- | :------------------------- |
 | `raw` | `uWS.Request`  | Underlying uWS.Websocket object. |
 | `ip` | `String`  | Connection IP address. |
+| `remote_port` | `Number`  | Remote connection port. |
 | `context` | `Object`  | Context values that were specified from `upgrade()` method. |
 | `closed` | `Boolean`  | Whether connection is closed. |
 | `buffered` | `Number`  | Number of bytes buffered in backpressure. |
@@ -54,16 +55,15 @@ Router.upgrade('/connect', {
 
 #### Websocket Methods
 * `atomic(Function: callback)`: Alias of `uWebsockets.Response.cork()`. This method waits for network socket to become ready before executing all network base calls inside the specified `callback`.
-    * This may yield higher performance when executing multiple network heavy operations.  
-* `send(String|Buffer|ArrayBuffer: message, Boolean: is_binary, Boolean: compress)`: Sends a message over the websocket connection.
-    * **Returns** `Boolean`[`true`] if message was sent successfully.
-    * **Returns** `Boolean`[`false`] if message could not be sent due to built up backpressure.
+    * This may yield higher performance when executing multiple network heavy operations and returns the HyperExpress `Websocket` wrapper.
+* `send(String|Buffer|ArrayBuffer|ArrayBufferView: message, Boolean: is_binary, Boolean: compress)`: Sends a message over the websocket connection.
+    * **Returns** native numeric status `1` when sent, `0` for backpressure, or `2` when dropped by the configured backpressure limit.
 * `stream(Readable: readable, Boolean?: is_binary)`: Consumes and streams the data from the readable stream as a message to the receiver.
-  * **Returns** `Promise` which is then resolved to `any`.
+  * **Returns** a Promise which resolves to the current `Websocket` only after the final fragment is accepted.
   * **Note** you must not initiate another `stream()` or `writable` operation during an ongoing stream.
-* `ping(String|Buffer|ArrayBuffer: message)`: Sends a ping control message.
-    * **Returns** `Boolean`[`true`] if message was sent successfully.
-    * **Returns** `Boolean`[`false`] if message could not be sent due to built up backpressure.
+  * **Note** empty streams send one valid empty message. Source errors/early closes, socket closure, and dropped fragments reject the operation.
+* `ping(String|Buffer|ArrayBuffer|ArrayBufferView: message)`: Sends a ping control message.
+    * **Returns** the same native numeric status values as `send()`.
 * `close(Number: code, String: message)`: Gracefully closes the connection and writes specified code and short message.
     * **Note** this method is recommended for most use-cases.
 * `destroy()`: Forcefully closes the connection and immediately emits `close` event.
@@ -88,4 +88,10 @@ The `Websocket` component is an extension of the `EventEmitter` component thus y
         * Use this event to handle backpressure and retry messages that could not be sent earlier.
     * Event `'ping'`: Emitted when websocket connection has received a ping from client.
     * Event `'pong'`: Emitted when websocket connection has received a pong from client.
-
+    * Event `'dropped'`: Emitted when the native backpressure policy drops a message.
+        * **Example Handler**: `(Mixed: message, Boolean: is_binary) => {}`
+    * Event `'subscription'`: Emitted when this connection changes the subscriber count for a topic.
+        * **Example Handler**: `(String: topic, Number: new_count, Number: old_count) => {}`
+    * Event `'error'`: Receives synchronous exceptions and rejected thenables from WebSocket event listeners.
+        * **Example Handler**: `(Error: error) => {}`
+        * **Note** an unhandled listener error closes the connection with WebSocket code `1011`.
