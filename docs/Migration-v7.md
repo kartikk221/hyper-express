@@ -22,13 +22,15 @@ Routers now provide `set_error_handler()` and `set_not_found_handler()`. Route e
 
 `Response.header()` continues to append by default. Pass `true` as its `overwrite` argument to replace existing values. Header lookup is case-insensitive and compatibility helpers are chainable.
 
-`html()`, `json()`, and `jsonp()` now emit UTF-8 charsets. `send()` remains content-type-neutral. HyperExpress does not synthesize ETags or Express policy headers; uWebSockets.js owns content length, date, and connection handling. JSONP callback names and attachment filenames are sanitized, and `jsonp()` falls back to JSON when no callback is available.
+`html()`, `json()`, and `jsonp()` now emit UTF-8 charsets. `send()` remains content-type-neutral. HyperExpress does not synthesize ETags or Express policy headers; uWebSockets.js ordinarily owns content length, date, and connection handling. SSE preserves the v6 `Connection: keep-alive` and `X-Accel-Buffering: no` headers. JSONP callback names and attachment filenames are sanitized, and `jsonp()` falls back to JSON when no callback is available.
 
 `Response.begin_write()` exposes the native `beginWrite()` operation. In pinned uWebSockets.js v20.69.0, following it with the ordinary body-write path inserts an extra CRLF that some HTTP clients reject. Treat it as a direct upstream primitive and do not combine it with `write()`, `stream()`, or `send()` until upstream resolves that behavior.
 
+Ordinary `readable.pipe(response)` remains supported. It now explicitly bridges Node and uWebSockets.js backpressure, routes source errors through the scoped error handler, and destroys an active source when the response aborts.
+
 ## Request bodies, multipart, and files
 
-Fixed-length, empty, and transfer-encoded request bodies now use one eagerly bound native receiver. Parser promises and falsey results are cached, limits settle every parser exactly once, and completed requests no longer attempt a native resume.
+Fixed-length, empty, and transfer-encoded request bodies now use one eagerly bound native receiver. Concurrent calls to each body helper share its in-flight promise; after success, later calls resolve from the parsed value cache, including falsey values. Different helpers can continue reading the same retained body. Limits settle every parser exactly once, and completed requests no longer attempt a native resume.
 
 Multipart handlers are serialized and may return any thenable. HyperExpress waits for all field/file handlers, drains unconsumed files, and propagates source, Busboy, and handler errors once. `MultipartField.write()` now handles source and destination failures through pipeline semantics.
 
@@ -38,7 +40,9 @@ The live-file cache belongs to each server. Absolute cache keys are normalized, 
 
 WebSocket `send()` and `ping()` retain the native numeric status values: `1` means sent, `0` means backpressure, and `2` means dropped. Code comparing these values with booleans must be updated. Fragment streaming waits for the final fragment, handles empty streams, and rejects source/socket/drop failures.
 
-New WebSocket route options are `close_on_backpressure_limit`, `max_lifetime`, and `send_pings_automatically`. New events are `dropped`, `subscription`, and `error`. Synchronous exceptions and rejected thenables from listeners reach `error`; if unhandled, the socket closes with code `1011`.
+New WebSocket route options are `close_on_backpressure_limit`, `max_lifetime`, and `send_pings_automatically`. All three are opt-in: omitting them preserves the native behavior and does not impose a connection lifetime. New events are `dropped`, `subscription`, and `error`. Synchronous exceptions and rejected thenables from listeners reach `error`; if unhandled, the socket closes with code `1011`.
+
+`message_type: 'ArrayBuffer'` retains its v6 zero-copy, callback-lifetime behavior. Use the new `ArrayBufferSafe` mode to receive a copied `ArrayBuffer` that can safely be retained by asynchronous work. `Buffer` messages also remain safe to retain.
 
 New connection metadata includes `Request.port`, `Request.proxy_port`, and `Websocket.remote_port`. Worker composition is available through `Server.get_descriptor()`, `add_child_app_descriptor()`, and `remove_child_app_descriptor()`.
 

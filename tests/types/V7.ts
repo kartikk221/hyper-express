@@ -27,7 +27,7 @@ router
 router.ws(
     '/socket',
     {
-        message_type: 'ArrayBuffer',
+        message_type: 'ArrayBufferSafe',
         close_on_backpressure_limit: true,
         max_lifetime: 30,
         send_pings_automatically: true,

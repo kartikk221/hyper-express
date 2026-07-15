@@ -13,7 +13,7 @@
         "node": ">=22 <23 || >=24 <25 || >=26 <27"
     },
     "scripts": {
-        "test": "node --test --test-concurrency=1 --test-force-exit tests/index.js",
+        "test": "node --test --test-concurrency=1 tests/index.js",
         "test:types": "tsc --noEmit --pretty false",
         "test:load": "node --expose-gc tests/load.js",
         "benchmark:v7": "node benchmarks/v7/compare.cjs"

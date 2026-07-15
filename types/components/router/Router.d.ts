@@ -19,7 +19,8 @@ export interface UserRouteOptions {
 // Define types for Websocket Route Creator
 export type WSRouteHandler<TUserData = unknown> = (websocket: Websocket<TUserData>) => unknown;
 export interface WSRouteOptions {
-    message_type?: 'String' | 'Buffer' | 'ArrayBuffer';
+    /** ArrayBuffer is a volatile zero-copy callback view; ArrayBufferSafe makes a retained copy. */
+    message_type?: 'String' | 'Buffer' | 'ArrayBuffer' | 'ArrayBufferSafe';
     compression?: CompressOptions;
     idle_timeout?: number;
     max_backpressure?: number;

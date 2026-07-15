@@ -19,8 +19,16 @@ async function test_server_v7() {
     {
         const parent = new HyperExpress.Server({ auto_close: false });
         const child = new HyperExpress.Server({ auto_close: false });
+        const native_get_descriptor = child.uws_instance.getDescriptor;
+        let descriptor_reads = 0;
+        child.uws_instance.getDescriptor = function () {
+            descriptor_reads++;
+            return native_get_descriptor.call(this);
+        };
         const descriptor = child.get_descriptor();
+        child.get_descriptor();
         assert.ok(descriptor);
+        assert.equal(descriptor_reads, 2, 'server descriptors must be read live rather than cached');
         assert.equal(parent.add_child_app_descriptor(descriptor), parent);
         assert.equal(parent.remove_child_app_descriptor(descriptor), parent);
         parent.force_close();

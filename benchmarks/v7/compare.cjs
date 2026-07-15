@@ -13,6 +13,27 @@ const baseline_root = path.resolve(process.argv[2] || '/tmp/hyper-express-v6-bas
 const runs = Number(process.env.HYPER_EXPRESS_BENCHMARK_RUNS || 5);
 const duration_ms = Number(process.env.HYPER_EXPRESS_BENCHMARK_DURATION_MS || 2000);
 const concurrency = Number(process.env.HYPER_EXPRESS_BENCHMARK_CONCURRENCY || 50);
+const json_body = Buffer.from(
+    JSON.stringify({
+        framework: 'hyper-express',
+        values: Array.from({ length: 16 }, (_, index) => index),
+        nested: { enabled: true, mode: 'fixed-length-preallocation' },
+    })
+);
+const scenarios = [
+    { name: 'static_get', method: 'GET', path: '/' },
+    { name: 'compiled_middleware', method: 'GET', path: '/middleware' },
+    {
+        name: 'json_body',
+        method: 'POST',
+        path: '/json',
+        body: json_body,
+        headers: {
+            'content-type': 'application/json',
+            'content-length': String(json_body.byteLength),
+        },
+    },
+];
 
 function median(values) {
     const sorted = [...values].sort((left, right) => left - right);
@@ -63,11 +84,18 @@ async function start_server(root) {
     return { child, port };
 }
 
-function request(port, agent) {
+function request(port, agent, scenario) {
     return new Promise((resolve, reject) => {
         const started_at = performance.now();
-        const operation = http.get(
-            { host: '127.0.0.1', port, path: '/', agent },
+        const operation = http.request(
+            {
+                host: '127.0.0.1',
+                port,
+                path: scenario.path,
+                method: scenario.method,
+                headers: scenario.headers,
+                agent,
+            },
             (response) => {
                 response.resume();
                 response.once('end', () => {
@@ -78,17 +106,19 @@ function request(port, agent) {
             }
         );
         operation.once('error', reject);
+        operation.end(scenario.body);
     });
 }
 
-async function measure(port, milliseconds) {
+async function measure(port, milliseconds, scenario) {
     const agent = new http.Agent({ keepAlive: true, maxSockets: concurrency });
     const latencies = [];
     const started_at = performance.now();
     const deadline = started_at + milliseconds;
 
     async function client() {
-        while (performance.now() < deadline) latencies.push(await request(port, agent));
+        while (performance.now() < deadline)
+            latencies.push(await request(port, agent, scenario));
     }
 
     try {
@@ -117,62 +147,78 @@ async function main() {
 
     const baseline = await start_server(baseline_root);
     const candidate = await start_server(project_root);
-    const measurements = { baseline: [], candidate: [] };
+    const results = [];
 
     try {
-        await measure(baseline.port, 1000);
-        await measure(candidate.port, 1000);
+        for (const scenario of scenarios) {
+            const measurements = { baseline: [], candidate: [] };
+            await measure(baseline.port, 1000, scenario);
+            await measure(candidate.port, 1000, scenario);
 
-        for (let index = 0; index < runs; index++) {
-            const order = index % 2
-                ? [
-                      ['candidate', candidate],
-                      ['baseline', baseline],
-                  ]
-                : [
-                      ['baseline', baseline],
-                      ['candidate', candidate],
-                  ];
-            for (const [name, server] of order) measurements[name].push(await measure(server.port, duration_ms));
+            for (let index = 0; index < runs; index++) {
+                const order = index % 2
+                    ? [
+                          ['candidate', candidate],
+                          ['baseline', baseline],
+                      ]
+                    : [
+                          ['baseline', baseline],
+                          ['candidate', candidate],
+                      ];
+                for (const [name, server] of order)
+                    measurements[name].push(await measure(server.port, duration_ms, scenario));
+            }
+
+            const result = {
+                scenario: scenario.name,
+                baseline: {
+                    median_throughput: median(measurements.baseline.map((entry) => entry.throughput)),
+                    median_p95_latency_ms: median(
+                        measurements.baseline.map((entry) => entry.p95_latency_ms)
+                    ),
+                    runs: measurements.baseline,
+                },
+                candidate: {
+                    median_throughput: median(measurements.candidate.map((entry) => entry.throughput)),
+                    median_p95_latency_ms: median(
+                        measurements.candidate.map((entry) => entry.p95_latency_ms)
+                    ),
+                    runs: measurements.candidate,
+                },
+            };
+            result.throughput_regression_percent =
+                ((result.baseline.median_throughput - result.candidate.median_throughput) /
+                    result.baseline.median_throughput) *
+                100;
+            result.p95_regression_percent =
+                ((result.candidate.median_p95_latency_ms - result.baseline.median_p95_latency_ms) /
+                    result.baseline.median_p95_latency_ms) *
+                100;
+            results.push(result);
         }
     } finally {
         await Promise.all([stop_server(baseline), stop_server(candidate)]);
     }
 
-    const result = {
+    const report = {
         node: process.version,
         runs,
         duration_ms,
         concurrency,
-        baseline: {
-            median_throughput: median(measurements.baseline.map((entry) => entry.throughput)),
-            median_p95_latency_ms: median(measurements.baseline.map((entry) => entry.p95_latency_ms)),
-            runs: measurements.baseline,
-        },
-        candidate: {
-            median_throughput: median(measurements.candidate.map((entry) => entry.throughput)),
-            median_p95_latency_ms: median(measurements.candidate.map((entry) => entry.p95_latency_ms)),
-            runs: measurements.candidate,
-        },
+        scenarios: results,
     };
-    result.throughput_regression_percent =
-        ((result.baseline.median_throughput - result.candidate.median_throughput) /
-            result.baseline.median_throughput) *
-        100;
-    result.p95_regression_percent =
-        ((result.candidate.median_p95_latency_ms - result.baseline.median_p95_latency_ms) /
-            result.baseline.median_p95_latency_ms) *
-        100;
 
-    console.log(JSON.stringify(result, null, 2));
-    assert.ok(
-        result.throughput_regression_percent <= 5,
-        `Median throughput regression ${result.throughput_regression_percent.toFixed(2)}% exceeds 5%.`
-    );
-    assert.ok(
-        result.p95_regression_percent <= 10,
-        `Median p95 latency regression ${result.p95_regression_percent.toFixed(2)}% exceeds 10%.`
-    );
+    console.log(JSON.stringify(report, null, 2));
+    for (const result of results) {
+        assert.ok(
+            result.throughput_regression_percent <= 5,
+            `${result.scenario}: median throughput regression ${result.throughput_regression_percent.toFixed(2)}% exceeds 5%.`
+        );
+        assert.ok(
+            result.p95_regression_percent <= 10,
+            `${result.scenario}: median p95 latency regression ${result.p95_regression_percent.toFixed(2)}% exceeds 10%.`
+        );
+    }
 }
 
 main().catch((error) => {

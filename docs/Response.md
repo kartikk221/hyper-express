@@ -45,6 +45,7 @@ Below is a breakdown of the `Response` component which is an **extended** `Writa
     * **Returns** a `Boolean` in which `false` signifies chunk was not fully sent due to built up backpressure.
     * **Note** the `send()` must still be called in the end after writing all chunks to end the chunked transfer.
     * **Note** this method mimics `Writable.write()` method thus you may use direct piping by piping from a `Readable` stream.
+    * **Note** `readable.pipe(response)` honors Node and uWebSockets.js backpressure. Source errors reach the scoped route error handler, and an aborted response destroys the still-active source so file handles and paused producers are not leaked.
 * `drain(Function: handler)`: Binds a one-time handler which is called once the built up backpressure from a failed `write()` call has been drained.
   * **Handle Example**: `(Number: offset) => boolean`
   * **Proper Usage**:

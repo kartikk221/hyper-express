@@ -82,8 +82,8 @@ webserver.use('/api/v1', api_v1_router);
             * **Note** this number must be a factor of 4 meaning `idle_timeout % 4 == 0` due to a uWebsockets requirement.
         * `message_type`[`String`]: Data type in which to process and emit messages from connections.
             * **Default**: `String`
-            * **Must be one of** `String`, `Buffer`, `ArrayBuffer`
-            * **Note** retained `Buffer` and `ArrayBuffer` messages are copied from uWebSockets.js volatile callback memory before being emitted.
+            * **Must be one of** `String`, `Buffer`, `ArrayBuffer`, `ArrayBufferSafe`
+            * **Note** `ArrayBuffer` preserves the v6 zero-copy behavior and is volatile after the synchronous event callback returns. Use `ArrayBufferSafe` when the message must be retained asynchronously. `Buffer` is also safe to retain.
         * `compression`[`Number`]: Defines the type of per message deflate compression to use.
             * **Default**: `HyperExpress.compressors.DISABLED`
             * Please provide one of the constants from `require('hyper-express').compressors`.
@@ -94,7 +94,7 @@ webserver.use('/api/v1', api_v1_router);
         * `max_payload_length`[`Number`]: Maximum length of allowed incoming messages per connection.
             * **Default**: `32 * 1024` > `32,768`
             * **Note** any connection that sends a message larger than this number will be immediately closed.
-        * `close_on_backpressure_limit`[`Boolean`]: Closes a connection when `max_backpressure` is reached instead of dropping the message.
-        * `max_lifetime`[`Number`]: Maximum connection lifetime in seconds. Use `0` to disable this limit.
-        * `send_pings_automatically`[`Boolean`]: Controls automatic uWebSockets.js ping frames.
+        * `close_on_backpressure_limit`[`Boolean`]: Opt-in. Closes a connection when `max_backpressure` is reached instead of dropping the message. When omitted, the native default remains unchanged.
+        * `max_lifetime`[`Number`]: Opt-in maximum connection lifetime in seconds. Use `0` to disable this limit. When omitted, HyperExpress does not impose a lifetime.
+        * `send_pings_automatically`[`Boolean`]: Opt-in control for automatic uWebSockets.js ping frames. When omitted, the native default remains unchanged.
     * **See** [`> [Websocket]`](./Websocket.md) for usage documentation on this method and working with websockets.

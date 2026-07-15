@@ -34,8 +34,10 @@ Below is a breakdown of the `Request` component which is an extended `Readable` 
     * **Returns** `Promise` which is then resolved to an `Object`.
 * `json(Any: default_value)`: Parses body as a JSON Object from incoming request.
     * **Returns** `Promise` which is then resolved to an `Object` or `typeof default_value`.
-    * **Note** this method returns the specified `default_value` if JSON parsing fails instead of throwing an exception. To have this method throw an exception, pass `undefined` for `default_value`.
+    * **Note** this method returns the specified `default_value` if JSON parsing fails instead of throwing an exception. To have this method throw an exception, pass `null` for `default_value`.
     * **Note** `default_value` is `{}` by default meaning `json()` is a safe method even if incoming body is invalid json.
+* Body helpers share one retained raw body. Concurrent calls to the same helper share an in-flight Promise; after success, any helper may be called repeatedly and resolves from its value cache, including empty or falsey results.
+* Request remains a lazy Node.js `Readable`: applications may consume the upload through `pipe()`/stream methods instead of body helpers. Native intake is paused at the configured buffering/high-water limits and resumed by Readable demand; native `resume()` is never called after body completion.
 * `multipart(...2 Overloads)`: Parses incoming multipart form based requests allowing for file uploads.
     * **Returns** a `Promise` which is **resolved** once **all** of the fields have been processed.
         * **Note** the handler may return any thenable. Fields are processed through one serialized queue and the returned Promise waits for every field/file handler.

@@ -16,6 +16,14 @@ const endpoint_url = server.base + endpoint;
 const file_path = Path.resolve(__dirname, '../../content/test.html');
 let evicted_live_file;
 
+async function wait_for(predicate, label) {
+    const expires = Date.now() + 1000;
+    while (!predicate()) {
+        if (Date.now() > expires) throw new Error(`Timed out waiting for ${label}.`);
+        await new Promise((resolve) => setImmediate(resolve));
+    }
+}
+
 TEST_SERVER.get(endpoint + '/helper/:kind', (request, response) => {
     switch (request.path_parameters.kind) {
         case 'html':
@@ -111,6 +119,7 @@ function create_response(options = {}) {
         close_calls: 0,
         upgrade_calls: 0,
         begin_write_calls: 0,
+        on_writable_bindings: 0,
         headers: [],
         offset: 0,
         onAborted(handler) {
@@ -118,6 +127,7 @@ function create_response(options = {}) {
             return this;
         },
         onWritable(handler) {
+            this.on_writable_bindings++;
             this.writable_handler = handler;
             return this;
         },
@@ -165,7 +175,7 @@ function create_response(options = {}) {
     };
     const route = {
         app,
-        streaming: { writable: {} },
+        streaming: { writable: options.writable_options ?? {} },
         handle_error(req, res, error) {
             errors.push(error);
         },
@@ -188,6 +198,7 @@ async function test_response_lifecycle_units() {
         assert.equal(temporary_server.close(), false);
         assert.equal(closed, 1);
         assert.equal(temporary_server._file_pool['/cached'], undefined);
+        temporary_server.force_close();
     }
 
     {
@@ -229,11 +240,13 @@ async function test_response_lifecycle_units() {
     {
         const { app, native, request, response } = create_response();
         const events = [];
+        const closed = new Promise((resolve) => response.once('close', resolve));
         response.on('abort', () => events.push('abort'));
         response.on('finish', () => events.push('finish'));
         response.on('close', () => events.push('close'));
         native.aborted_handler();
         native.aborted_handler();
+        await closed;
 
         assert.equal(app.pending, 1);
         assert.equal(request.stopped[0].code, 'ERR_REQUEST_ABORTED');
@@ -308,6 +321,8 @@ async function test_response_lifecycle_units() {
         assert.deepEqual(headers, [
             ['content-type', 'text/event-stream; charset=utf-8'],
             ['cache-control', 'no-cache'],
+            ['connection', 'keep-alive'],
+            ['x-accel-buffering', 'no'],
         ]);
         assert.equal(writes[0], 'id: ab\nevent: update\ndata: one\ndata: two\n\n');
     }
@@ -357,14 +372,116 @@ async function test_response_lifecycle_units() {
     {
         let writes = 0;
         const { native, response } = create_response({
-            try_end: () => (++writes === 1 ? [false, false] : [true, true]),
+            try_end: () => (++writes < 3 ? [false, false] : [true, true]),
         });
         const operation = response._stream_chunk(Buffer.from('abc'), 3);
         assert.equal(typeof native.writable_handler, 'function');
-        assert.equal(native.writable_handler(1), true);
+        assert.equal(native.writable_handler(1), false);
+        assert.equal(native.writable_handler(2), true);
         await operation;
-        assert.equal(native.try_end_calls[1][0].toString(), 'bc');
+        assert.deepEqual(
+            native.try_end_calls.map(([chunk]) => chunk.toString()),
+            ['abc', 'bc', 'c']
+        );
+        assert.equal(native.on_writable_bindings, 1);
         assert.equal(response.completed, true);
+    }
+
+    {
+        let writes = 0;
+        const { app, native, request, response } = create_response({
+            writable_options: { highWaterMark: 1 },
+            write: () => ++writes >= 3,
+        });
+        const lifecycle = [];
+        const closed = new Promise((resolve, reject) => {
+            response.on('finish', () => lifecycle.push('finish'));
+            response.on('close', () => {
+                lifecycle.push('close');
+                resolve();
+            });
+            response.on('error', reject);
+        });
+        const source = Readable.from([Buffer.from('aa'), Buffer.from('bb'), Buffer.from('cc')], {
+            highWaterMark: 1,
+        });
+
+        assert.equal(source.pipe(response), response);
+        await wait_for(() => native.write_calls.length === 1, 'first piped response write');
+        assert.equal(response.completed, false);
+        assert.equal(native.on_writable_bindings, 1);
+
+        assert.equal(native.writable_handler(0), true);
+        await wait_for(() => native.write_calls.length === 2, 'second piped response write');
+        assert.equal(native.writable_handler(0), true);
+        await wait_for(() => native.write_calls.length === 3, 'final piped response write');
+        await closed;
+
+        assert.equal(Buffer.concat(native.write_calls).toString(), 'aabbcc');
+        assert.deepEqual(lifecycle, ['finish', 'close']);
+        assert.equal(source.readableEnded, true);
+        assert.equal(source.destroyed, true);
+        assert.equal(response._writable.destroyed, true);
+        assert.equal(response.completed, true);
+        assert.equal(app.pending, 1);
+        assert.equal(request.ended, 1);
+        assert.equal(native.end_calls.length, 1);
+    }
+
+    {
+        const { errors, native, response } = create_response({
+            writable_options: { highWaterMark: 1 },
+            write: () => false,
+        });
+        const expected = new Error('piped source failed');
+        let reads = 0;
+        const source = new Readable({
+            highWaterMark: 1,
+            read() {
+                if (reads++ === 0) this.push(Buffer.from('a'));
+                else this.destroy(expected);
+            },
+        });
+        const closed = new Promise((resolve) => response.once('close', resolve));
+
+        source.pipe(response);
+        await wait_for(() => native.write_calls.length === 1, 'piped source write before failure');
+        await closed;
+        await wait_for(() => source.destroyed, 'failed piped source cleanup');
+
+        assert.equal(errors[0], expected);
+        assert.equal(response.completed, true);
+        assert.equal(response._writable.destroyed, true);
+        assert.equal(native.close_calls, 1);
+    }
+
+    {
+        const { native, response } = create_response({
+            writable_options: { highWaterMark: 1 },
+            write: () => false,
+        });
+        let pushed = false;
+        const source = new Readable({
+            highWaterMark: 1,
+            read() {
+                if (!pushed) {
+                    pushed = true;
+                    this.push(Buffer.from('pending'));
+                }
+            },
+        });
+        const closed = new Promise((resolve) => response.once('close', resolve));
+
+        source.pipe(response);
+        await wait_for(() => native.write_calls.length === 1, 'backpressured write before abort');
+        native.aborted_handler();
+        await closed;
+        await wait_for(() => source.destroyed, 'aborted piped source cleanup');
+
+        assert.equal(response.completed, true);
+        assert.equal(response._aborted, true);
+        assert.equal(response._writable.destroyed, true);
+        assert.equal(source.listenerCount('error'), 0);
     }
 }
 
@@ -455,6 +572,8 @@ async function test_response_v7() {
 
     const sse = await fetch(endpoint_url + '/sse-format');
     assert.equal(sse.headers.get('content-type'), 'text/event-stream; charset=utf-8');
+    assert.equal(sse.headers.get('connection'), 'keep-alive');
+    assert.equal(sse.headers.get('x-accel-buffering'), 'no');
     assert.equal(
         await sse.text(),
         ': one\n: two\n\nid:\nevent:\ndata:\ndata: next\n\n'

@@ -73,27 +73,25 @@ class Route {
         // Ignore lifecycle work after the response has completed
         if (response.completed) return;
 
-        const middleware = this.options.middlewares[cursor];
-        if (middleware) {
-            if (middleware.match) {
-                if (middleware.pattern === '/') {
-                    // Root middleware always matches.
-                } else if (request.path.startsWith(middleware.pattern)) {
-                    // Require a path boundary so "/docs" does not match "/docs-JSON"
-                    const trailing = request.path[middleware.pattern.length];
-                    if (trailing !== '/' && trailing !== undefined) {
-                        return this.handle(request, response, cursor + 1);
-                    }
-                } else {
-                    return this.handle(request, response, cursor + 1);
-                }
-            }
+        let middleware = this.options.middlewares[cursor];
+        while (middleware && middleware.match) {
+            const pattern = middleware.pattern;
+            const matches =
+                pattern === '/' ||
+                (request.path.startsWith(pattern) &&
+                    (request.path[pattern.length] === '/' || request.path[pattern.length] === undefined));
+            if (matches) break;
 
+            cursor++;
+            middleware = this.options.middlewares[cursor];
+        }
+
+        if (middleware) {
             let completed = false;
             let duplicate_reported = false;
 
             // A middleware can complete through next(), fulfillment, rejection, or a throw exactly once.
-            const complete = (error, force_error = false) => {
+            const next = (error, force_error = false) => {
                 if (completed) {
                     if (this.app._options.strict_middleware && !duplicate_reported) {
                         duplicate_reported = true;
@@ -117,12 +115,11 @@ class Route {
                 return true;
             };
 
-            const iterator = (error) => complete(error, false);
             let output;
             try {
-                output = middleware.handler(request, response, iterator);
+                output = middleware.handler(request, response, next);
             } catch (error) {
-                complete(error, true);
+                next(error, true);
                 return;
             }
 
@@ -130,14 +127,14 @@ class Route {
             try {
                 is_thenable = output != null && typeof output.then === 'function';
             } catch (error) {
-                complete(error, true);
+                next(error, true);
                 return;
             }
 
             if (is_thenable) {
                 Promise.resolve(output).then(
-                    (value) => complete(value, value instanceof Error),
-                    (error) => complete(error, true)
+                    (value) => next(value, value instanceof Error),
+                    (error) => next(error, true)
                 );
             }
 

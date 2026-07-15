@@ -8,6 +8,7 @@ const FRAGMENTS = {
     MIDDLE: 'MIDDLE',
     LAST: 'LAST',
 };
+const STREAM_BACKPRESSURE_HIGH_WATER_MARK = 64 * 1024;
 
 class Websocket extends EventEmitter {
     #ws;
@@ -240,6 +241,13 @@ class Websocket extends EventEmitter {
                     return settle(
                         new Error(`HyperExpress.Websocket received an invalid native send status: ${status}`)
                     );
+
+                // uWS reports status 0 whenever bytes remain buffered, but its drain callback is
+                // edge-triggered for meaningful backpressure rather than every residual byte. A
+                // small queued amount is accepted and bounded here; larger queues pause the Node
+                // producer until the native drain transition.
+                if (this.#ws.getBufferedAmount() <= STREAM_BACKPRESSURE_HIGH_WATER_MARK)
+                    return settle(undefined, status);
 
                 drain_handler = () => {
                     this.removeListener('drain', drain_handler);

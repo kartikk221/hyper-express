@@ -21,6 +21,16 @@ app.get('/', (request, response) => {
     response.send(body);
 });
 
+const pass = (request, response, next) => next();
+app.get('/middleware', pass, pass, pass, pass, pass, pass, pass, pass, (request, response) => {
+    response.send(body);
+});
+
+app.post('/json', async (request, response) => {
+    const value = await request.json(null);
+    response.json(value);
+});
+
 process.on('message', (message) => {
     if (message === 'rss' && process.send) process.send({ rss: process.memoryUsage().rss });
     if (message === 'stop') {

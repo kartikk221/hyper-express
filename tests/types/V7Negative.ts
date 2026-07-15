@@ -9,6 +9,8 @@ router.set_error_handler('invalid');
 
 // @ts-expect-error max_lifetime must be numeric
 router.ws('/socket', { max_lifetime: 'forever' }, () => {});
+// @ts-expect-error only documented WebSocket message lifetime modes are accepted
+router.ws('/socket', { message_type: 'ArrayBufferCopied' }, () => {});
 
 declare const websocket: Websocket;
 // @ts-expect-error native send statuses are numeric, not boolean

@@ -5,6 +5,7 @@ const stream = require('stream');
 const busboy = require('busboy');
 const querystring = require('querystring');
 const signature = require('cookie-signature');
+const UTF8_DECODER = new util.TextDecoder('utf-8');
 
 const MultipartField = require('../plugins/MultipartField.js');
 const NodeRequest = require('../compatibility/NodeRequest.js');
@@ -25,8 +26,10 @@ class Request {
     _url = '';
     _path = '';
     _query = '';
-    _remote_ip = '';
-    _remote_proxy_ip = '';
+    _remote_ip;
+    _remote_proxy_ip;
+    _remote_port;
+    _remote_proxy_port;
     _cookies;
     _path_parameters;
     _query_parameters;
@@ -104,16 +107,25 @@ class Request {
     }
 
     /**
+     * Pauses only native body intake while leaving Node's Readable demand machinery active.
+     * @private
+     * @returns {Boolean} Whether native intake transitioned to paused.
+     */
+    _pause_native() {
+        if (this._paused) return false;
+        this._paused = true;
+        this._raw_response.pause();
+        return true;
+    }
+
+    /**
      * Pauses the current request and flow of incoming body data.
      * @returns {Request}
      */
     pause() {
-        // Mirror pause state so uWS receives each transition only once
-        if (!this._paused) {
-            this._paused = true;
-            this._raw_response.pause();
-            if (this._readable) return this._super_pause();
-        }
+        // Explicit user pauses affect both native intake and the public Readable facade.
+        this._pause_native();
+        if (this._readable) return this._super_pause();
         return this;
     }
 
@@ -306,14 +318,15 @@ class Request {
                     // onDataV2 buffers are volatile until the terminal callback, so retain copies.
                     this._body_parser_buffered.push(copy_array_buffer_to_uint8array(chunk));
                     if (!is_last && this._body_received_bytes > this.app._options.max_body_buffer)
-                        this.pause();
+                        this._pause_native();
                     break;
                 case 1:
                     this._body_parser_passthrough(new Uint8Array(chunk), is_last);
                     break;
                 case 2:
                     // Spurious callbacks can arrive after pause; every one still belongs to the body.
-                    if (!this.push(copy_array_buffer_to_uint8array(chunk)) && !is_last) this.pause();
+                    if (!this.push(copy_array_buffer_to_uint8array(chunk)) && !is_last)
+                        this._pause_native();
                     if (is_last) this.push(null);
                     break;
             }
@@ -381,12 +394,12 @@ class Request {
         this._received_data_promise = new Promise((resolve, reject) => {
             this._body_parser_reject = reject;
 
-            let offset = 0;
-            let chunks = [];
             let buffer =
                 this._body_expected_bytes > 0
                     ? new Uint8Array(this._body_expected_bytes)
                     : undefined;
+            let offset = 0;
+            let chunks = buffer ? null : [];
 
             this._body_parser_passthrough = (chunk, is_last) => {
                 if (this._body_parser_failure) return;
@@ -431,44 +444,75 @@ class Request {
 
     _body_buffer;
     _buffer_promise;
+
+    /** @private */
+    async _parse_buffer() {
+        const raw = await this._body_parser_get_received_data();
+        this._body_buffer = Buffer.from(raw);
+        this._buffer_promise = undefined;
+        return this._body_buffer;
+    }
+
     /**
      * Returns the incoming request body as a Buffer.
      * @returns {Promise<Buffer>}
      */
     buffer() {
-        if (!this._buffer_promise)
-            this._buffer_promise = this._body_parser_get_received_data().then(
-                (raw) => (this._body_buffer = Buffer.from(raw))
-            );
+        if (this._body_buffer !== undefined) return Promise.resolve(this._body_buffer);
+        if (!this._buffer_promise) this._buffer_promise = this._parse_buffer();
         return this._buffer_promise;
     }
 
     /**
      * @private
      * @param {Uint8Array} uint8
-     * @param {string} encoding
      * @returns {string}
      */
-    _uint8_to_string(uint8, encoding = 'utf-8') {
-        return new util.TextDecoder(encoding).decode(uint8);
+    _uint8_to_string(uint8) {
+        return UTF8_DECODER.decode(uint8);
     }
 
     _body_text;
     _text_promise;
+
+    /** @private */
+    async _parse_text() {
+        const raw = await this._body_parser_get_received_data();
+        this._body_text = this._uint8_to_string(raw);
+        this._text_promise = undefined;
+        return this._body_text;
+    }
+
     /**
      * Downloads and parses the request body as a String.
      * @returns {Promise<string>}
      */
     text() {
-        if (!this._text_promise)
-            this._text_promise = this._body_parser_get_received_data().then(
-                (raw) => (this._body_text = this._uint8_to_string(raw))
-            );
+        if (this._body_text !== undefined) return Promise.resolve(this._body_text);
+        if (!this._text_promise) this._text_promise = this._parse_text();
         return this._text_promise;
     }
 
     _body_json;
     _json_promise;
+
+    /** @private */
+    async _parse_json(default_value) {
+        const raw = await this._body_parser_get_received_data();
+        try {
+            this._body_json = JSON.parse(this._uint8_to_string(raw));
+        } catch (error) {
+            if (default_value) {
+                this._body_json = default_value;
+            } else {
+                throw error;
+            }
+        }
+
+        this._json_promise = undefined;
+        return this._body_json;
+    }
+
     /**
      * Downloads and parses the request body as JSON.
      * A falsey default_value causes invalid JSON to reject rather than use a fallback.
@@ -477,30 +521,29 @@ class Request {
      * @returns {Promise<Record>}
      */
     json(default_value = {}) {
-        if (!this._json_promise)
-            this._json_promise = this._body_parser_get_received_data().then((raw) => {
-                try {
-                    return (this._body_json = JSON.parse(this._uint8_to_string(raw)));
-                } catch (error) {
-                    if (default_value) return (this._body_json = default_value);
-                    throw error;
-                }
-            });
+        if (this._body_json !== undefined) return Promise.resolve(this._body_json);
+        if (!this._json_promise) this._json_promise = this._parse_json(default_value);
         return this._json_promise;
     }
 
     _body_urlencoded;
     _urlencoded_promise;
+
+    /** @private */
+    async _parse_urlencoded() {
+        const raw = await this._body_parser_get_received_data();
+        this._body_urlencoded = querystring.parse(this._uint8_to_string(raw));
+        this._urlencoded_promise = undefined;
+        return this._body_urlencoded;
+    }
+
     /**
      * Parses the incoming body as URL-encoded values.
      * @returns {Promise<Record>}
      */
     urlencoded() {
-        if (!this._urlencoded_promise)
-            this._urlencoded_promise = this._body_parser_get_received_data().then(
-                (raw) =>
-                    (this._body_urlencoded = querystring.parse(this._uint8_to_string(raw)))
-            );
+        if (this._body_urlencoded !== undefined) return Promise.resolve(this._body_urlencoded);
+        if (!this._urlencoded_promise) this._urlencoded_promise = this._parse_urlencoded();
         return this._urlencoded_promise;
     }
 
@@ -751,7 +794,7 @@ class Request {
      * @returns {String}
      */
     get ip() {
-        if (this._remote_ip) return this._remote_ip;
+        if (this._remote_ip !== undefined) return this._remote_ip;
 
         // uWS address buffers are unavailable after the request lifecycle ends
         if (this._request_ended)
@@ -775,7 +818,7 @@ class Request {
      * @returns {String}
      */
     get proxy_ip() {
-        if (this._remote_proxy_ip) return this._remote_proxy_ip;
+        if (this._remote_proxy_ip !== undefined) return this._remote_proxy_ip;
 
         // uWS address buffers are unavailable after the request lifecycle ends
         if (this._request_ended)

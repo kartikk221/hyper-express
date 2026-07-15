@@ -41,6 +41,7 @@ async function test_server_exclusive_port() {
         'Server Exclusive Port Listen Option Test',
         () => listening && custom_host_rejected
     );
+    server.force_close();
 }
 
 // Create a test HyperExpress instance

@@ -25,6 +25,7 @@ class Response {
     _close_emitted = false;
     _deferred_send;
     _finalizing_writable = false;
+    _piped_sources;
     _middleware_cursor;
     _wrapped_request = null;
     _upgrade_socket = null;
@@ -131,8 +132,13 @@ class Response {
      * @param {Boolean=} options.emit_close
      * @returns {Boolean}
      */
-    _complete_response({ aborted = false, error, emit_finish = !aborted, emit_close = true } = {}) {
+    _complete_response(options) {
         if (this.completed) return false;
+
+        const aborted = options?.aborted === true;
+        const error = options?.error;
+        const emit_finish = options?.emit_finish ?? !aborted;
+        const emit_close = options?.emit_close ?? true;
 
         this.completed = true;
         this._aborted = aborted;
@@ -147,7 +153,15 @@ class Response {
 
         if (aborted) this._emit_lifecycle('abort');
         if (emit_finish) this._emit_lifecycle('finish');
-        if (emit_close) this._emit_lifecycle('close');
+        if (emit_close) {
+            // Error completion must tear down the Node Writable so ordinary readable.pipe(response)
+            // pipelines unpipe and release their source resources.
+            if (error && this._writable) {
+                if (!this._writable.destroyed) this._writable.destroy();
+            } else {
+                this._emit_lifecycle('close');
+            }
+        }
         return true;
     }
 
@@ -587,10 +601,11 @@ class Response {
                 this._raw_response.end(body, close_connection);
             }
 
-            this._complete_response({
-                emit_finish: !this._finalizing_writable,
-                emit_close: !this._finalizing_writable,
-            });
+            if (this._finalizing_writable) {
+                this._complete_response({ emit_finish: false, emit_close: false });
+            } else {
+                this._complete_response();
+            }
         }
 
         return this;
@@ -1076,6 +1091,7 @@ inherit_prototype({
             // Create the Node writable only when an inherited stream API is first used
             if (this._writable === null) {
                 this._writable = new stream.Writable(this.route.streaming.writable);
+                this._piped_sources = new Map();
 
                 // Preserve the Response lifecycle as the native write implementation context
                 this._writable._write = descriptors['_write'].value.bind(this);
@@ -1092,12 +1108,39 @@ inherit_prototype({
                     }
                 };
 
+                // Node's pipe() unpipes a source when its destination closes, but does not destroy
+                // the source. Track piped sources so aborted responses cannot leak file handles or
+                // leave producers paused forever. Source failures are contained by the route handler.
+                this._writable.on('pipe', (source) => {
+                    const on_error = (error) => {
+                        this._piped_sources.delete(source);
+                        if (!this.completed) {
+                            this.throw(error);
+                            if (!this.completed) this.close();
+                        }
+                    };
+                    this._piped_sources.set(source, on_error);
+                    source.once('error', on_error);
+                });
+                this._writable.on('unpipe', (source) => {
+                    const on_error = this._piped_sources.get(source);
+                    if (on_error) source.removeListener('error', on_error);
+                    this._piped_sources.delete(source);
+                });
+
                 // Node emits finish and then close after _final's callback. Internal listeners
                 // only mirror state; user listeners receive the native Writable ordering once.
                 this._writable.once('finish', () => {
                     this._finish_emitted = true;
                 });
-                this._writable.once('close', () => (this._close_emitted = true));
+                this._writable.once('close', () => {
+                    this._close_emitted = true;
+                    for (const [source, on_error] of this._piped_sources) {
+                        source.removeListener('error', on_error);
+                        if (!source.destroyed) source.destroy();
+                    }
+                    this._piped_sources.clear();
+                });
             }
 
             return original.apply(this._writable, arguments);

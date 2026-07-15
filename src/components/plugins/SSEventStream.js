@@ -16,7 +16,9 @@ class SSEventStream {
 
         this._response
             .header('content-type', 'text/event-stream; charset=utf-8')
-            .header('cache-control', 'no-cache');
+            .header('cache-control', 'no-cache')
+            .header('connection', 'keep-alive')
+            .header('x-accel-buffering', 'no');
 
         return true;
     }

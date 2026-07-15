@@ -2,7 +2,7 @@ const path = require('path');
 const FormData = require('form-data');
 const crypto = require('crypto');
 const fs = require('fs');
-const { assert_log } = require('../../../scripts/operators.js');
+const { assert_log, log } = require('../../../scripts/operators.js');
 const { HyperExpress, fetch, server } = require('../../../configuration.js');
 const router = new HyperExpress.Router();
 const endpoint = '/tests/request';
@@ -262,7 +262,7 @@ async function test_request_multipart(use_async_handler = false) {
             },
         });
         const rejected_thenable_body = await rejected_thenable_response.json();
-        assert_log(
+        await assert_log(
             group,
             `${candidate} Rejected Thenable Propagation`,
             () => rejected_thenable_body.error === 'SIMULATED_THENABLE_ERROR'
@@ -271,6 +271,10 @@ async function test_request_multipart(use_async_handler = false) {
         // Regression for #350: no post-body native resume may arm a 10-second timeout.
         const delayed_form = new FormData();
         delayed_form.append('field', 'value');
+        log(
+            group,
+            `${candidate} Simulating An Intentional 10.2 Second Post-Body Delay For Timeout Regression #350`
+        );
         const delayed_started = Date.now();
         const delayed_response = await fetch(endpoint_url, {
             method: 'POST',

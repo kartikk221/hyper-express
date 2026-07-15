@@ -68,4 +68,4 @@ webserver.get('/news/events', (request, response) => {
     * **Note** messages sent with both the `event`/`data` parameters will be handled by the appropriate `event` listener on the client-side `EventSource`.
     * **Note** multiline data is emitted as one `data:` line per input line. Empty IDs, events, values, and comments are preserved without allowing newline injection into another SSE field.
 
-Opening an SSE stream assigns only `Content-Type: text/event-stream; charset=utf-8` and `Cache-Control: no-cache`; application-specific headers remain the application's responsibility.
+Opening an SSE stream preserves the v6 wire contract by assigning `Content-Type: text/event-stream; charset=utf-8`, `Cache-Control: no-cache`, `Connection: keep-alive`, and `X-Accel-Buffering: no`. The last header prevents compatible reverse proxies such as nginx from buffering the event stream.

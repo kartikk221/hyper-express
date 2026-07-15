@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const { Readable } = require('stream');
 
 const HyperWebsocket = require('../../../src/components/ws/Websocket.js');
+const WebsocketRoute = require('../../../src/components/ws/WebsocketRoute.js');
 const { HyperExpress, Websocket: ClientWebsocket, server } = require('../../configuration.js');
 const { log } = require('../../scripts/operators.js');
 const { TEST_SERVER } = require('../Server.js');
@@ -10,9 +11,9 @@ const endpoint = '/websocket-v7';
 const endpoint_url = `${server.base.replace('http', 'ws')}${endpoint}`;
 
 TEST_SERVER.ws(
-    endpoint + '/arraybuffer',
+    endpoint + '/arraybuffer-safe',
     {
-        message_type: 'ArrayBuffer',
+        message_type: 'ArrayBufferSafe',
         close_on_backpressure_limit: false,
         max_lifetime: 0,
         send_pings_automatically: false,
@@ -75,12 +76,15 @@ class FakeSocket {
     first_statuses = [];
     middle_statuses = [];
     last_statuses = [];
+    remote_port_calls = 0;
+    buffered_amount = 0;
 
     getRemoteAddressAsText() {
         return array_buffer('127.0.0.1');
     }
 
     getRemotePort() {
+        this.remote_port_calls++;
         return 43210;
     }
 
@@ -122,7 +126,7 @@ class FakeSocket {
     }
 
     getBufferedAmount() {
-        return 0;
+        return this.buffered_amount;
     }
 
     getTopics() {
@@ -146,6 +150,31 @@ class FakeSocket {
     }
 }
 
+function capture_native_route_options(options = {}) {
+    let captured;
+    const app = {
+        _options: { streaming: {}, max_body_length: 1024 },
+        routes: { upgrade: {} },
+        _id: 0,
+        _get_incremented_id() {
+            return ++this._id;
+        },
+        _create_route(route) {
+            const companion = { ...route };
+            this.routes.upgrade[route.pattern] = companion;
+            return companion;
+        },
+        uws_instance: {
+            ws(pattern, native_options) {
+                captured = native_options;
+            },
+        },
+    };
+
+    new WebsocketRoute({ app, pattern: '/capture', handler() {}, options });
+    return captured;
+}
+
 async function wait_for(predicate) {
     const expires = Date.now() + 1000;
     while (!predicate()) {
@@ -164,11 +193,41 @@ async function test_websocket_units() {
         raw.send_statuses.push(2);
         assert.equal(ws.send('dropped'), 2);
         assert.equal(ws.remote_port, 43210);
+        assert.equal(ws.remote_port, 43210);
+        assert.equal(raw.remote_port_calls, 1, 'stable native port data must be read only once');
         assert.equal(ws.ip, '127.0.0.1');
         assert.equal(ws.atomic(() => Promise.reject(new Error('atomic failure'))), ws);
         await Promise.resolve();
         await Promise.resolve();
         assert.equal(errors[0].message, 'atomic failure');
+    }
+
+    {
+        const parser_host = Object.create(WebsocketRoute.prototype);
+        const volatile = array_buffer('volatile');
+        const zero_copy = parser_host._get_message_parser('ArrayBuffer')(volatile);
+        const retained = parser_host._get_message_parser('ArrayBufferSafe')(volatile);
+
+        assert.equal(zero_copy, volatile, 'ArrayBuffer must preserve the v6 zero-copy contract');
+        assert.notEqual(retained, volatile, 'ArrayBufferSafe must copy volatile native memory');
+        assert.equal(Buffer.from(retained).toString(), 'volatile');
+        assert.throws(() => parser_host._get_message_parser('invalid'), /ArrayBufferSafe/);
+    }
+
+    {
+        const defaults = capture_native_route_options();
+        assert.equal('closeOnBackpressureLimit' in defaults, false);
+        assert.equal('maxLifetime' in defaults, false);
+        assert.equal('sendPingsAutomatically' in defaults, false);
+
+        const explicit = capture_native_route_options({
+            close_on_backpressure_limit: false,
+            max_lifetime: 0,
+            send_pings_automatically: false,
+        });
+        assert.equal(explicit.closeOnBackpressureLimit, false);
+        assert.equal(explicit.maxLifetime, 0);
+        assert.equal(explicit.sendPingsAutomatically, false);
     }
 
     {
@@ -187,6 +246,7 @@ async function test_websocket_units() {
         raw.first_statuses.push(0);
         raw.middle_statuses.push(1);
         raw.last_statuses.push(0);
+        raw.buffered_amount = 128 * 1024;
         const ws = new HyperWebsocket(raw);
         let resolved = false;
         const operation = ws
@@ -194,9 +254,12 @@ async function test_websocket_units() {
             .then(() => (resolved = true));
 
         await wait_for(() => raw.first.length === 1);
+        raw.buffered_amount = 0;
         ws.emit('drain');
+        raw.buffered_amount = 128 * 1024;
         await wait_for(() => raw.last.length === 1);
         assert.equal(resolved, false, 'the final backpressured fragment must be awaited');
+        raw.buffered_amount = 0;
         ws.emit('drain');
         await operation;
 
@@ -211,6 +274,15 @@ async function test_websocket_units() {
         await ws.stream(Readable.from([]));
         assert.equal(raw.sends.length, 1);
         assert.equal(raw.sends[0][0].byteLength, 0);
+    }
+
+    {
+        const raw = new FakeSocket();
+        raw.send_statuses.push(0);
+        raw.buffered_amount = 1;
+        const ws = new HyperWebsocket(raw);
+        await ws.stream(Readable.from([Buffer.from('small queued message')]));
+        assert.equal(raw.sends.length, 1, 'small residual native buffering must not deadlock');
     }
 
     {
@@ -245,15 +317,36 @@ async function test_websocket_units() {
 
     {
         const raw = new FakeSocket();
+        raw.first_statuses.push(0);
+        raw.middle_statuses.push(0);
+        raw.last_statuses.push(0);
+        raw.buffered_amount = 128 * 1024;
         const ws = new HyperWebsocket(raw);
         const writable = ws.writable;
+        let finished = false;
         writable.write('a');
         writable.write('b');
         writable.end('c');
-        await new Promise((resolve, reject) => {
+        const completion = new Promise((resolve, reject) => {
             writable.once('finish', resolve);
             writable.once('error', reject);
-        });
+        }).then(() => (finished = true));
+
+        await wait_for(() => raw.first.length === 1);
+        assert.equal(finished, false);
+        raw.buffered_amount = 0;
+        ws.emit('drain');
+        raw.buffered_amount = 128 * 1024;
+        await wait_for(() => raw.middle.length === 1);
+        assert.equal(finished, false);
+        raw.buffered_amount = 0;
+        ws.emit('drain');
+        raw.buffered_amount = 128 * 1024;
+        await wait_for(() => raw.last.length === 1);
+        assert.equal(finished, false, 'writable finish must await its final fragment drain');
+        raw.buffered_amount = 0;
+        ws.emit('drain');
+        await completion;
 
         assert.deepEqual(raw.first.map(([chunk]) => chunk.toString()), ['a']);
         assert.deepEqual(raw.middle.map(([chunk]) => chunk.toString()), ['b']);
@@ -266,6 +359,25 @@ async function test_websocket_units() {
             empty.once('error', reject);
         });
         assert.equal(raw.sends.at(-1)[0].byteLength, 0);
+    }
+
+    {
+        const raw = new FakeSocket();
+        raw.first_statuses.push(0);
+        raw.buffered_amount = 128 * 1024;
+        const ws = new HyperWebsocket(raw);
+        const writable = ws.writable;
+        writable.write('a');
+        writable.write('b');
+        await wait_for(() => raw.first.length === 1);
+
+        const failed = new Promise((resolve) => writable.once('error', resolve));
+        ws._destroy();
+        ws.emit('close', 1000, 'closed');
+        const error = await failed;
+        assert.equal(error.code, 'ERR_WEBSOCKET_CLOSED');
+        assert.equal(writable.destroyed, true);
+        assert.equal(raw.first.length, 1, 'socket close must not retry a pending fragment');
     }
 }
 
@@ -289,7 +401,7 @@ function exchange(path, on_open) {
 async function test_websocket_v7() {
     await test_websocket_units();
 
-    const retained = await exchange('/arraybuffer', (client) => client.send(Buffer.from('retained')));
+    const retained = await exchange('/arraybuffer-safe', (client) => client.send(Buffer.from('retained')));
     assert.equal(retained.messages[0].toString(), 'retained');
 
     const subscription = await exchange('/subscription');
@@ -312,7 +424,7 @@ async function test_websocket_v7() {
     const remote_port = await exchange('/remote-port');
     assert.ok(Number(remote_port.messages[0].toString()) > 0);
 
-    log('WEBSOCKET', 'Verified v7 Fragment, Error, Event, Port, And Retained-Message Behavior');
+    log('WEBSOCKET', 'Verified v7 Fragment, Error, Ports, Opt-In Options, And Message Lifetimes');
 }
 
 module.exports = { test_websocket_v7 };

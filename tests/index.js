@@ -20,7 +20,7 @@ const {
     test_server_shutdown,
 } = require('./components/Server.js');
 test('HyperExpress integration suite', { timeout: 30000 }, async (context) => {
-    context.after(() => TEST_SERVER.close());
+    context.after(() => TEST_SERVER.force_close());
 
     // While this is effectively doing the same thing as the not_found_handler, we do not want HyperExpress to also bind its own not found handler which would throw a duplicate route error
     TEST_SERVER.all('*', not_found_handler);
@@ -53,7 +53,7 @@ test('HyperExpress integration suite', { timeout: 30000 }, async (context) => {
             await new Promise((resolve) => {
                 TEST_GOOD_SERVER.listen(server.secure_port, server.host, resolve);
             });
-            TEST_GOOD_SERVER.close();
+            TEST_GOOD_SERVER.force_close();
             result = true;
         } catch (error) {
             console.error(error);

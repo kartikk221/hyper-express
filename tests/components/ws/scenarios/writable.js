@@ -1,6 +1,8 @@
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
+const assert = require('node:assert/strict');
+const { pipeline } = require('node:stream/promises');
 const { assert_log } = require('../../../scripts/operators.js');
 const { HyperExpress, Websocket, server } = require('../../../configuration.js');
 
@@ -10,21 +12,11 @@ const TestFilePath = path.resolve(path.join(__dirname, '../../../content/large-i
 
 // Create an endpoint for serving a file
 Router.ws('/writable', async (ws) => {
-    // Create a readable stream to serve to the receiver
-    let readable = fs.createReadStream(TestFilePath);
-
-    // Pipe the readable into the websocket writable
-    readable.pipe(ws.writable);
-
-    // Bind a handler for once readable is finished
-    readable.once('close', () => {
-        // Repeat the same process as above to test multiple pipes to the same websocket connection
-        readable = fs.createReadStream(TestFilePath);
-        readable.pipe(ws.writable);
-
-        // Bind the end handler again to close the connection this time
-        readable.once('close', () => ws.close());
-    });
+    // Each writable represents exactly one WebSocket message. pipeline() makes source,
+    // destination, and error completion part of the assertion path.
+    await pipeline(fs.createReadStream(TestFilePath), ws.writable);
+    await pipeline(fs.createReadStream(TestFilePath), ws.writable);
+    ws.close();
 });
 
 // Bind router to test server instance
@@ -43,24 +35,36 @@ async function test_websocket_writable() {
     // Test protected websocket route upgrade handling (NO KEY)
     const ws_writable = new Websocket(`${endpoint_base}/writable`);
     await new Promise((resolve, reject) => {
-        // Assign a message handler to receive from websocket
-        let counter = 1;
-        ws_writable.on('message', (message) => {
-            // Derive the retrieved buffer and its hash
-            const received_buffer = message;
-            const received_hash = crypto.createHash('md5').update(received_buffer).digest('hex');
+        const messages = [];
+        const timeout = setTimeout(() => reject(new Error(`${candidate} timed out.`)), 1000);
 
-            // Assert the received data against the expected data
-            assert_log(
-                group,
-                `${candidate} - Piped Binary Buffer Integrity #${counter} - [${expected_hash}] == [${received_hash}]`,
-                () => expected_buffer.equals(received_buffer) && expected_hash === received_hash
-            );
-            counter++;
-        });
+        // Assign a message handler to receive from websocket
+        ws_writable.on('message', (message) => messages.push(Buffer.from(message)));
+        ws_writable.on('error', reject);
 
         // Assign a close handler to handle assertion
-        ws_writable.on('close', () => resolve());
+        ws_writable.on('close', () => {
+            clearTimeout(timeout);
+            try {
+                assert.equal(messages.length, 2, 'two pipes must produce exactly two messages');
+                for (let index = 0; index < messages.length; index++) {
+                    const received_hash = crypto
+                        .createHash('md5')
+                        .update(messages[index])
+                        .digest('hex');
+                    assert_log(
+                        group,
+                        `${candidate} - Piped Binary Buffer Integrity #${index + 1} - [${expected_hash}] == [${received_hash}]`,
+                        () =>
+                            expected_buffer.equals(messages[index]) &&
+                            expected_hash === received_hash
+                    );
+                }
+                resolve();
+            } catch (error) {
+                reject(error);
+            }
+        });
     });
 }
 

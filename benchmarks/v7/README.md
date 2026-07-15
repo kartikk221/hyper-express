@@ -1,6 +1,6 @@
 # HyperExpress v7 comparison gate
 
-This gate compares the current checkout with the final pre-v7 foundation commit under Node.js 22. It alternates baseline and candidate measurements, reports the median throughput and p95 latency from five runs, and exits nonzero when throughput regresses by more than 5% or p95 latency regresses by more than 10%.
+This gate compares the current checkout with the final pre-v7 foundation commit under Node.js 22. It independently measures a static GET, a route with eight precompiled synchronous middlewares, and a fixed-length JSON parse/response. For each scenario it alternates baseline and candidate measurements, reports median throughput and p95 latency from five runs, and exits nonzero when throughput regresses by more than 5% or p95 latency regresses by more than 10%.
 
 Prepare the baseline once:
 

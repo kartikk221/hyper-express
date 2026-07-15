@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { HyperExpress, fetch } = require('../../configuration.js');
-const { assert_log } = require('../../scripts/operators.js');
+const { log } = require('../../scripts/operators.js');
 
 const wait = (delay) => new Promise((resolve) => setTimeout(resolve, delay));
 
@@ -37,7 +37,8 @@ async function test_registration_validation() {
     assert.equal(app.routes.get['/zero-limit'].max_body_length, 0);
     assert.ok(app.routes.connect['/connect']);
 
-    await assert_log('ROUTER', 'v7 Route Registration Validation And CONNECT', () => true);
+    app.force_close();
+    log('ROUTER', 'Verified v7 Route Registration Validation And CONNECT');
 }
 
 async function test_middleware_completion() {
@@ -115,7 +116,7 @@ async function test_middleware_completion() {
         );
         await wait(25);
     } finally {
-        app.close();
+        app.force_close();
     }
 
     let strict_errors = 0;
@@ -146,10 +147,10 @@ async function test_middleware_completion() {
         assert.equal(duplicate_completion, false);
         assert.equal(strict_errors, 1);
     } finally {
-        strict_app.close();
+        strict_app.force_close();
     }
 
-    await assert_log('ROUTER', 'v7 Middleware Completion Contract', () => true);
+    log('ROUTER', 'Verified v7 Middleware Completion Contract');
 }
 
 async function test_scoped_handlers_and_mounts() {
@@ -238,10 +239,10 @@ async function test_scoped_handlers_and_mounts() {
         assert.equal(await (await fetch_from(app, '/chain/missing')).text(), 'chain-not-found');
         assert.equal(await (await fetch_from(app, '/late/route')).text(), 'true');
     } finally {
-        app.close();
+        app.force_close();
     }
 
-    await assert_log('ROUTER', 'v7 Scoped Handlers And Mounted Router Propagation', () => true);
+    log('ROUTER', 'Verified v7 Scoped Handlers And Mounted Router Propagation');
 }
 
 async function test_router_v7() {

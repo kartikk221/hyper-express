@@ -580,7 +580,7 @@ class Router {
 
     /**
      * @typedef {Object} WSRouteOptions
-     * @property {('String'|'Buffer'|'ArrayBuffer')} message_type Specifies data type in which to provide incoming websocket messages. Default: 'String'
+     * @property {('String'|'Buffer'|'ArrayBuffer'|'ArrayBufferSafe')} message_type Specifies data type in which to provide incoming websocket messages. ArrayBuffer is a volatile zero-copy view; ArrayBufferSafe is retained. Default: 'String'
      * @property {Number} compression Specifies preset for permessage-deflate compression. Specify one from HyperExpress.compressors.PRESET
      * @property {Number} idle_timeout Specifies interval to automatically timeout/close idle websocket connection in seconds. Default: 32
      * @property {Number} max_backpressure Specifies maximum websocket backpressure allowed in character length. Default: 1024 * 1024

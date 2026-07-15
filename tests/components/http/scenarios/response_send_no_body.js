@@ -70,7 +70,9 @@ async function test_response_send_no_body() {
             `${candidate} ${status} Payload Suppression Test`,
             () =>
                 status_body.length === 0 &&
-                (status === 304 || status_response.headers.get('content-length') !== '100')
+                (status === 304
+                    ? status_response.headers.get('content-length') === '100'
+                    : status_response.headers.get('content-length') === '0')
         );
     }
 }

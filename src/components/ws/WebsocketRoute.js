@@ -39,13 +39,16 @@ class WebsocketRoute extends Route {
                 return (array_buffer) => array_buffer_to_string(array_buffer);
             case 'Buffer':
                 // Copy because uWS invalidates the message ArrayBuffer after the synchronous callback
-                return (array_buffer) => Buffer.concat([Buffer.from(array_buffer)]);
+                return (array_buffer) => Buffer.from(new Uint8Array(array_buffer));
             case 'ArrayBuffer':
-                // uWS neuters callback buffers after the native frame returns.
+                // Preserve the v6 zero-copy contract. This view is volatile after the callback returns.
+                return (array_buffer) => array_buffer;
+            case 'ArrayBufferSafe':
+                // Opt into retaining a copy after uWS invalidates its callback memory.
                 return (array_buffer) => array_buffer.slice(0);
             default:
                 throw new Error(
-                    "Server.ws(options) -> options.message_type must be one of ['String', 'Buffer', 'ArrayBuffer']"
+                    "Server.ws(options) -> options.message_type must be one of ['String', 'Buffer', 'ArrayBuffer', 'ArrayBufferSafe']"
                 );
         }
     }

@@ -20,7 +20,7 @@ router.get(scenario_endpoint, async (request, response) => {
 
     // Deliver with chunked encoding if specified by header or fall back to normal handled delivery
     const use_chunked_encoding = request.headers['x-chunked-encoding'] === 'true';
-    response.stream(readable, use_chunked_encoding ? undefined : test_file_stats.size);
+    return response.stream(readable, use_chunked_encoding ? undefined : test_file_stats.size);
 });
 
 // Bind router to webserver
