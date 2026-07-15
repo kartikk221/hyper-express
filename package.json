@@ -63,6 +63,7 @@
         "form-data": "^4.0.0",
         "node-fetch": "^2.7.0",
         "typescript": "^5.9.3",
+        "uid-safe": "^2.1.5",
         "ws": "^8.18.3"
     }
 }
