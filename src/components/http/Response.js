@@ -592,7 +592,14 @@ class Response {
                 } else if (is_head && body !== undefined) {
                     reported_length = Buffer.byteLength(body);
                 }
-                this._raw_response.endWithoutBody(reported_length, close_connection);
+                // Preserve the native optional-argument distinction. Passing explicit
+                // undefined values is coerced to a zero length by some uWS binaries,
+                // which would incorrectly add Content-Length: 0 to 204 responses.
+                if (reported_length === undefined && close_connection === undefined) {
+                    this._raw_response.endWithoutBody();
+                } else {
+                    this._raw_response.endWithoutBody(reported_length, close_connection);
+                }
 
                 // Preserve an explicitly declared length when no body bytes are supplied
             } else if (body === undefined && !this._streaming && content_length !== undefined) {
