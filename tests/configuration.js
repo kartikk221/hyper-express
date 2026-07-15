@@ -5,6 +5,9 @@ const EventSource = require('eventsource');
 const HyperExpress = require('../index.js');
 const AbortController = require('abort-controller');
 
+// Use a process-specific port range so concurrent checkouts do not collide.
+const port = 30000 + (process.pid % 10000);
+
 const patchedFetch = (url, options = {}) => {
     // Use a different http agent for each request to prevent connection pooling
     options.agent = new http.Agent({ keepAlive: false });
@@ -19,8 +22,8 @@ module.exports = {
     AbortController,
     server: {
         host: '127.0.0.1',
-        port: '8080', // Ports should always be numbers but we are maintaining compatibility with strings
-        secure_port: 8443,
-        base: 'http://127.0.0.1:8080',
+        port: port.toString(), // Ports should always be numbers but we are maintaining compatibility with strings
+        secure_port: port + 1,
+        base: `http://127.0.0.1:${port}`,
     },
 };

@@ -1,0 +1,56 @@
+name: CI
+
+on:
+    push:
+    pull_request:
+
+jobs:
+    test:
+        name: Node ${{ matrix.node }} / ${{ matrix.os }}
+        runs-on: ${{ matrix.os }}
+        strategy:
+            fail-fast: false
+            matrix:
+                node: [22, 24, 26]
+                os: [ubuntu-latest, macos-latest, windows-latest]
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+              with:
+                  submodules: recursive
+
+            - name: Use Node.js ${{ matrix.node }}
+              uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ matrix.node }}
+                  cache: npm
+
+            - name: Prefer HTTPS for GitHub dependencies
+              shell: bash
+              run: git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Run integration tests
+              run: npm test
+
+    alpine:
+        name: Node 22 / Alpine with gcompat
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+              with:
+                  submodules: recursive
+
+            - name: Run Alpine smoke tests
+              shell: bash
+              run: >-
+                  docker run --rm
+                  -v "$PWD:/workspace"
+                  -w /workspace
+                  node:22-alpine
+                  sh -c 'apk add --no-cache gcompat git &&
+                  git config --global url."https://github.com/".insteadOf ssh://git@github.com/ &&
+                  npm ci && npm test'

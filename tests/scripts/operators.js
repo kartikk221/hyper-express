@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const HTTP = require('http');
+const assert = require('node:assert/strict');
 
 function log(logger = 'SYSTEM', message) {
     let dt = new Date();
@@ -21,15 +22,13 @@ function random_string(length = 7) {
 
 async function assert_log(group, target, assertion) {
     try {
-        let result = await assertion();
-        if (result) {
-            log(group, 'Verified ' + target);
-        } else {
-            throw new Error('Failed To Verify ' + target + ' @ ' + group + ' -> ' + assertion.toString());
-        }
+        const result = await assertion();
+        assert.ok(result, 'Failed To Verify ' + target + ' @ ' + group + ' -> ' + assertion.toString());
+        log(group, 'Verified ' + target);
     } catch (error) {
-        console.log(error);
-        throw new Error('Failed To Verify ' + target + ' @ ' + group + ' -> ' + assertion.toString());
+        throw new Error('Failed To Verify ' + target + ' @ ' + group + ' -> ' + assertion.toString(), {
+            cause: error,
+        });
     }
 }
 
