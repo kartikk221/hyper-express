@@ -13,6 +13,7 @@ const { test_response_custom_content_length } = require('./scenarios/response_cu
 const { test_response_sse } = require('./scenarios/response_sse.js');
 const { test_response_set_header } = require('./scenarios/response_set_header.js');
 const { test_response_write_head } = require('./scenarios/response_write_head.js');
+const { test_response_v7 } = require('./ResponseV7.js');
 const router = new HyperExpress.Router();
 const endpoint = '/tests/response/operators';
 const endpoint_url = server.base + endpoint;
@@ -181,6 +182,9 @@ async function test_response_object() {
 
     // Test Response.set() header
     await test_response_set_header();
+
+    // Verify v7 response lifecycle and helper regressions
+    await test_response_v7();
 
     // Verify .on() aka. Response events
     assert_log(

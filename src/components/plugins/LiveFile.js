@@ -1,6 +1,7 @@
 'use strict';
 const FileSystem = require('fs');
 const EventEmitter = require('events');
+const Path = require('path');
 const { wrap_object, async_wait } = require('../../shared/operators.js');
 
 class LiveFile extends EventEmitter {
@@ -10,6 +11,7 @@ class LiveFile extends EventEmitter {
     #buffer;
     #content;
     #last_update;
+    #closed = false;
     #options = {
         path: '',
         retry: {
@@ -24,8 +26,7 @@ class LiveFile extends EventEmitter {
         // Merge user options into the LiveFile defaults
         wrap_object(this.#options, options);
 
-        const chunks = options.path.split('/');
-        this.#name = chunks[chunks.length - 1];
+        this.#name = Path.basename(this.#options.path);
 
         this.#extension = this.#options.path.split('.');
         this.#extension = this.#extension[this.#extension.length - 1];
@@ -33,7 +34,9 @@ class LiveFile extends EventEmitter {
         // Complete the initial load before watching for subsequent changes
         this.reload()
             .then(() => this._initiate_watcher())
-            .catch((error) => this.emit('error', error));
+            .catch((error) => {
+                if (error.code !== 'ERR_LIVE_FILE_CLOSED') this.emit('error', error);
+            });
     }
 
     /**
@@ -41,11 +44,20 @@ class LiveFile extends EventEmitter {
      * Initializes File Watcher to reload file on changes
      */
     _initiate_watcher() {
+        if (this.#closed || this.#watcher) return false;
+
         // Debounce filesystem changes through the shared reload promise
-        this.#watcher = FileSystem.watch(this.#options.path, () =>
-            this.reload().catch((error) => this.emit('error', error))
-        );
-        this.#watcher.on('error', (error) => this.emit('error', error));
+        this.#watcher = FileSystem.watch(this.#options.path, () => {
+            if (!this.#closed)
+                this.reload().catch((error) => {
+                    if (error.code !== 'ERR_LIVE_FILE_CLOSED') this.emit('error', error);
+                });
+        });
+        this.#watcher.on('error', (error) => {
+            this.close();
+            this.emit('error', error);
+        });
+        return true;
     }
 
     #reload_promise;
@@ -61,6 +73,12 @@ class LiveFile extends EventEmitter {
      * @returns {Promise}
      */
     reload(fresh = true, count = 0) {
+        if (this.#closed) {
+            const error = new Error('HyperExpress.LiveFile has been closed.');
+            error.code = 'ERR_LIVE_FILE_CLOSED';
+            return Promise.reject(error);
+        }
+
         const reference = this;
         if (fresh) {
             // Reuse an in-flight lookup for concurrent reload callers
@@ -72,7 +90,9 @@ class LiveFile extends EventEmitter {
             });
         }
 
-        FileSystem.readFile(this.#options.path, async (error, buffer) => {
+        FileSystem.readFile(this.#options.path, (error, buffer) => {
+            if (reference.#closed) return;
+
             if (error) {
                 const reject = reference.#reload_reject;
                 reference.#reload_resolve = null;
@@ -85,8 +105,10 @@ class LiveFile extends EventEmitter {
             // Retry empty reads caused by atomic file replacements from third-party programs
             const { every, max } = reference.#options.retry;
             if (buffer.length == 0 && count < max) {
-                await async_wait(every);
-                return reference.reload(false, count + 1);
+                async_wait(every).then(() => {
+                    if (!reference.#closed) reference.reload(false, count + 1);
+                });
+                return;
             }
 
             reference.#buffer = buffer;
@@ -144,6 +166,33 @@ class LiveFile extends EventEmitter {
         return this.#ready_promise;
     }
 
+    /**
+     * Disposes the file watcher. Safe to call repeatedly.
+     * @returns {Boolean} Whether this call closed the LiveFile.
+     */
+    close() {
+        if (this.#closed) return false;
+        this.#closed = true;
+
+        const error = new Error('HyperExpress.LiveFile was closed before loading completed.');
+        error.code = 'ERR_LIVE_FILE_CLOSED';
+
+        if (this.#reload_reject) {
+            const reject = this.#reload_reject;
+            this.#reload_resolve = null;
+            this.#reload_reject = null;
+            this.#reload_promise = null;
+            reject(error);
+        }
+        if (this.#ready_reject) this._flush_ready(error);
+
+        if (this.#watcher) {
+            this.#watcher.close();
+            this.#watcher = undefined;
+        }
+        return true;
+    }
+
     /* LiveFile Getters */
     get is_ready() {
         return this.#ready_promise === true;
@@ -175,6 +224,10 @@ class LiveFile extends EventEmitter {
 
     get watcher() {
         return this.#watcher;
+    }
+
+    get closed() {
+        return this.#closed;
     }
 }
 

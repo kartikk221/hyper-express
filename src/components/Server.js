@@ -37,6 +37,12 @@ class Server extends Router {
     _options = null;
 
     /**
+     * Server-owned live file cache. Deleting or replacing an entry disposes its watcher.
+     * @private
+     */
+    _file_pool;
+
+    /**
      * @param {Object} options Server Options
      * @param {String=} options.cert_file_name Path to SSL certificate file to be used for SSL/TLS.
      * @param {String=} options.key_file_name Path to SSL private key file to be used for SSL/TLS.
@@ -63,6 +69,22 @@ class Server extends Router {
 
         super();
         super._is_app(true);
+
+        const file_pool = Object.create(null);
+        this._file_pool = new Proxy(file_pool, {
+            deleteProperty(target, key) {
+                const live_file = target[key];
+                if (live_file && typeof live_file.close === 'function') live_file.close();
+                return Reflect.deleteProperty(target, key);
+            },
+            set(target, key, live_file) {
+                const previous = target[key];
+                if (previous && previous !== live_file && typeof previous.close === 'function')
+                    previous.close();
+                target[key] = live_file;
+                return true;
+            },
+        });
 
         // Merge user options into defaults and expose them to request lifecycle components
         wrap_object(this.#options, options);
@@ -240,6 +262,8 @@ class Server extends Router {
      * @returns {Boolean}
      */
     close(listen_socket) {
+        for (const cache_key of Object.keys(this._file_pool)) delete this._file_pool[cache_key];
+
         const socket = listen_socket || this.#listen_socket;
         if (socket) {
             uWebSockets.us_listen_socket_close(socket);

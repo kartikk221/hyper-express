@@ -29,6 +29,7 @@ class ExpressResponse {
                 this.header(header_key, header_value);
             }
         }
+        return this;
     }
 
     /**
@@ -51,7 +52,7 @@ class ExpressResponse {
     }
 
     setHeaders(headers) {
-        this.writeHeaders(headers);
+        return this.writeHeaders(headers);
     }
 
     writeHeaderValues(name, values) {
@@ -59,14 +60,16 @@ class ExpressResponse {
         for (const header_value of header_values) {
             this.header(name, header_value);
         }
+        return this;
     }
 
     getHeader(name) {
-        return this._headers[name];
+        return this._headers[String(name).toLowerCase()];
     }
 
     removeHeader(name) {
-        delete this._headers[name];
+        delete this._headers[String(name).toLowerCase()];
+        return this;
     }
 
     setCookie(name, value, options) {
@@ -74,15 +77,17 @@ class ExpressResponse {
     }
 
     hasCookie(name) {
-        return this._cookies && this._cookies[name] !== undefined;
+        return Boolean(
+            this._cookies && Object.keys(this._cookies).some((scope) => scope.startsWith(`${name}\0`))
+        );
     }
 
-    removeCookie(name) {
-        return this.cookie(name, null);
+    removeCookie(name, options) {
+        return this.cookie(name, null, null, options);
     }
 
-    clearCookie(name) {
-        return this.cookie(name, null);
+    clearCookie(name, options) {
+        return this.cookie(name, null, null, options);
     }
 
     end(data) {
@@ -94,8 +99,7 @@ class ExpressResponse {
     }
 
     get(name) {
-        let values = this._headers[name];
-        if (values) return values.length == 0 ? values[0] : values;
+        return this._headers[String(name).toLowerCase()];
     }
 
     links(links) {
@@ -109,6 +113,7 @@ class ExpressResponse {
         }
 
         this.header('link', chunks.join(', '));
+        return this;
     }
 
     location(path) {
@@ -138,6 +143,7 @@ class ExpressResponse {
         } else {
             this.header(field, value);
         }
+        return this;
     }
 
     vary(name) {

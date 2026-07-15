@@ -1,6 +1,7 @@
 'use strict';
 const stream = require('stream');
 const FileSystem = require('fs');
+const { pipeline } = require('stream/promises');
 
 class MultipartField {
     #name;
@@ -40,21 +41,16 @@ class MultipartField {
      * @param {stream.WritableOptions} options Writable stream options
      * @returns {Promise}
      */
-    write(path, options) {
+    async write(path, options) {
         // Only file fields expose a stream that can be written to disk
         if (this.file === undefined)
             throw new Error(
                 'HyperExpress.Request.MultipartField.write(path, options) -> This method can only be called on a field that is a file type.'
             );
 
-        // Resolve after the destination stream has fully flushed
-        const reference = this;
-        return new Promise((resolve, reject) => {
-            const writable = FileSystem.createWriteStream(path, options);
-            writable.on('close', resolve);
-            writable.on('error', reject);
-            reference.file.stream.pipe(writable);
-        });
+        // pipeline settles once and tears down both sides for source and destination failures.
+        const writable = FileSystem.createWriteStream(path, options);
+        await pipeline(this.file.stream, writable);
     }
 
     /* MultipartField Properties */

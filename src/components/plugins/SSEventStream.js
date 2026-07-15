@@ -15,10 +15,8 @@ class SSEventStream {
         this.#wrote_headers = true;
 
         this._response
-            .header('content-type', 'text/event-stream')
-            .header('cache-control', 'no-cache')
-            .header('connection', 'keep-alive')
-            .header('x-accel-buffering', 'no');
+            .header('content-type', 'text/event-stream; charset=utf-8')
+            .header('cache-control', 'no-cache');
 
         return true;
     }
@@ -29,9 +27,18 @@ class SSEventStream {
      * @returns {Boolean} Whether the data was written
      */
     _write(data) {
+        if (!this.active) return false;
         // Lazily apply SSE headers before the first payload
         this._initiate_sse_stream();
         return this._response.write(data);
+    }
+
+    /** @private */
+    _lines(value) {
+        return String(value ?? '')
+            .replace(/\r\n/g, '\n')
+            .replace(/\r/g, '\n')
+            .split('\n');
     }
 
     /**
@@ -61,8 +68,8 @@ class SSEventStream {
      * @returns {Boolean}
      */
     comment(data) {
-        // A leading colon marks an SSE comment rather than an event
-        return this._write(`: ${data}\n`);
+        const lines = this._lines(data).map((line) => (line ? `: ${line}` : ':'));
+        return this._write(`${lines.join('\n')}\n\n`);
     }
 
     /**
@@ -75,20 +82,34 @@ class SSEventStream {
      * @returns {Boolean}
      */
     send(id, event, data) {
-        // Parse arguments into overloaded parameter translations
-        const _id = id && event && data ? id : undefined;
-        const _event = id && event ? (_id ? event : id) : undefined;
-        const _data = data || event || id;
+        // Parse overloads by argument count so empty strings and other falsey values survive.
+        let _id;
+        let _event;
+        let _data;
+        if (arguments.length >= 3) {
+            _id = id;
+            _event = event;
+            _data = data;
+        } else if (arguments.length === 2) {
+            _event = id;
+            _data = event;
+        } else {
+            _data = id;
+        }
 
         const parts = [];
-        if (_id) parts.push(`id: ${_id}`);
-        if (_event) parts.push(`event: ${_event}`);
-        if (_data) parts.push(`data: ${_data}`);
+        if (_id !== undefined) {
+            const safe_id = String(_id).replace(/[\r\n\0]/g, '');
+            parts.push(safe_id ? `id: ${safe_id}` : 'id:');
+        }
+        if (_event !== undefined) {
+            const safe_event = String(_event).replace(/[\r\n\0]/g, '');
+            parts.push(safe_event ? `event: ${safe_event}` : 'event:');
+        }
+        for (const line of this._lines(_data)) parts.push(line ? `data: ${line}` : 'data:');
 
         // A blank line terminates each SSE message
-        parts.push('', '');
-
-        return this._write(parts.join('\n'));
+        return this._write(`${parts.join('\n')}\n\n`);
     }
 
     /* SSEConnection Properties */
