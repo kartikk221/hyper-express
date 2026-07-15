@@ -773,7 +773,7 @@ class Response {
         // Normalize non-Error throws for a consistent handler contract
         if (!(error instanceof Error)) error = new Error(`ERR_CAUGHT_NON_ERROR_TYPE: ${error}`);
 
-        this.route.app.handlers.on_error(this._wrapped_request, this, error);
+        this.route.handle_error(this._wrapped_request, this, error);
         return this;
     }
 

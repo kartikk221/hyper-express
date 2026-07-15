@@ -4,14 +4,13 @@ const router = new HyperExpress.Router();
 const endpoint = '/tests/request';
 const scenario_endpoint = '/middleware-double-iteration';
 const endpoint_url = server.base + endpoint + scenario_endpoint;
+let first_completion;
+let duplicate_completion;
 
 // This middleware should only run on this endpoint
 const double_iteration_middleware = async (request, response, next) => {
-    // Bind an artificial error handler so we don't treat this as uncaught error
-    request.expected_error = () => response.status(501).send('DOUBLE_ITERATION_VIOLATION');
-
-    // Since this is an async callback, calling next and the async callback resolving will trigger a double iteration violation
-    next();
+    first_completion = next();
+    duplicate_completion = next();
 };
 
 const delay_middleware = (request, response, next) => setTimeout(next, 10);
@@ -42,11 +41,15 @@ async function test_middleware_double_iteration() {
     const response = await fetch(endpoint_url);
     const body = await response.text();
 
-    // Test to see error handler was properly called on expected middleware error
+    // The first completion advances; repeated next() calls and later promise settlement are ignored.
     assert_log(
         group,
-        `${candidate} Middleware Double Iteration Violation`,
-        () => response.status === 501 && body === 'DOUBLE_ITERATION_VIOLATION'
+        `${candidate} Middleware Single Completion Guard`,
+        () =>
+            response.status === 200 &&
+            body === 'Good' &&
+            first_completion === true &&
+            duplicate_completion === false
     );
 }
 

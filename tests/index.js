@@ -3,6 +3,7 @@ const test = require('node:test');
 const { log, assert_log } = require('./scripts/operators.js');
 const { test_hostmanager_object } = require('./components/features/HostManager.js');
 const { test_router_object } = require('./components/router/Router.js');
+const { test_router_v7 } = require('./components/router/V7.js');
 const { test_request_object } = require('./components/http/Request.js');
 const { test_response_object } = require('./components/http/Response.js');
 const { test_websocket_route } = require('./components/ws/WebsocketRoute.js');
@@ -76,6 +77,7 @@ test('HyperExpress integration suite', { timeout: 30000 }, async (context) => {
 
     // Test Router Object
     await test_router_object();
+    await test_router_v7();
 
     // Test Request Object
     await test_request_object();

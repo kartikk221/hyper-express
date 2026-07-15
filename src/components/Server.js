@@ -22,6 +22,7 @@ class Server extends Router {
         auto_close: true,
         exclusive_port: false,
         fast_abort: false,
+        strict_middleware: false,
         trust_proxy: false,
         fast_buffers: false,
         max_body_buffer: 16 * 1024,
@@ -44,6 +45,7 @@ class Server extends Router {
      * @param {Boolean=} options.ssl_prefer_low_memory_usage Specifies uWebSockets to prefer lower memory usage while serving SSL.
      * @param {Boolean=} options.fast_buffers Buffer.allocUnsafe is used when set to true for faster performance.
      * @param {Boolean=} options.fast_abort Determines whether HyperExpress will abrubptly close bad requests. This can be much faster but the client does not receive an HTTP status code as it is a premature connection closure.
+     * @param {Boolean=} options.strict_middleware Reports duplicate middleware completion to the scoped error handler. Default: false.
      * @param {Boolean=} options.trust_proxy Specifies whether to trust incoming request data from intermediate proxy(s)
      * @param {Number=} options.max_body_buffer Maximum body content to buffer in memory before a request data is handled. Behaves similar to `highWaterMark` in Node.js streams.
      * @param {Number=} options.max_body_length Maximum body content length allowed in bytes. For Reference: 1kb = 1024 bytes and 1mb = 1024kb.
@@ -272,6 +274,7 @@ class Server extends Router {
     set_error_handler(handler) {
         if (typeof handler !== 'function') throw new Error('HyperExpress: handler must be a function');
         this.#handlers.on_error = handler;
+        return this;
     }
 
     /**
@@ -287,6 +290,7 @@ class Server extends Router {
     set_not_found_handler(handler) {
         if (typeof handler !== 'function') throw new Error('HyperExpress: handler must be a function');
         this.#handlers.on_not_found = handler;
+        return this;
     }
 
     /**
@@ -329,6 +333,7 @@ class Server extends Router {
         patch: {},
         put: {},
         trace: {},
+        connect: {},
         upgrade: {},
         ws: {},
     };
@@ -352,7 +357,7 @@ class Server extends Router {
      * @param {Object} record { method, pattern, options, handler }
      */
     _create_route(record) {
-        const { method, pattern, options, handler } = record;
+        const { method, pattern, options, handler, error_scopes = [] } = record;
 
         // Do not allow route creation once it is locked after a not found handler has been bound
         if (this.#routes_locked === true)
@@ -373,6 +378,7 @@ class Server extends Router {
             pattern,
             options,
             handler,
+            error_scopes,
         });
 
         // Mark route as temporary if specified from options
@@ -424,7 +430,7 @@ class Server extends Router {
         // Do not allow middleware creation after routing structures have been compiled
         if (this.#routes_locked === true)
             throw new Error(
-                `HyperExpress: Routes/Routers must not be created or used after the Server.listen() has been called. [${method.toUpperCase()} ${pattern}]`
+                `HyperExpress: Routes/Routers must not be created or used after the Server.listen() has been called. [MIDDLEWARE ${pattern}]`
             );
 
         if (this.#middlewares[pattern] == undefined) this.#middlewares[pattern] = [];
@@ -439,6 +445,63 @@ class Server extends Router {
         this.#middlewares[pattern].push(object);
     }
 
+    #router_mounts = [];
+
+    /**
+     * Records a router mount boundary for scoped not-found selection.
+     * @private
+     */
+    _create_router_mount(record) {
+        if (this.#routes_locked === true)
+            throw new Error(
+                `HyperExpress: Routes/Routers must not be created or used after the Server.listen() has been called. [ROUTER ${record.pattern}]`
+            );
+
+        this.#router_mounts.push({
+            pattern: record.pattern,
+            scopes: [...record.scopes],
+        });
+        return this;
+    }
+
+    /**
+     * Runs the not-found handler selected by longest matching router mount boundary.
+     * @private
+     */
+    _handle_not_found(request, response) {
+        let selected;
+        for (const mount of this.#router_mounts) {
+            const pattern = mount.pattern;
+            const matches =
+                pattern === '/' || request.path === pattern || request.path.startsWith(pattern + '/');
+
+            if (matches && (!selected || pattern.length > selected.pattern.length)) selected = mount;
+        }
+
+        const scopes = selected ? selected.scopes : [];
+        let handler;
+        for (const scope of scopes) {
+            handler = scope._get_not_found_handler();
+            if (handler) break;
+        }
+        if (!handler) handler = this.#handlers.on_not_found;
+
+        const on_error = (error) => response.route.handle_error(request, response, error, scopes);
+        try {
+            const output = handler(request, response);
+            if (output != null && typeof output.then === 'function') {
+                Promise.resolve(output).then(
+                    (value) => {
+                        if (value instanceof Error) on_error(value);
+                    },
+                    on_error
+                );
+            }
+        } catch (error) {
+            on_error(error);
+        }
+    }
+
     /**
      * Compiles the route and middleware structures for this instance for use in the uWS server.
      * Note! This method will lock any future creation of routes or middlewares.
@@ -448,7 +511,7 @@ class Server extends Router {
         // Bind the not found handler as a catchall route if the user did not already bind a global ANY catchall route
         if (this.#handlers.on_not_found) {
             const exists = this.#routes.any['/*'] !== undefined;
-            if (!exists) this.any('/*', (request, response) => this.#handlers.on_not_found(request, response));
+            if (!exists) this.any('/*', (request, response) => this._handle_not_found(request, response));
         }
 
         // Compile every registered route grouped by HTTP method and pattern
