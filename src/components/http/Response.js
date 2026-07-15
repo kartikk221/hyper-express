@@ -439,6 +439,24 @@ class Response {
     }
 
     /**
+     * Begins chunked response writing and flushes the current status and headers immediately.
+     * @returns {Response} Response (Chainable)
+     */
+    begin_write() {
+        if (!this.completed) {
+            if (this._cork && !this._corked) {
+                this._corked = true;
+                return this.atomic(() => this.begin_write());
+            }
+
+            this._streaming = true;
+            this._initiate_response();
+            this._raw_response.beginWrite();
+        }
+        return this;
+    }
+
+    /**
      * Writes the provided chunk to the client over uWS with backpressure handling if a callback is provided.
      *
      * @private

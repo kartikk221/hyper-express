@@ -9,6 +9,7 @@ const { test_response_object } = require('./components/http/Response.js');
 const { test_websocket_route } = require('./components/ws/WebsocketRoute.js');
 const { test_session_middleware } = require('./middlewares/hyper-express-session/index.js');
 const { test_websocket_component } = require('./components/ws/Websocket.js');
+const { test_server_v7 } = require('./components/ServerV7.js');
 // const { test_body_parser_middleware } = require('./middlewares/hyper-express-body-parser/index.js');
 
 const { server } = require('./configuration.js');
@@ -35,6 +36,9 @@ test('HyperExpress integration suite', { timeout: 30000 }, async (context) => {
 
     // Verify exclusive port listen option delegation
     await test_server_exclusive_port();
+
+    // Verify v7 server lifecycle and stable upstream-facing APIs on an isolated instance.
+    await test_server_v7();
 
     // Assert that a server instance with a bad SSL configuration throws an error
     await assert_log(group, 'Good SSL Configuration Initialization Test', async () => {

@@ -41,7 +41,8 @@ class WebsocketRoute extends Route {
                 // Copy because uWS invalidates the message ArrayBuffer after the synchronous callback
                 return (array_buffer) => Buffer.concat([Buffer.from(array_buffer)]);
             case 'ArrayBuffer':
-                return (array_buffer) => array_buffer;
+                // uWS neuters callback buffers after the native frame returns.
+                return (array_buffer) => array_buffer.slice(0);
             default:
                 throw new Error(
                     "Server.ws(options) -> options.message_type must be one of ['String', 'Buffer', 'ArrayBuffer']"
@@ -96,15 +97,24 @@ class WebsocketRoute extends Route {
             maxBackpressure: max_backpressure,
             maxPayloadLength: max_payload_length,
         };
+        if (Object.prototype.hasOwnProperty.call(this.options, 'close_on_backpressure_limit'))
+            uws_options.closeOnBackpressureLimit = this.options.close_on_backpressure_limit;
+        if (Object.prototype.hasOwnProperty.call(this.options, 'max_lifetime'))
+            uws_options.maxLifetime = this.options.max_lifetime;
+        if (Object.prototype.hasOwnProperty.call(this.options, 'send_pings_automatically'))
+            uws_options.sendPingsAutomatically = this.options.send_pings_automatically;
 
         // Bridge upgrade requests and WebSocket events into HyperExpress lifecycle handlers
         uws_options.upgrade = (uws_response, uws_request, socket_context) =>
             this.app._handle_uws_request(this.#upgrade_with, uws_request, uws_response, socket_context);
 
         uws_options.open = (ws) => this._on_open(ws);
+        uws_options.dropped = (ws, message, isBinary) => this._on_dropped(ws, message, isBinary);
         uws_options.drain = (ws) => this._on_drain(ws);
         uws_options.ping = (ws, message) => this._on_ping(ws, message);
         uws_options.pong = (ws, message) => this._on_pong(ws, message);
+        uws_options.subscription = (ws, topic, newCount, oldCount) =>
+            this._on_subscription(ws, topic, newCount, oldCount);
         uws_options.close = (ws, code, message) => this._on_close(ws, code, message);
         uws_options.message = (ws, message, isBinary) => this._on_message(ws, message, isBinary);
 
@@ -118,8 +128,18 @@ class WebsocketRoute extends Route {
      */
     _on_open(ws) {
         ws.poly = new Websocket(ws);
-
-        this.handler(ws.poly);
+        try {
+            const output = this.handler(ws.poly);
+            if (output != null && typeof output.then === 'function')
+                Promise.resolve(output).then(
+                    (value) => {
+                        if (value instanceof Error) ws.poly?.emit('error', value);
+                    },
+                    (error) => ws.poly?.emit('error', error)
+                );
+        } catch (error) {
+            ws.poly.emit('error', error);
+        }
     }
 
     /**
@@ -149,6 +169,22 @@ class WebsocketRoute extends Route {
      */
     _on_drain(ws) {
         ws.poly.emit('drain');
+    }
+
+    /**
+     * Handles a message dropped by native backpressure policy.
+     * @private
+     */
+    _on_dropped(ws, message = '', is_binary) {
+        ws.poly.emit('dropped', this.#message_parser(message), is_binary);
+    }
+
+    /**
+     * Handles native topic subscription count changes.
+     * @private
+     */
+    _on_subscription(ws, topic, new_count, old_count) {
+        ws.poly.emit('subscription', array_buffer_to_string(topic), new_count, old_count);
     }
 
     /**

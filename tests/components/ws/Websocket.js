@@ -2,6 +2,7 @@ const { log, random_string, assert_log } = require('../../scripts/operators.js')
 const { HyperExpress, Websocket, server } = require('../../configuration.js');
 const { test_websocket_stream } = require('./scenarios/stream.js');
 const { test_websocket_writable } = require('./scenarios/writable.js');
+const { test_websocket_v7 } = require('./WebsocketV7.js');
 
 const Router = new HyperExpress.Router();
 const TestPath = '/websocket-component';
@@ -125,6 +126,9 @@ async function test_websocket_component() {
 
     // Test websocket .writable property
     await test_websocket_writable();
+
+    // Verify v7 fragment, error-containment, upstream event, and retained message behavior.
+    await test_websocket_v7();
 
     log(group, `Finished Testing ${candidate}\n`);
 }

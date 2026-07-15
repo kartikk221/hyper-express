@@ -12,9 +12,11 @@ const FRAGMENTS = {
 class Websocket extends EventEmitter {
     #ws;
     #ip;
+    #port;
     #context;
     #stream;
     #closed = false;
+    #handling_unhandled_error = false;
 
     constructor(ws) {
         super();
@@ -22,14 +24,14 @@ class Websocket extends EventEmitter {
         this.#ws = ws;
         this.#context = ws.context || {};
         this.#ip = array_buffer_to_string(ws.getRemoteAddressAsText());
+        this.#port = ws.getRemotePort();
     }
 
     /* EventEmitter overrides */
 
     /**
      * Binds an event listener to this `Websocket` instance.
-     * See the Node.js `EventEmitter` documentation for more details on this extended method.
-     * @param {('message'|'close'|'drain'|'ping'|'pong')} eventName
+     * @param {('message'|'close'|'drain'|'ping'|'pong'|'dropped'|'subscription'|'error')} eventName
      * @param {Function} listener
      * @returns {Websocket}
      */
@@ -39,9 +41,8 @@ class Websocket extends EventEmitter {
     }
 
     /**
-     * Binds a `one-time` event listener to this `Websocket` instance.
-     * See the Node.js `EventEmitter` documentation for more details on this extended method.
-     * @param {('message'|'close'|'drain'|'ping'|'pong')} eventName
+     * Binds a one-time event listener to this `Websocket` instance.
+     * @param {('message'|'close'|'drain'|'ping'|'pong'|'dropped'|'subscription'|'error')} eventName
      * @param {Function} listener
      * @returns {Websocket}
      */
@@ -51,338 +52,402 @@ class Websocket extends EventEmitter {
     }
 
     /**
-     * Alias of uWS.cork() method. Accepts a callback with multiple operations for network efficiency.
-     *
+     * Emits an event while containing synchronous throws and rejected listener thenables.
+     * Listener failures are forwarded to the WebSocket `error` event. An unhandled error
+     * closes an active connection with status 1011 rather than escaping a native callback.
+     * @param {String|Symbol} eventName
+     * @param {...*} values
+     * @returns {Boolean}
+     */
+    emit(eventName, ...values) {
+        const listeners = super.rawListeners(eventName);
+        if (listeners.length === 0) {
+            if (eventName === 'error') this._close_on_unhandled_error(values[0]);
+            return false;
+        }
+
+        for (const listener of listeners) {
+            try {
+                const output = Reflect.apply(listener, this, values);
+                let is_thenable = false;
+                try {
+                    is_thenable = output != null && typeof output.then === 'function';
+                } catch (error) {
+                    this._handle_listener_error(eventName, error);
+                    continue;
+                }
+
+                if (is_thenable)
+                    Promise.resolve(output).then(
+                        (value) => {
+                            if (value instanceof Error) this._handle_listener_error(eventName, value);
+                        },
+                        (error) => this._handle_listener_error(eventName, error)
+                    );
+            } catch (error) {
+                this._handle_listener_error(eventName, error);
+            }
+        }
+        return true;
+    }
+
+    /** @private */
+    _handle_listener_error(event_name, error) {
+        if (!(error instanceof Error)) error = new Error(`ERR_CAUGHT_NON_ERROR_TYPE: ${error}`);
+        if (event_name === 'error') return this._close_on_unhandled_error(error);
+        this.emit('error', error);
+    }
+
+    /** @private */
+    _close_on_unhandled_error(error) {
+        if (this.#handling_unhandled_error) return;
+        this.#handling_unhandled_error = true;
+
+        if (!(error instanceof Error)) error = new Error(`ERR_CAUGHT_NON_ERROR_TYPE: ${error}`);
+        if (this.#ws) {
+            try {
+                this.#ws.end(1011, 'Internal server error');
+            } catch {
+                try {
+                    this.#ws.close();
+                } catch {}
+            }
+        }
+    }
+
+    /**
+     * Alias of uWS.cork(). The HyperExpress wrapper is always returned.
      * @param {Function} callback
      * @returns {Websocket}
      */
     atomic(callback) {
-        return this.#ws ? this.#ws.cork(callback) : this;
+        if (this.#ws)
+            this.#ws.cork(() => {
+                try {
+                    const output = callback();
+                    if (output != null && typeof output.then === 'function')
+                        Promise.resolve(output).then(
+                            (value) => {
+                                if (value instanceof Error) this.emit('error', value);
+                            },
+                            (error) => this.emit('error', error)
+                        );
+                } catch (error) {
+                    this.emit('error', error);
+                }
+            });
+        return this;
     }
 
     /**
-     * Sends a message to websocket connection.
-     * Returns true if message was sent successfully.
-     * Returns false if message was not sent due to built-up backpressure.
-     *
-     * @param {String|Buffer|ArrayBuffer} message
+     * Sends a message and returns the native uWS send status:
+     * 1 for success, 2 for a dropped message, and 0 for backpressure.
+     * @param {String|Buffer|ArrayBuffer|ArrayBufferView} message
      * @param {Boolean=} is_binary
      * @param {Boolean=} compress
-     * @returns {Boolean}
+     * @returns {Number}
      */
     send(message, is_binary, compress) {
-        if (this.#ws) return this.#ws.send(message, is_binary, compress);
-        return false;
+        return this.#ws ? this.#ws.send(message, is_binary, compress) : 0;
     }
 
     /**
-     * Sends a ping control message.
-     * Returns Boolean depending on backpressure similar to send().
-     *
-     * @param {String|Buffer|ArrayBuffer=} message
-     * @returns {Boolean}
+     * Sends a ping and returns the native uWS send status.
+     * @param {String|Buffer|ArrayBuffer|ArrayBufferView=} message
+     * @returns {Number}
      */
     ping(message) {
-        return this.#ws ? this.#ws.ping(message) : false;
+        return this.#ws ? this.#ws.ping(message) : 0;
     }
 
-    /**
-     * Destroys this polyfill Websocket component and dereferences the underlying ws object
-     * @private
-     */
+    /** @private */
     _destroy() {
+        if (this.#closed) return false;
         this.#ws = null;
         this.#closed = true;
+        return true;
     }
 
-    /**
-     * Gracefully closes websocket connection by sending specified code and short message.
-     *
-     * @param {Number=} code
-     * @param {(String|Buffer|ArrayBuffer)=} message
-     */
+    /** Gracefully closes the WebSocket connection. */
     close(code, message) {
         if (this.#ws) this.#ws.end(code, message);
     }
 
-    /**
-     * Forcefully closes websocket connection.
-     * No websocket close code/message is sent.
-     * This will immediately emit the 'close' event.
-     */
+    /** Forcefully closes the WebSocket connection. */
     destroy() {
         if (this.#ws) this.#ws.close();
     }
 
-    /**
-     * Returns whether this `Websocket` is subscribed to the specified topic.
-     *
-     * @param {String} topic
-     * @returns {Boolean}
-     */
     is_subscribed(topic) {
         return this.#ws ? this.#ws.isSubscribed(topic) : false;
     }
 
-    /**
-     * Subscribe to a topic in MQTT syntax.
-     * MQTT syntax includes things like "root/child/+/grandchild" where "+" is a wildcard and "root/#" where "#" is a terminating wildcard.
-     *
-     * @param {String} topic
-     * @returns {Boolean}
-     */
     subscribe(topic) {
         return this.#ws ? this.#ws.subscribe(topic) : false;
     }
 
-    /**
-     * Unsubscribe from a topic.
-     * Returns true on success, if the WebSocket was subscribed.
-     *
-     * @param {String} topic
-     * @returns {Boolean}
-     */
     unsubscribe(topic) {
         return this.#ws ? this.#ws.unsubscribe(topic) : false;
     }
 
-    /**
-     * Publish a message to a topic in MQTT syntax.
-     * You cannot publish using wildcards, only fully specified topics.
-     *
-     * @param {String} topic
-     * @param {String|Buffer|ArrayBuffer} message
-     * @param {Boolean=} is_binary
-     * @param {Boolean=} compress
-     */
     publish(topic, message, is_binary, compress) {
         return this.#ws ? this.#ws.publish(topic, message, is_binary, compress) : false;
     }
 
-    #buffered_fragment;
-    /**
-     * Buffers the provided fragment and returns the last buffered fragment.
-     *
-     * @param {String|Buffer|ArrayBuffer} fragment
-     * @returns {String|Buffer|ArrayBuffer|undefined}
-     */
-    _buffer_fragment(fragment) {
-        const current = this.#buffered_fragment;
-        this.#buffered_fragment = fragment;
-        return current;
+    /** @private */
+    _disconnected_error() {
+        const error = new Error('HyperExpress.Websocket is no longer connected.');
+        error.code = 'ERR_WEBSOCKET_CLOSED';
+        return error;
     }
 
     /**
-     * Initiates fragment based message writing with uWS and writes appropriate chunk based on provided type parameter.
-     *
-     * @param {String} type
-     * @param {String|Buffer|ArrayBuffer} chunk
-     * @param {Boolean=} is_binary
-     * @param {Boolean=} compress
-     * @param {Function=} callback
-     * @returns {Boolean}
+     * Attempts a native send exactly once per invocation and waits for one drain before retrying
+     * a status-0 backpressured send. Accepted and dropped fragments are never retried.
+     * @private
+     * @param {Function} attempt
+     * @returns {Promise<Number>}
      */
-    _write(type, chunk, is_binary, compress, callback) {
-        if (this.#ws) {
-            // Map the fragment position to the corresponding uWS send operation
-            let sent;
-            switch (type) {
-                case FRAGMENTS.FIRST:
-                    sent = this.#ws.sendFirstFragment(chunk, is_binary, compress);
-                    break;
-                case FRAGMENTS.MIDDLE:
-                    sent = this.#ws.sendFragment(chunk, is_binary, compress);
-                    break;
-                case FRAGMENTS.LAST:
-                    sent = this.#ws.sendLastFragment(chunk, is_binary, compress);
-                    break;
-                default:
-                    throw new Error('Websocket._write() -> Invalid Fragment type constant provided.');
-            }
+    _wait_for_send(attempt) {
+        return new Promise((resolve, reject) => {
+            let settled = false;
+            let drain_handler;
 
-            if (sent) {
-                if (callback) callback();
-            } else {
-                // Retry the fragment after uWS backpressure drains
-                this.once('drain', () => this._write(type, chunk, is_binary, compress, callback));
-            }
+            const cleanup = () => {
+                if (drain_handler) this.removeListener('drain', drain_handler);
+                this.removeListener('close', on_close);
+            };
+            const settle = (error, status) => {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                if (error) reject(error);
+                else resolve(status);
+            };
+            const on_close = () => settle(this._disconnected_error());
+            const run = () => {
+                if (!this.#ws) return settle(this._disconnected_error());
 
-            return sent;
-        }
-
-        throw new Error('Websocket is no longer connected.');
-    }
-
-    /**
-     * Streams the provided chunk while pausing the stream being consumed during backpressure.
-     *
-     * @param {Readable} stream
-     * @param {String} type
-     * @param {Buffer|ArrayBuffer} chunk
-     * @param {Boolean} is_binary
-     */
-    _stream_chunk(stream, type, chunk, is_binary) {
-        if (this.#ws === null) return;
-
-        const sent = this._write(type, chunk, is_binary);
-        if (!sent) {
-            // Pause source consumption until the WebSocket drains
-            stream.pause();
-
-            this.once('drain', () => this._stream_chunk(stream, type, chunk, is_binary));
-        } else if (stream.isPaused()) {
-            // Resume only after the previously blocked fragment is accepted
-            stream.resume();
-        }
-    }
-
-    /**
-     * This method is used to stream a message to the receiver.
-     * Note! The data is by default streamed as Binary due to how partial fragments are sent.
-     * This is done to prevent processing errors depending on client's receiver's incoming fragment processing strategy.
-     *
-     * @param {Readable} readable A Readable stream which will be consumed as message
-     * @param {Boolean=} is_binary Whether data being streamed is in binary. Default: true
-     * @returns {Promise}
-     */
-    stream(readable, is_binary = true) {
-        if (!(readable instanceof Readable))
-            throw new Error('Websocket.stream(readable) -> readable must be a Readable stream.');
-
-        // Fragment state is connection-wide, so only one stream may run at a time
-        if (this.#stream)
-            throw new Error(
-                'Websocket.stream(readable) -> You may not stream data while another stream operation is active on this websocket. Make sure you are not already streaming or piping a stream to this websocket.'
-            );
-
-        const scope = this;
-        return new Promise((resolve) => {
-            scope.#stream = readable;
-
-            // Delay one fragment so the final fragment can use the correct uWS opcode
-            let is_first = true;
-            readable.on('data', (chunk) => {
-                const fragment = scope._buffer_fragment(chunk);
-                if (fragment) {
-                    scope._stream_chunk(readable, is_first ? FRAGMENTS.FIRST : FRAGMENTS.MIDDLE, fragment, is_binary);
-
-                    if (is_first) is_first = false;
-                }
-            });
-
-            const end_stream = () => {
-                const fragment = scope._buffer_fragment();
-
-                // A single buffered fragment can be sent as a complete message
-                if (is_first) {
-                    scope.#ws.send(fragment, is_binary);
-                } else {
-                    scope._stream_chunk(scope.#stream, FRAGMENTS.LAST, fragment, is_binary);
+                let status;
+                try {
+                    status = attempt(this.#ws);
+                } catch (error) {
+                    return settle(error);
                 }
 
-                scope.#stream = undefined;
-                resolve();
+                if (status === 1 || status === 2) return settle(undefined, status);
+                if (status !== 0)
+                    return settle(
+                        new Error(`HyperExpress.Websocket received an invalid native send status: ${status}`)
+                    );
+
+                drain_handler = () => {
+                    this.removeListener('drain', drain_handler);
+                    drain_handler = undefined;
+                    run();
+                };
+                this.once('drain', drain_handler);
             };
 
-            readable.once('end', end_stream);
+            this.once('close', on_close);
+            run();
         });
+    }
+
+    /** @private */
+    _write_fragment(type, chunk, is_binary, compress) {
+        return this._wait_for_send((ws) => {
+            switch (type) {
+                case FRAGMENTS.FIRST:
+                    return ws.sendFirstFragment(chunk, is_binary, compress);
+                case FRAGMENTS.MIDDLE:
+                    return ws.sendFragment(chunk, compress);
+                case FRAGMENTS.LAST:
+                    return ws.sendLastFragment(chunk, compress);
+                default:
+                    throw new Error('HyperExpress.Websocket received an invalid fragment type.');
+            }
+        }).then((status) => this._accept_stream_status(status));
+    }
+
+    /** @private */
+    _write_message(chunk, is_binary, compress) {
+        return this._wait_for_send((ws) => ws.send(chunk, is_binary, compress)).then((status) =>
+            this._accept_stream_status(status)
+        );
+    }
+
+    /** @private */
+    _accept_stream_status(status) {
+        if (status === 2) {
+            const error = new Error(
+                'HyperExpress.Websocket stream message was dropped by the native backpressure limit.'
+            );
+            error.code = 'ERR_WEBSOCKET_MESSAGE_DROPPED';
+            throw error;
+        }
+        return status;
+    }
+
+    /**
+     * Streams one complete WebSocket message from a Readable source.
+     * @param {Readable} readable
+     * @param {Boolean=} is_binary
+     * @returns {Promise<Websocket>}
+     */
+    async stream(readable, is_binary = true) {
+        if (!(readable instanceof Readable))
+            throw new TypeError('HyperExpress.Websocket.stream(readable) requires a Readable stream.');
+        if (!this.#ws) throw this._disconnected_error();
+        if (this.#stream)
+            throw new Error(
+                'HyperExpress.Websocket.stream(readable) cannot run while another stream operation is active.'
+            );
+
+        this.#stream = readable;
+        const iterator = readable[Symbol.asyncIterator]();
+        let close_reject;
+        const socket_closed = new Promise((resolve, reject) => (close_reject = reject));
+        const on_socket_close = () => close_reject(this._disconnected_error());
+        this.once('close', on_socket_close);
+
+        let buffered;
+        let sent_first = false;
+        let failed;
+        try {
+            while (true) {
+                const result = await Promise.race([iterator.next(), socket_closed]);
+                if (result.done) break;
+
+                if (buffered !== undefined) {
+                    await this._write_fragment(
+                        sent_first ? FRAGMENTS.MIDDLE : FRAGMENTS.FIRST,
+                        buffered,
+                        is_binary,
+                        false
+                    );
+                    sent_first = true;
+                }
+                buffered = result.value;
+            }
+
+            if (buffered === undefined) {
+                await this._write_message(Buffer.alloc(0), is_binary, false);
+            } else if (!sent_first) {
+                await this._write_message(buffered, is_binary, false);
+            } else {
+                await this._write_fragment(FRAGMENTS.LAST, buffered, is_binary, false);
+            }
+            return this;
+        } catch (error) {
+            failed = error;
+            if (!readable.destroyed) readable.destroy();
+            throw error;
+        } finally {
+            this.removeListener('close', on_socket_close);
+            if (failed && typeof iterator.return === 'function') {
+                try {
+                    await iterator.return();
+                } catch {}
+            }
+            if (this.#stream === readable) this.#stream = undefined;
+        }
     }
 
     /* Websocket Getters */
 
-    /**
-     * Underlying uWS.Websocket object
-     */
     get raw() {
         return this.#ws;
     }
 
-    /**
-     * Returns IP address of this websocket connection.
-     * @returns {String}
-     */
     get ip() {
         return this.#ip;
     }
 
-    /**
-     * Returns context values from the response.update(context) connection upgrade call.
-     * @returns {Object}
-     */
+    get remote_port() {
+        return this.#port;
+    }
+
     get context() {
         return this.#context;
     }
 
-    /**
-     * Returns whether is websocket connection is closed.
-     * @returns {Boolean}
-     */
     get closed() {
         return this.#closed;
     }
 
-    /**
-     * Returns the bytes buffered in backpressure.
-     * This is similar to the bufferedAmount property in the browser counterpart.
-     * @returns {Number}
-     */
     get buffered() {
         return this.#ws ? this.#ws.getBufferedAmount() : 0;
     }
 
-    /**
-     * Returns a list of topics this websocket is subscribed to.
-     * @returns {Array<String>}
-     */
     get topics() {
         return this.#ws ? this.#ws.getTopics() : [];
     }
 
     /**
-     * Returns a Writable stream associated with this response to be used for piping streams.
-     * Note! You can only retrieve/use only one writable at any given time.
-     *
+     * Returns a Writable that emits exactly one binary WebSocket message.
      * @returns {Writable}
      */
     get writable() {
-        // Writable and readable streaming share the same connection fragment state
-        const scope = this;
+        if (!this.#ws) throw this._disconnected_error();
         if (this.#stream)
             throw new Error(
-                'Websocket.writable -> You may only access and utilize one writable stream at any given time. Make sure you are not already streaming or piping a stream to this websocket.'
+                'HyperExpress.Websocket.writable cannot be used while another stream operation is active.'
             );
 
-        // Delay one fragment so finish can emit the correct final opcode
-        let is_first = true;
-        this.#stream = new Writable({
-            write: (chunk, encoding, callback) => {
-                const fragment = scope._buffer_fragment(chunk);
-
-                if (fragment) {
-                    scope._write(is_first ? FRAGMENTS.FIRST : FRAGMENTS.MIDDLE, fragment, true, false, callback);
-
-                    if (is_first) is_first = false;
-                } else {
-                    // Continue consumption while the first fragment remains buffered
-                    callback();
+        const scope = this;
+        let buffered;
+        let sent_first = false;
+        const writable = new Writable({
+            write(chunk, encoding, callback) {
+                if (buffered === undefined) {
+                    buffered = chunk;
+                    return callback();
                 }
+
+                const fragment = buffered;
+                buffered = chunk;
+                scope
+                    ._write_fragment(
+                        sent_first ? FRAGMENTS.MIDDLE : FRAGMENTS.FIRST,
+                        fragment,
+                        true,
+                        false
+                    )
+                    .then(() => {
+                        sent_first = true;
+                        callback();
+                    }, callback);
+            },
+            final(callback) {
+                let operation;
+                if (buffered === undefined) {
+                    operation = scope._write_message(Buffer.alloc(0), true, false);
+                } else if (!sent_first) {
+                    operation = scope._write_message(buffered, true, false);
+                } else {
+                    operation = scope._write_fragment(FRAGMENTS.LAST, buffered, true, false);
+                }
+                operation.then(() => callback(), callback);
             },
         });
 
-        const end_stream = () => {
-            const fragment = scope._buffer_fragment();
-
-            if (is_first) {
-                scope.#ws.send(fragment, true, false);
-                scope.#ws.stream = undefined;
-            } else {
-                scope._write(FRAGMENTS.LAST, fragment, true, false, () => (scope.#stream = undefined));
-            }
+        this.#stream = writable;
+        const on_socket_close = () => {
+            if (!writable.destroyed) writable.destroy(scope._disconnected_error());
         };
+        const release = () => {
+            scope.removeListener('close', on_socket_close);
+            if (scope.#stream === writable) scope.#stream = undefined;
+        };
+        this.once('close', on_socket_close);
+        writable.once('finish', release);
+        writable.once('close', release);
+        writable.on('error', (error) => {
+            if (!scope.closed) scope.emit('error', error);
+        });
 
-        this.#stream.on('finish', end_stream);
-
-        return this.#stream;
+        return writable;
     }
 }
 

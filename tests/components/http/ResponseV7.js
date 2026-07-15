@@ -110,6 +110,7 @@ function create_response(options = {}) {
         write_calls: [],
         close_calls: 0,
         upgrade_calls: 0,
+        begin_write_calls: 0,
         headers: [],
         offset: 0,
         onAborted(handler) {
@@ -142,6 +143,10 @@ function create_response(options = {}) {
         write(chunk) {
             this.write_calls.push(Buffer.from(chunk));
             return options.write ? options.write(chunk, this) : true;
+        },
+        beginWrite() {
+            this.begin_write_calls++;
+            return this;
         },
         tryEnd(chunk, total_size) {
             const value = Buffer.from(chunk);
@@ -248,6 +253,15 @@ async function test_response_lifecycle_units() {
         assert.equal(response.drain(() => undefined), response);
         assert.equal(native.writable_handler(0), true);
         assert.match(errors[0].message, /must return a boolean/i);
+    }
+
+    {
+        const { native, response } = create_response();
+        assert.equal(response.header('x-flushed', 'yes').begin_write(), response);
+        assert.equal(response.initiated, true);
+        assert.equal(response._streaming, true);
+        assert.equal(native.begin_write_calls, 1);
+        assert.deepEqual(native.headers, [['x-flushed', 'yes']]);
     }
 
     {

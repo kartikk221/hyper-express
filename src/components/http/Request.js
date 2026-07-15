@@ -786,6 +786,36 @@ class Request {
     }
 
     /**
+     * Returns the remote TCP port for the incoming request.
+     * Note! You cannot access this property after the request/response lifecycle has ended.
+     * @returns {Number}
+     */
+    get port() {
+        if (this._remote_port !== undefined) return this._remote_port;
+        if (this._request_ended)
+            throw new Error('HyperExpress.Request.port cannot be consumed after the Request/Response has ended.');
+
+        this._remote_port = this._raw_response.getRemotePort();
+        return this._remote_port;
+    }
+
+    /**
+     * Returns the remote TCP port reported by a PROXY Protocol v2 compatible proxy.
+     * Note! You cannot access this property after the request/response lifecycle has ended.
+     * @returns {Number}
+     */
+    get proxy_port() {
+        if (this._remote_proxy_port !== undefined) return this._remote_proxy_port;
+        if (this._request_ended)
+            throw new Error(
+                'HyperExpress.Request.proxy_port cannot be consumed after the Request/Response has ended.'
+            );
+
+        this._remote_proxy_port = this._raw_response.getProxiedRemotePort();
+        return this._remote_proxy_port;
+    }
+
+    /**
      * Throws an ERR_INCOMPATIBLE_CALL error with the provided property/method name.
      * @private
      */
