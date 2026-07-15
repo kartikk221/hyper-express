@@ -14,6 +14,7 @@ function md5_from_stream(stream) {
         const hash = crypto.createHash('md5');
         stream.on('data', (chunk) => hash.update(chunk));
         stream.on('end', () => resolve(hash.digest('hex')));
+        stream.on('error', reject);
     });
 }
 
@@ -26,6 +27,8 @@ router.post(scenario_endpoint, async (request, response) => {
     const fields = [];
     const ignore_fields = request.headers['ignore-fields'].split(',');
     const use_async_handler = request.headers['x-use-async-handler'] === 'true';
+    const use_thenable_handler = request.headers['x-use-thenable-handler'] === 'true';
+    const response_delay = Number(request.headers['x-response-delay']) || 0;
     const async_handler = async (field) => {
         // Throw a simulated error if the field name is in the ignore list
         const simulated_error = request.headers['x-simulate-error'] === 'true';
@@ -71,8 +74,6 @@ router.post(scenario_endpoint, async (request, response) => {
                 object.hash = hash;
                 fields[position] = object;
 
-                // Send response if no more operations in flight
-                if (in_flight < 1) response.json(fields);
             });
         } else {
             // Store the server fields into fields object
@@ -81,16 +82,36 @@ router.post(scenario_endpoint, async (request, response) => {
         }
     };
 
+    const thenable_handler = (field) => ({
+        then(resolve, reject) {
+            setTimeout(() => {
+                if (request.headers['x-simulate-error'] === 'true')
+                    return reject(new Error('SIMULATED_THENABLE_ERROR'));
+
+                fields.push({
+                    name: field.name,
+                    value: field.value,
+                    file_name: field.file ? field.file.name : undefined,
+                });
+                resolve();
+            }, 5);
+        },
+    });
+
     // Handle the incoming fields as multipart with the appropriate handler type
     try {
-        await request.multipart(use_async_handler ? async_handler : sync_handler);
+        await request.multipart(
+            use_thenable_handler ? thenable_handler : use_async_handler ? async_handler : sync_handler
+        );
     } catch (error) {
         // Pipe errors back to the client
-        return response.json({ error: error.message });
+        return response.json({ error: error instanceof Error ? error.message : error });
     }
 
-    // Only respond here if we are using the async handler or we have no inflight operations
-    if (use_async_handler || in_flight < 0) return response.json(fields);
+    if (response_delay) await new Promise((resolve) => setTimeout(resolve, response_delay));
+
+    // multipart() also waits for file streams consumed by synchronous handlers.
+    if (use_thenable_handler || in_flight === 0) return response.json(fields);
 });
 
 // Bind router to webserver
@@ -206,6 +227,68 @@ async function test_request_multipart(use_async_handler = false) {
             } Handler) - Handler Simulated Error Test`,
             () => error === 'SIMULATED_ERROR'
         );
+
+        // Arbitrary thenables must serialize in field order and unconsumed files must drain.
+        const thenable_form = new FormData();
+        thenable_form.append('first', 'one');
+        thenable_form.append('unconsumed', get_asset_buffer('example.txt'), 'example.txt');
+        thenable_form.append('last', 'three');
+        const thenable_started = Date.now();
+        const thenable_response = await fetch(endpoint_url, {
+            method: 'POST',
+            body: thenable_form,
+            headers: {
+                'ignore-fields': '',
+                'x-use-thenable-handler': 'true',
+            },
+        });
+        const thenable_fields = await thenable_response.json();
+        assert_log(group, `${candidate} Arbitrary Thenable Queue And File Drain`, () => {
+            return (
+                Date.now() - thenable_started >= 15 &&
+                thenable_fields.map((field) => field.name).join(',') === 'first,unconsumed,last'
+            );
+        });
+
+        const rejected_thenable_form = new FormData();
+        rejected_thenable_form.append('field', 'value');
+        const rejected_thenable_response = await fetch(endpoint_url, {
+            method: 'POST',
+            body: rejected_thenable_form,
+            headers: {
+                'ignore-fields': '',
+                'x-use-thenable-handler': 'true',
+                'x-simulate-error': 'true',
+            },
+        });
+        const rejected_thenable_body = await rejected_thenable_response.json();
+        assert_log(
+            group,
+            `${candidate} Rejected Thenable Propagation`,
+            () => rejected_thenable_body.error === 'SIMULATED_THENABLE_ERROR'
+        );
+
+        // Regression for #350: no post-body native resume may arm a 10-second timeout.
+        const delayed_form = new FormData();
+        delayed_form.append('field', 'value');
+        const delayed_started = Date.now();
+        const delayed_response = await fetch(endpoint_url, {
+            method: 'POST',
+            body: delayed_form,
+            headers: {
+                'ignore-fields': '',
+                'x-use-async-handler': 'true',
+                'x-response-delay': '10200',
+            },
+        });
+        const delayed_fields = await delayed_response.json();
+        assert_log(group, `${candidate} Delayed Post-Body Response Beyond 10 Seconds (#350)`, () => {
+            return (
+                delayed_response.status === 200 &&
+                Date.now() - delayed_started >= 10000 &&
+                delayed_fields[0].name === 'field'
+            );
+        });
     }
 }
 

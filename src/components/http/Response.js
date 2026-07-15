@@ -90,11 +90,14 @@ class Response {
         raw_response.onAborted(() => {
             if (this.completed) return;
             this.completed = true;
+            this._wrapped_request._mark_ended();
 
             // Release server and request lifecycle state before notifying user listeners
             this.route.app._resolve_pending_request();
 
-            this._wrapped_request._body_parser_stop();
+            const error = new Error('HyperExpress: Request was aborted before its lifecycle completed.');
+            error.code = 'ERR_REQUEST_ABORTED';
+            this._wrapped_request._body_parser_stop(error);
 
             if (this._writable) {
                 this.emit('abort', this._wrapped_request, this);
@@ -287,6 +290,7 @@ class Response {
         );
 
         this.completed = true;
+        this._wrapped_request._mark_ended();
         this.route.app._resolve_pending_request();
     }
 
@@ -483,6 +487,7 @@ class Response {
             if (this._writable && !this._streaming) this.emit('finish', this._wrapped_request, this);
 
             this.completed = true;
+            this._wrapped_request._mark_ended();
             this.route.app._resolve_pending_request();
 
             if (this._writable) this.emit('close', this._wrapped_request, this);
@@ -623,10 +628,13 @@ class Response {
     close() {
         if (!this.completed) {
             this.completed = true;
+            this._wrapped_request._mark_ended();
 
             this.route.app._resolve_pending_request();
 
-            this._wrapped_request._body_parser_stop();
+            const error = new Error('HyperExpress: Request was closed before its lifecycle completed.');
+            error.code = 'ERR_REQUEST_CLOSED';
+            this._wrapped_request._body_parser_stop(error);
 
             // Resume input so a body-parser or backpressure pause does not outlive closure
             this._wrapped_request.resume();
@@ -766,6 +774,13 @@ class Response {
      * @returns {Response}
      */
     throw(error) {
+        // Body limit failures are lifecycle control flow, not application errors. Preserve the
+        // 413 response even when an awaiting route parser observes the rejected body promise.
+        if (error instanceof Error && error.code === 'ERR_BODY_LIMIT') {
+            if (!this.completed) this.status(413).send();
+            return this;
+        }
+
         // Only the first lifecycle error reaches the global handler
         if (this.#thrown) return this;
         this.#thrown = true;

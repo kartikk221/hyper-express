@@ -9,6 +9,7 @@ const { test_request_router_paths_test } = require('./scenarios/request_router_p
 const { test_request_chunked_json } = require('./scenarios/request_chunked_json.js');
 const { test_request_accepts } = require('./scenarios/request_accepts.js');
 const { test_request_compatibility_setters } = require('./scenarios/request_compatibility_setters.js');
+const { test_request_body_v7 } = require('./V7.js');
 const fs = require('fs');
 const _path = require('path');
 const crypto = require('crypto');
@@ -182,6 +183,8 @@ async function test_request_object() {
         body: fetch_body,
     };
 
+    await test_request_body_v7();
+
     // Perform Too Large Body Rejection Test
     const too_large_response = await fetch(base + url, {
         method: test_method,
@@ -195,7 +198,9 @@ async function test_request_object() {
     assert_log(group, 'Too Large Body 413 HTTP Code Reject', () => too_large_response.status === 413);
 
     // Perform a too large body test with transfer-encoding: chunked
-    const temp_file_path = _path.resolve(_path.join(__dirname, '../../../tests/content/too-large-file.temp'));
+    const temp_file_path = _path.resolve(
+        _path.join(__dirname, `../../../tests/content/too-large-file.${process.pid}.temp`)
+    );
     fs.writeFileSync(temp_file_path, too_large_body_value);
     try {
         const too_large_chunked_response = await fetch(base + url, {

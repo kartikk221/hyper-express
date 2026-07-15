@@ -93,6 +93,17 @@ class Request {
     }
 
     /**
+     * Marks the wrapped native request inaccessible after its response lifecycle completes.
+     * @private
+     * @returns {Boolean} Whether this call transitioned the lifecycle.
+     */
+    _mark_ended() {
+        if (this._request_ended) return false;
+        this._request_ended = true;
+        return true;
+    }
+
+    /**
      * Pauses the current request and flow of incoming body data.
      * @returns {Request}
      */
@@ -114,8 +125,8 @@ class Request {
         // Mirror resume state so uWS receives each transition only once
         if (this._paused) {
             this._paused = false;
-            this._raw_response.resume();
-            if (this._readable) return this._super_resume();
+            if (!this.received) this._raw_response.resume();
+            if (this._readable) this._super_resume();
         }
         return this;
     }
@@ -130,7 +141,8 @@ class Request {
     pipe(destination, options) {
         // Piping consumes the body, so resume after binding the destination
         this._super_pipe(destination, options);
-        return this._super_resume();
+        this._super_resume();
+        return this;
     }
 
     /**
@@ -157,168 +169,169 @@ class Request {
     }
 
     /* Body Parsing */
-    _body_parser_mode = 0; // 0 = none (awaiting mode), 1 = buffering (internal use), 2 = streaming (external use)
+    _body_parser_mode = 0; // 0 = awaiting a consumer, 1 = internal buffering, 2 = public streaming
     _body_limit_bytes = 0;
     _body_received_bytes = 0;
-    _body_expected_bytes = -1; // Sentinel ensuring uWS.onData() is bound only once
+    _body_expected_bytes = -1; // -1 means native body reception has not been initialized
     _body_parser_flushing = false;
     _body_chunked_transfer = false;
-    _body_parser_buffered; // Stable chunks retained until the caller selects a parser API
-    _body_parser_passthrough; // Internal collector for buffered body parser APIs
+    _body_parser_buffered;
+    _body_parser_passthrough;
+    _body_parser_failure;
+    _body_parser_reject;
 
     /**
-     * Begins parsing the incoming request body data within the provided limit in bytes.
-     * NOTE: This method will be a no-op if there is no expected body based on the content-length header.
-     * NOTE: This method can be called multiple times to update the bytes limit during the parsing process process.
-     *
+     * Begins parsing incoming request data and binds the sole native body consumer.
      * @private
      * @param {import('./Response.js')} response
-     * @param {Number} bytes
-     * @returns {Boolean} Returns whether this request is within the bytes limit and should be handled further.
+     * @param {Number} limit_bytes
+     * @returns {Boolean}
      */
     _body_parser_run(response, limit_bytes) {
-        // Start parsing for a declared body length or an unknown-length chunked transfer
+        const is_first_run = this._body_expected_bytes === -1;
         const content_length = Number(this.headers['content-length']);
-        const is_chunked_transfer = this.headers['transfer-encoding'] === 'chunked';
-        if (content_length > 0 || is_chunked_transfer) {
-            const is_first_run = this._body_expected_bytes === -1;
+        const transfer_encoding = this.headers['transfer-encoding'];
+        const has_transfer_encoding =
+            typeof transfer_encoding === 'string' && transfer_encoding.toLowerCase() !== 'identity';
+        const declared_length =
+            Number.isSafeInteger(content_length) && content_length > 0 ? content_length : 0;
 
-            // Reapply limits because callers may request a stricter parser limit later
-            this._body_limit_bytes = limit_bytes;
-            this._body_expected_bytes = is_chunked_transfer ? 0 : content_length; // 0 represents unknown chunked length
+        this._body_limit_bytes = limit_bytes;
 
-            // Distinguish unknown-length chunked bodies from truly empty bodies
-            this._body_chunked_transfer = is_chunked_transfer;
+        if (is_first_run) {
+            this._body_chunked_transfer = has_transfer_encoding;
+            this._body_expected_bytes = has_transfer_encoding ? 0 : declared_length;
 
-            if (is_first_run) {
+            if (declared_length > 0 || has_transfer_encoding) {
                 this.received = false;
-                this._body_received_bytes = 0;
-
-                // Buffer stable copies until the caller selects buffering or streaming mode
                 this._body_parser_buffered = [];
 
-                // Bind the uWS body callback exactly once on the first parser run
-                this._raw_response.onData((chunk, is_last) => this._body_parser_on_chunk(response, chunk, is_last));
+                // A second consumer such as collectBody would race buffered, streaming, and
+                // multipart consumers, so onDataV2 remains the single native receiver.
+                this._raw_response.onDataV2((chunk, max_remaining_body_length) =>
+                    this._body_parser_on_chunk(response, chunk, max_remaining_body_length)
+                );
             }
-
-            this._body_parser_enforce_limit(response);
         }
 
-        // A flushing parser prevents the route lifecycle from starting
+        if (!this.received) this._body_parser_enforce_limit(response);
         return !this._body_parser_flushing;
     }
 
     /**
-     * Stops the body parser from accepting any more incoming body data.
+     * Stops forwarding native body data to consumers while allowing uWS to finish intake.
      * @private
+     * @param {*=} error
      */
-    _body_parser_stop() {
-        if (this._body_expected_bytes === -1 || this._body_parser_flushing) return;
+    _body_parser_stop(error) {
+        if (error && !this._body_parser_failure) {
+            this._body_parser_failure = error;
 
-        // Reject future chunks while allowing uWS to finish receiving the request body
+            if (this._body_parser_reject) {
+                const reject = this._body_parser_reject;
+                this._body_parser_reject = undefined;
+                reject(error);
+            }
+        }
+
+        if (this._body_expected_bytes === -1 || this._body_parser_flushing) return;
         this._body_parser_flushing = true;
 
-        if (this._readable) {
-            this.push(null);
-
-            // Prevent a paused readable from blocking the remaining network body
-            this.resume();
+        if (this._readable && !this._readable.readableEnded && !this._readable.destroyed) {
+            if (error instanceof Error && this._readable.listenerCount('error')) {
+                this._readable.destroy(error);
+            } else {
+                this.push(null);
+            }
         }
+
+        // Paused incomplete input must be drained, but native resume is unsafe after completion.
+        if (!this.received && this._paused) this.resume();
     }
 
     /**
-     * Checks if the body parser so far is within the bytes limit and triggers the limit handling if reached.
-     *
+     * Enforces both the declared/hinted size and bytes observed so far.
      * @private
      * @param {import('./Response.js')} response
-     * @returns {Boolean} Returns `true` when the body limit has been reached.
+     * @returns {Boolean}
      */
     _body_parser_enforce_limit(response) {
-        // Enforce declared and observed lengths to cover fixed and chunked bodies
         const incoming_bytes = Math.max(this._body_received_bytes, this._body_expected_bytes);
         if (incoming_bytes > this._body_limit_bytes) {
-            this._body_parser_stop();
+            const error = new RangeError(
+                `HyperExpress: Request body exceeded the ${this._body_limit_bytes} byte limit.`
+            );
+            error.code = 'ERR_BODY_LIMIT';
+            this._body_parser_stop(error);
 
             if (!response.initiated) {
-                // Fast aborts close immediately; otherwise defer 413 until the incoming body is flushed
                 if (this.route.app._options.fast_abort) {
                     response.close();
                 } else if (this.received) {
                     response.status(413).send();
                 }
             }
-
             return true;
         }
-
         return false;
     }
 
     /**
-     * Processes incoming raw body data chunks from the uWS HttpResponse.
-     *
+     * Processes a native onDataV2 callback.
      * @private
      * @param {import('./Response.js')} response
      * @param {ArrayBuffer} chunk
-     * @param {Boolean} is_last
+     * @param {bigint} max_remaining_body_length
      */
-    _body_parser_on_chunk(response, chunk, is_last) {
-        // Ignore empty intermediate callbacks while still honoring the final callback
+    _body_parser_on_chunk(response, chunk, max_remaining_body_length) {
+        const is_last = max_remaining_body_length === 0n;
         if (!chunk.byteLength && !is_last) return;
 
         this._body_received_bytes += chunk.byteLength;
 
-        if (!this._body_parser_flushing) {
-            const limited = this._body_parser_enforce_limit(response);
-            if (!limited) {
-                switch (this._body_parser_mode) {
-                    // Awaiting mode buffers stable copies until a consumer selects a parser API
-                    case 0:
-                        this._body_parser_buffered.push(copy_array_buffer_to_uint8array(chunk));
+        // uWS reports UINT64_MAX for chunked bodies until their final callback. Fixed bodies
+        // receive an exact remaining-length hint that can safely drive allocation and limits.
+        if (max_remaining_body_length !== 0xffffffffffffffffn) {
+            const maximum_total = BigInt(this._body_received_bytes) + max_remaining_body_length;
+            if (maximum_total <= BigInt(Number.MAX_SAFE_INTEGER))
+                this._body_expected_bytes = Math.max(
+                    this._body_expected_bytes,
+                    Number(maximum_total)
+                );
+        }
 
-                        // Bound eager buffering until a consumer begins reading
-                        if (this._body_received_bytes > this.app._options.max_body_buffer) this.pause();
-                        break;
-                    // Buffering mode feeds an internal parser callback
-                    case 1:
-                        this._body_parser_passthrough(
-                            // Chunked consumers retain chunks until completion, so copy the volatile uWS buffer
-                            this._body_chunked_transfer
-                                ? copy_array_buffer_to_uint8array(chunk)
-                                : new Uint8Array(chunk),
-                            is_last
-                        );
-                        break;
-                    // Streaming mode pushes stable copies into the public readable stream
-                    case 2:
-                        // Pause uWS when the Node stream reaches its highWaterMark
-                        if (!this.push(copy_array_buffer_to_uint8array(chunk))) this.pause();
-
-                        if (is_last) this.push(null);
-                        break;
-                }
+        if (!this._body_parser_flushing && !this._body_parser_enforce_limit(response)) {
+            switch (this._body_parser_mode) {
+                case 0:
+                    // onDataV2 buffers are volatile until the terminal callback, so retain copies.
+                    this._body_parser_buffered.push(copy_array_buffer_to_uint8array(chunk));
+                    if (!is_last && this._body_received_bytes > this.app._options.max_body_buffer)
+                        this.pause();
+                    break;
+                case 1:
+                    this._body_parser_passthrough(new Uint8Array(chunk), is_last);
+                    break;
+                case 2:
+                    // Spurious callbacks can arrive after pause; every one still belongs to the body.
+                    if (!this.push(copy_array_buffer_to_uint8array(chunk)) && !is_last) this.pause();
+                    if (is_last) this.push(null);
+                    break;
             }
         }
 
-        // Mark the body complete and notify responses waiting for uWS to flush its input
         if (is_last) {
             this.received = true;
-
             if (this._readable) this.emit('received', this._body_received_bytes);
 
-            // A deferred 413 response can now be sent safely
+            // Complete a deferred non-fast 413 only after uWS has consumed the request body.
             if (this._body_parser_flushing) this._body_parser_enforce_limit(response);
         }
     }
 
-    /**
-     * Flushes the buffered chunks to the appropriate body parser mode.
-     * @private
-     */
+    /** @private */
     _body_parser_flush_buffered() {
         if (this._body_parser_buffered) {
             switch (this._body_parser_mode) {
-                // Buffering mode replays chunks through the internal parser callback
                 case 1:
                     for (let i = 0; i < this._body_parser_buffered.length; i++) {
                         this._body_parser_passthrough(
@@ -327,90 +340,92 @@ class Request {
                         );
                     }
                     break;
-                // Streaming mode replays chunks through the public readable stream
                 case 2:
-                    for (const chunk of this._body_parser_buffered) {
-                        const buffer = Buffer.from(chunk);
-
-                        // Buffered chunks already reside in memory, so replay without applying backpressure to uWS
-                        this.push(buffer);
-                    }
-
-                    // End immediately if uWS completed before the readable stream was initialized
+                    for (const chunk of this._body_parser_buffered) this.push(Buffer.from(chunk));
                     if (this.received) this.push(null);
                     break;
             }
         }
 
-        // Release buffered references now that the selected consumer owns the chunks
         this._body_parser_buffered = null;
-
-        // Resume uWS input in case max_body_buffer caused the awaiting parser to pause it
+        // resume() only calls native resume while the body is incomplete.
         this.resume();
     }
 
-    /**
-     * This method is called when the underlying Readable stream is initialized and begins expecting incoming data.
-     * @private
-     */
+    /** @private */
     _body_parser_stream_init() {
         this._body_parser_mode = 2;
-
-        // Resume uWS only when the Node stream requests more data
         this._readable._read = () => this.resume();
-
         this._body_parser_flush_buffered();
     }
 
     _received_data_promise;
     /**
-     * Returns a single Uint8Array buffer which contains all incoming body data.
+     * Returns all received body data in one stable Uint8Array.
      * @private
      * @returns {Promise<Uint8Array>}
      */
     _body_parser_get_received_data() {
         if (this._received_data_promise) return this._received_data_promise;
 
-        // A non-chunked request without a positive declared length has no body to collect
-        if (!this._body_chunked_transfer && this._body_expected_bytes <= 0) return Promise.resolve(new Uint8Array(0));
+        if (this._body_parser_failure) {
+            this._received_data_promise = Promise.reject(this._body_parser_failure);
+            return this._received_data_promise;
+        }
 
-        this._received_data_promise = new Promise((resolve) => {
-            if (this._body_chunked_transfer) {
-                // Unknown-length bodies retain stable chunk copies and concatenate once at completion
-                const chunks = [];
+        if (!this._body_chunked_transfer && this._body_expected_bytes <= 0) {
+            this._received_data_promise = Promise.resolve(new Uint8Array(0));
+            return this._received_data_promise;
+        }
 
-                this._body_parser_passthrough = (chunk, is_last) => {
-                    chunks.push(chunk);
+        this._received_data_promise = new Promise((resolve, reject) => {
+            this._body_parser_reject = reject;
 
-                    if (is_last) {
-                        let offset = 0;
-                        const buffer = new Uint8Array(this._body_received_bytes);
-                        for (const chunk of chunks) {
-                            buffer.set(chunk, offset);
-                            offset += chunk.byteLength;
-                        }
+            let offset = 0;
+            let chunks = [];
+            let buffer =
+                this._body_expected_bytes > 0
+                    ? new Uint8Array(this._body_expected_bytes)
+                    : undefined;
 
-                        resolve(buffer);
+            this._body_parser_passthrough = (chunk, is_last) => {
+                if (this._body_parser_failure) return;
+
+                const view = chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
+                if (buffer) {
+                    const required_size = offset + view.byteLength;
+                    if (required_size > buffer.byteLength) {
+                        const expanded = new Uint8Array(
+                            Math.max(required_size, this._body_expected_bytes)
+                        );
+                        expanded.set(buffer.subarray(0, offset));
+                        buffer = expanded;
                     }
-                };
-            } else {
-                // Fixed-length bodies copy volatile chunks directly into one preallocated stable buffer
-                const buffer = new Uint8Array(this._body_expected_bytes);
+                    buffer.set(view, offset);
+                } else if (view.byteLength) {
+                    chunks.push(Uint8Array.from(view));
+                }
+                offset += view.byteLength;
 
-                let offset = 0;
-                this._body_parser_passthrough = (chunk, is_last) => {
-                    buffer.set(chunk, offset);
-                    offset += chunk.byteLength;
+                if (is_last) {
+                    if (!buffer) {
+                        buffer = new Uint8Array(offset);
+                        let chunk_offset = 0;
+                        for (const buffered_chunk of chunks) {
+                            buffer.set(buffered_chunk, chunk_offset);
+                            chunk_offset += buffered_chunk.byteLength;
+                        }
+                        chunks = null;
+                    }
 
-                    if (is_last) resolve(buffer);
-                };
-            }
+                    this._body_parser_reject = undefined;
+                    resolve(buffer.subarray(0, offset));
+                }
+            };
 
-            // Route existing and future chunks through the selected collector
             this._body_parser_mode = 1;
             this._body_parser_flush_buffered();
         });
-
         return this._received_data_promise;
     }
 
@@ -421,29 +436,21 @@ class Request {
      * @returns {Promise<Buffer>}
      */
     buffer() {
-        // Reuse the parsed representation across callers
-        if (this._body_buffer) return Promise.resolve(this._body_buffer);
-
-        this._buffer_promise = new Promise((resolve) =>
-            this._body_parser_get_received_data().then((raw) => {
-                this._body_buffer = Buffer.from(raw);
-                resolve(this._body_buffer);
-            })
-        );
-
+        if (!this._buffer_promise)
+            this._buffer_promise = this._body_parser_get_received_data().then(
+                (raw) => (this._body_buffer = Buffer.from(raw))
+            );
         return this._buffer_promise;
     }
 
     /**
-     * Decodes the incoming request body as a String.
      * @private
      * @param {Uint8Array} uint8
      * @param {string} encoding
      * @returns {string}
      */
     _uint8_to_string(uint8, encoding = 'utf-8') {
-        const decoder = new util.TextDecoder(encoding);
-        return decoder.decode(uint8);
+        return new util.TextDecoder(encoding).decode(uint8);
     }
 
     _body_text;
@@ -453,102 +460,48 @@ class Request {
      * @returns {Promise<string>}
      */
     text() {
-        // Reuse the parsed representation across callers
-        if (this._body_text) return Promise.resolve(this._body_text);
-
-        this._text_promise = new Promise((resolve) =>
-            this._body_parser_get_received_data().then((raw) => {
-                this._body_text = this._uint8_to_string(raw);
-                resolve(this._body_text);
-            })
-        );
-
+        if (!this._text_promise)
+            this._text_promise = this._body_parser_get_received_data().then(
+                (raw) => (this._body_text = this._uint8_to_string(raw))
+            );
         return this._text_promise;
     }
 
     _body_json;
     _json_promise;
     /**
-     * Downloads and parses the request body as a JSON object.
-     * Passing default_value as null will lead to the function throwing an exception if invalid JSON is received.
+     * Downloads and parses the request body as JSON.
+     * A falsey default_value causes invalid JSON to reject rather than use a fallback.
      *
      * @param {Any=} default_value Default: {}
      * @returns {Promise<Record>}
      */
     json(default_value = {}) {
-        // Reuse the parsed representation across callers
-        if (this._body_json) return Promise.resolve(this._body_json);
-
-        this._json_promise = new Promise((resolve, reject) =>
-            this._body_parser_get_received_data().then((raw) => {
-                const text = this._uint8_to_string(raw);
+        if (!this._json_promise)
+            this._json_promise = this._body_parser_get_received_data().then((raw) => {
                 try {
-                    this._body_json = JSON.parse(text);
+                    return (this._body_json = JSON.parse(this._uint8_to_string(raw)));
                 } catch (error) {
-                    if (default_value) {
-                        this._body_json = default_value;
-                    } else {
-                        reject(error);
-                    }
+                    if (default_value) return (this._body_json = default_value);
+                    throw error;
                 }
-
-                resolve(this._body_json);
-            })
-        );
-
+            });
         return this._json_promise;
     }
 
     _body_urlencoded;
     _urlencoded_promise;
     /**
-     * Parses and resolves an Object of urlencoded values from body.
+     * Parses the incoming body as URL-encoded values.
      * @returns {Promise<Record>}
      */
     urlencoded() {
-        // Reuse the parsed representation across callers
-        if (this._body_urlencoded) return Promise.resolve(this._body_urlencoded);
-
-        this._urlencoded_promise = new Promise((resolve) =>
-            this._body_parser_get_received_data().then((raw) => {
-                const text = this._uint8_to_string(raw);
-                this._body_urlencoded = querystring.parse(text);
-                resolve(this._body_urlencoded);
-            })
-        );
-
+        if (!this._urlencoded_promise)
+            this._urlencoded_promise = this._body_parser_get_received_data().then(
+                (raw) =>
+                    (this._body_urlencoded = querystring.parse(this._uint8_to_string(raw)))
+            );
         return this._urlencoded_promise;
-    }
-
-    _multipart_promise;
-    /**
-     * Handles incoming multipart fields from uploader and calls user specified handler with MultipartField.
-     *
-     * @private
-     * @param {Function} handler
-     * @param {String} name
-     * @param {String|stream.Readable} value
-     * @param {Object} info
-     */
-    async _on_multipart_field(handler, name, value, info) {
-        const field = new MultipartField(name, value, info);
-
-        // Serialize async field handlers and pause network input while one is pending
-        if (this._multipart_promise instanceof Promise) {
-            this.pause();
-            if (this._multipart_promise) await this._multipart_promise;
-            this.resume();
-        }
-
-        const output = handler(field);
-        if (output instanceof Promise) {
-            this._multipart_promise = output;
-            if (this._multipart_promise) await this._multipart_promise;
-            this._multipart_promise = null;
-        }
-
-        // Busboy requires unconsumed file streams to be drained before parsing can finish
-        if (field.file && !field.file.stream.readableEnded) field.file.stream.resume();
     }
 
     /**
@@ -569,7 +522,7 @@ class Request {
      *
      * @param {busboy.BusboyConfig|SyncMultipartHandler|AsyncMultipartHandler} options
      * @param {(SyncMultipartHandler|AsyncMultipartHandler)=} handler
-     * @returns {Promise<MultipartLimitReject|Error>} A promise which is resolved once all multipart fields have been processed
+     * @returns {Promise<void>} Resolves after all multipart handlers and file streams settle.
      */
     multipart(options, handler) {
         // Normalize the multipart(handler) overload
@@ -587,38 +540,31 @@ class Request {
             throw new Error('HyperExpress: Request.multipart(handler) -> handler must be a Function.');
 
         // Skip parsing when there is no body or multipart content type
-        if (this.readableEnded) return Promise.resolve();
+        if (this.received && this._body_received_bytes === 0) return Promise.resolve();
 
         const content_type = this.headers['content-type'];
-        if (!/^(multipart\/.+);(.*)$/i.test(content_type)) return Promise.resolve();
+        if (typeof content_type !== 'string' || !/^(multipart\/.+);(.*)$/i.test(content_type))
+            return Promise.resolve();
 
         const reference = this;
         return new Promise((resolve, reject) => {
             const uploader = busboy(options);
 
-            // Funnel every completion and error path through one cleanup routine
-            let finished = false;
-            const finish = async (error) => {
-                if (finished) return;
-                finished = true;
+            let settled = false;
+            let queue = Promise.resolve();
 
-                let silent_error = false;
-                if (error instanceof Error) {
-                    // Client disconnects commonly surface as Busboy's incomplete-form error
-                    if (error.message == 'Unexpected end of form') silent_error = true;
-                }
+            const finish = (error) => {
+                if (settled) return;
+                settled = true;
 
-                if (error && !silent_error) {
+                if (error) {
+                    reference._body_parser_stop(error);
+                    if (!uploader.destroyed) uploader.destroy();
                     reject(error);
                 } else {
-                    // Do not resolve until the final asynchronous field handler completes
-                    if (reference._multipart_promise) await reference._multipart_promise;
+                    // Success deliberately performs no native pause/resume after body completion.
                     resolve();
                 }
-
-                // Stop body intake and release Busboy after every handler has settled
-                reference._body_parser_stop();
-                uploader.destroy();
             };
 
             uploader.once('error', finish);
@@ -629,25 +575,54 @@ class Request {
             uploader.once('fieldsLimit', () => finish('FIELDS_LIMIT_REACHED'));
 
             const on_field = (name, value, info) => {
-                // Funnel file stream and user handler failures through shared cleanup
                 if (value instanceof stream.Readable) value.once('error', finish);
 
-                reference._on_multipart_field(handler, name, value, info).catch(finish);
+                // Serialize all handlers and assimilate arbitrary thenables.
+                queue = queue.then(async () => {
+                    if (settled) return;
+
+                    const field = new MultipartField(name, value, info);
+                    await Promise.resolve(handler(field));
+
+                    if (field.file && !field.file.stream.readableEnded) {
+                        await new Promise((resolve_file, reject_file) => {
+                            const file_stream = field.file.stream;
+                            const cleanup = () => {
+                                file_stream.off('end', on_end);
+                                file_stream.off('close', on_close);
+                                file_stream.off('error', on_error);
+                            };
+                            const on_end = () => {
+                                cleanup();
+                                resolve_file();
+                            };
+                            const on_close = () => {
+                                cleanup();
+                                if (file_stream.readableEnded) resolve_file();
+                                else reject_file(new Error('HyperExpress: Multipart file stream closed early.'));
+                            };
+                            const on_error = (error) => {
+                                cleanup();
+                                reject_file(error);
+                            };
+
+                            file_stream.once('end', on_end);
+                            file_stream.once('close', on_close);
+                            file_stream.once('error', on_error);
+                            file_stream.resume();
+                        });
+                    }
+                });
+                queue.catch(finish);
             };
 
             uploader.on('field', on_field);
             uploader.on('file', on_field);
 
-            uploader.once('close', () => {
-                if (reference._multipart_promise) {
-                    // Avoid forwarding the handler's resolved value as a finish error
-                    reference._multipart_promise.then(() => finish()).catch(finish);
-                } else {
-                    finish();
-                }
-            });
+            uploader.once('close', () => queue.then(() => finish()).catch(finish));
 
             reference.pipe(uploader);
+            reference.once('error', finish);
         });
     }
 
