@@ -8,7 +8,7 @@ const Path = require('path');
 
 const NodeResponse = require('../compatibility/NodeResponse.js');
 const ExpressResponse = require('../compatibility/ExpressResponse.js');
-const { inherit_prototype } = require('../../shared/operators.js');
+const { inherit_prototype, array_buffer_to_string } = require('../../shared/operators.js');
 
 const LiveFile = require('../plugins/LiveFile.js');
 const SSEventStream = require('../plugins/SSEventStream.js');
@@ -358,6 +358,10 @@ class Response {
         this._raw_response.upgrade(
             {
                 context,
+                // uWS may lose its cached peer address while replacing HttpResponseData with
+                // WebSocketData. Capture stable connection metadata before that native upgrade.
+                remote_ip: array_buffer_to_string(this._raw_response.getRemoteAddressAsText()),
+                remote_port: this._raw_response.getRemotePort(),
             },
             headers['sec-websocket-key'],
             headers['sec-websocket-protocol'],

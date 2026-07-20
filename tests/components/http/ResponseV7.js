@@ -118,6 +118,7 @@ function create_response(options = {}) {
         write_calls: [],
         close_calls: 0,
         upgrade_calls: 0,
+        upgrade_arguments: [],
         begin_write_calls: 0,
         on_writable_bindings: 0,
         headers: [],
@@ -169,8 +170,15 @@ function create_response(options = {}) {
         close() {
             this.close_calls++;
         },
-        upgrade() {
+        getRemoteAddressAsText() {
+            return Uint8Array.from(Buffer.from('198.51.100.7')).buffer;
+        },
+        getRemotePort() {
+            return 45678;
+        },
+        upgrade(...arguments_) {
             this.upgrade_calls++;
+            this.upgrade_arguments.push(arguments_);
         },
     };
     const route = {
@@ -259,6 +267,18 @@ async function test_response_lifecycle_units() {
         assert.equal(response.upgrade({ invalid: true }), response);
         assert.equal(native.upgrade_calls, 0);
         assert.match(errors[0].message, /cannot upgrade/i);
+    }
+
+    {
+        const { native, response } = create_response();
+        response._upgrade_socket = {};
+        response.upgrade({ key: 'value' });
+
+        assert.deepEqual(native.upgrade_arguments[0][0], {
+            context: { key: 'value' },
+            remote_ip: '198.51.100.7',
+            remote_port: 45678,
+        });
     }
 
     {

@@ -55,8 +55,12 @@ TEST_SERVER.ws(endpoint + '/empty-stream', async (ws) => {
     ws.close();
 });
 
-TEST_SERVER.ws(endpoint + '/remote-port', (ws) => {
-    const status = ws.send(String(ws.remote_port));
+TEST_SERVER.upgrade(endpoint + '/remote-address', (request, response) => {
+    setImmediate(() => response.upgrade());
+});
+
+TEST_SERVER.ws(endpoint + '/remote-address', (ws) => {
+    const status = ws.send(JSON.stringify({ ip: ws.ip, port: ws.remote_port }));
     if (status) ws.close();
 });
 
@@ -77,9 +81,11 @@ class FakeSocket {
     middle_statuses = [];
     last_statuses = [];
     remote_port_calls = 0;
+    remote_address_calls = 0;
     buffered_amount = 0;
 
     getRemoteAddressAsText() {
+        this.remote_address_calls++;
         return array_buffer('127.0.0.1');
     }
 
@@ -196,10 +202,23 @@ async function test_websocket_units() {
         assert.equal(ws.remote_port, 43210);
         assert.equal(raw.remote_port_calls, 1, 'stable native port data must be read only once');
         assert.equal(ws.ip, '127.0.0.1');
+        assert.equal(raw.remote_address_calls, 1, 'stable native address data must be read only once');
         assert.equal(ws.atomic(() => Promise.reject(new Error('atomic failure'))), ws);
         await Promise.resolve();
         await Promise.resolve();
         assert.equal(errors[0].message, 'atomic failure');
+    }
+
+    {
+        const raw = new FakeSocket();
+        raw.remote_ip = '203.0.113.10';
+        raw.remote_port = 54321;
+        const ws = new HyperWebsocket(raw);
+
+        assert.equal(ws.ip, '203.0.113.10');
+        assert.equal(ws.remote_port, 54321);
+        assert.equal(raw.remote_address_calls, 0, 'upgrade metadata must bypass the broken native address getter');
+        assert.equal(raw.remote_port_calls, 0, 'upgrade metadata must bypass the native port getter');
     }
 
     {
@@ -421,10 +440,12 @@ async function test_websocket_v7() {
     assert.equal(empty.messages.length, 1);
     assert.equal(empty.messages[0].byteLength, 0);
 
-    const remote_port = await exchange('/remote-port');
-    assert.ok(Number(remote_port.messages[0].toString()) > 0);
+    const remote_address = await exchange('/remote-address');
+    const { ip, port } = JSON.parse(remote_address.messages[0].toString());
+    assert.equal(ip, '127.0.0.1');
+    assert.ok(port > 0);
 
-    log('WEBSOCKET', 'Verified v7 Fragment, Error, Ports, Opt-In Options, And Message Lifetimes');
+    log('WEBSOCKET', 'Verified v7 Fragment, Error, Addresses, Opt-In Options, And Message Lifetimes');
 }
 
 module.exports = { test_websocket_v7 };

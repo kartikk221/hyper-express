@@ -24,8 +24,11 @@ class Websocket extends EventEmitter {
 
         this.#ws = ws;
         this.#context = ws.context || {};
-        this.#ip = array_buffer_to_string(ws.getRemoteAddressAsText());
-        this.#port = ws.getRemotePort();
+        this.#ip =
+            ws.remote_ip === undefined
+                ? array_buffer_to_string(ws.getRemoteAddressAsText())
+                : ws.remote_ip;
+        this.#port = ws.remote_port === undefined ? ws.getRemotePort() : ws.remote_port;
     }
 
     /* EventEmitter overrides */
