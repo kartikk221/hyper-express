@@ -32,8 +32,25 @@ class Route {
             middlewares: Array.isArray(options.middlewares) ? [...options.middlewares] : [],
         };
         this.method = method.toUpperCase();
+        if (
+            Object.prototype.hasOwnProperty.call(options, 'streaming') &&
+            (options.streaming === null ||
+                typeof options.streaming !== 'object' ||
+                Array.isArray(options.streaming))
+        )
+            throw new TypeError('HyperExpress route option streaming must be an object.');
         this.streaming = options.streaming ?? app._options.streaming ?? {};
         this.max_body_length = options.max_body_length ?? app._options.max_body_length;
+        if (
+            this.streaming === null ||
+            typeof this.streaming !== 'object' ||
+            Array.isArray(this.streaming)
+        )
+            throw new TypeError('HyperExpress route option streaming must be an object.');
+        if (!Number.isSafeInteger(this.max_body_length) || this.max_body_length < 0)
+            throw new RangeError(
+                'HyperExpress route option max_body_length must be a non-negative safe integer.'
+            );
         this.path_parameters_key = parse_path_parameters(pattern);
         this.error_scopes = [...error_scopes];
 

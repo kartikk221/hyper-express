@@ -79,22 +79,24 @@ webserver.use('/api/v1', api_v1_router);
     * **Parameter** `options`[`Object`]: This parameter is **optional** thus you can simply provide a `pattern` and `handler` for simpler code.
         * `idle_timeout`[`Number`]: Number of **seconds** after which a websocket connection will be disconnected after inactivity.
             * **Default**: `32`
-            * **Note** this number must be a factor of 4 meaning `idle_timeout % 4 == 0` due to a uWebsockets requirement.
+            * **Valid range**: `0` to disable, or an integer from `8` through `960`. Values outside this range are rejected before uWebSockets.js, whose C++ core terminates the process for unsupported values.
         * `message_type`[`String`]: Data type in which to process and emit messages from connections.
             * **Default**: `String`
             * **Must be one of** `String`, `Buffer`, `ArrayBuffer`, `ArrayBufferSafe`
             * **Note** `ArrayBuffer` preserves the v6 zero-copy behavior and is volatile after the synchronous event callback returns. Use `ArrayBufferSafe` when the message must be retained asynchronously. `Buffer` is also safe to retain.
         * `compression`[`Number`]: Defines the type of per message deflate compression to use.
             * **Default**: `HyperExpress.compressors.DISABLED`
-            * Please provide one of the constants from `require('hyper-express').compressors`.
+            * Provide a valid compressor/decompressor preset from `require('hyper-express').compressors`. A compressor and decompressor may be combined with bitwise OR.
                 * `DISABLED`, `SHARED_COMPRESSOR`, `DEDICATED_COMPRESSOR_3KB`, `DEDICATED_COMPRESSOR_4KB`, `DEDICATED_COMPRESSOR_8KB`, `DEDICATED_COMPRESSOR_16KB`, `DEDICATED_COMPRESSOR_32KB`, `DEDICATED_COMPRESSOR_64KB`, `DEDICATED_COMPRESSOR_128KB`, `DEDICATED_COMPRESSOR_256KB`
         * `max_backpressure`[`Number`]: Maximum length of allowed backpressure per connection when publishing or sending messages.
             * **Default**: `1024 * 1024` > `1,048,576`
+            * **Valid range**: integer bytes from `0` through `2,147,483,647`.
             * **Note** slow receivers with too high backpressure will be skipped and timeout until they catch up.
         * `max_payload_length`[`Number`]: Maximum length of allowed incoming messages per connection.
             * **Default**: `32 * 1024` > `32,768`
+            * **Valid range**: integer bytes from `0` through `2,147,483,647`.
             * **Note** any connection that sends a message larger than this number will be immediately closed.
         * `close_on_backpressure_limit`[`Boolean`]: Opt-in. Closes a connection when `max_backpressure` is reached instead of dropping the message. When omitted, the native default remains unchanged.
-        * `max_lifetime`[`Number`]: Opt-in maximum connection lifetime in seconds. Use `0` to disable this limit. When omitted, HyperExpress does not impose a lifetime.
+        * `max_lifetime`[`Number`]: Opt-in maximum connection lifetime in minutes. Use `0` to disable this limit; otherwise use an integer from `1` through `239`. When omitted, HyperExpress does not impose a lifetime.
         * `send_pings_automatically`[`Boolean`]: Opt-in control for automatic uWebSockets.js ping frames. When omitted, the native default remains unchanged.
     * **See** [`> [Websocket]`](./Websocket.md) for usage documentation on this method and working with websockets.

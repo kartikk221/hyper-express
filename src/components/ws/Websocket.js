@@ -10,6 +10,14 @@ const FRAGMENTS = {
 };
 const STREAM_BACKPRESSURE_HIGH_WATER_MARK = 64 * 1024;
 
+function sendable_byte_length(value, name) {
+    if (value === undefined) return 0;
+    if (typeof value === 'string' || Buffer.isBuffer(value)) return Buffer.byteLength(value);
+    if (value instanceof ArrayBuffer || value instanceof SharedArrayBuffer) return value.byteLength;
+    if (ArrayBuffer.isView(value)) return value.byteLength;
+    throw new TypeError(`HyperExpress.Websocket.${name} requires string or buffer data.`);
+}
+
 class Websocket extends EventEmitter {
     #ws;
     #ip;
@@ -125,6 +133,9 @@ class Websocket extends EventEmitter {
      * @returns {Websocket}
      */
     atomic(callback) {
+        if (typeof callback !== 'function')
+            throw new TypeError('HyperExpress.Websocket.atomic(callback) requires a function.');
+
         if (this.#ws)
             this.#ws.cork(() => {
                 try {
@@ -161,6 +172,8 @@ class Websocket extends EventEmitter {
      * @returns {Number}
      */
     ping(message) {
+        if (sendable_byte_length(message, 'ping(message)') > 125)
+            throw new RangeError('HyperExpress.Websocket ping payloads cannot exceed 125 bytes.');
         return this.#ws ? this.#ws.ping(message) : 0;
     }
 
@@ -174,6 +187,20 @@ class Websocket extends EventEmitter {
 
     /** Gracefully closes the WebSocket connection. */
     close(code, message) {
+        if (code !== undefined) {
+            const valid_code =
+                code === 0 ||
+                (Number.isInteger(code) &&
+                    (((code >= 1000 && code <= 1014) &&
+                        !(code >= 1004 && code <= 1006)) ||
+                        (code >= 3000 && code <= 4999)));
+            if (!valid_code)
+                throw new RangeError(
+                    'HyperExpress.Websocket.close(code) requires a valid WebSocket close code.'
+                );
+        }
+        if (sendable_byte_length(message, 'close(code, message)') > 123)
+            throw new RangeError('HyperExpress.Websocket close messages cannot exceed 123 bytes.');
         if (this.#ws) this.#ws.end(code, message);
     }
 

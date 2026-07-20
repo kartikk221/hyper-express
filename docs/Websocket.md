@@ -64,8 +64,10 @@ Router.upgrade('/connect', {
   * **Note** empty streams send one valid empty message. Source errors/early closes, socket closure, and dropped fragments reject the operation.
 * `ping(String|Buffer|ArrayBuffer|ArrayBufferView: message)`: Sends a ping control message.
     * **Returns** the same native numeric status values as `send()`.
+    * **Note** WebSocket control-frame payloads cannot exceed 125 bytes.
 * `close(Number: code, String: message)`: Gracefully closes the connection and writes specified code and short message.
     * **Note** this method is recommended for most use-cases.
+    * **Note** close codes are validated against the WebSocket protocol and the reason is limited to 123 bytes so uWebSockets.js cannot silently truncate it.
 * `destroy()`: Forcefully closes the connection and immediately emits `close` event.
     * **Note** no protocol close message is sent.
     * Only recommended when disconnecting bad actors.

@@ -44,7 +44,7 @@ function create_request(headers, options = {}) {
         },
         getRemoteAddressAsText() {
             this.remote_address_calls++;
-            return array_buffer('');
+            return array_buffer(options.remote_ip ?? '');
         },
         getProxiedRemoteAddressAsText() {
             this.proxy_address_calls++;
@@ -54,6 +54,7 @@ function create_request(headers, options = {}) {
     const app = {
         _options: {
             fast_abort: false,
+            trust_proxy: options.trust_proxy ?? false,
             max_body_buffer: options.max_body_buffer ?? 1,
             streaming: options.streaming ?? {},
         },
@@ -67,6 +68,8 @@ function create_request(headers, options = {}) {
     };
     const request = new Request(route, create_raw_request(headers));
     request._raw_response = native;
+    // Mirror Server._handle_uws_request: native connection values are request-entry data.
+    request._capture_connection_metadata();
 
     const response = {
         initiated: false,
@@ -83,6 +86,10 @@ function create_request(headers, options = {}) {
         },
         close() {
             this.initiated = true;
+        },
+        throw(error) {
+            this.error = error;
+            return this;
         },
     };
 
@@ -155,7 +162,7 @@ async function test_request_body_v7() {
     }
 
     {
-        const { request, response } = create_request({});
+        const { native, request, response } = create_request({});
         request._body_parser_run(response, 8);
         assert.equal(request.buffer(), request.buffer());
         assert.equal(request.text(), request.text());
@@ -175,7 +182,11 @@ async function test_request_body_v7() {
 
         assert.equal(request._mark_ended(), true);
         assert.equal(request._mark_ended(), false);
-        assert.throws(() => request.ip, /cannot be consumed after/);
+        assert.equal(request.ip, '');
+        const pauses = native.pauses;
+        request.pause().resume();
+        assert.equal(native.pauses, pauses, 'post-completion flow control must not touch uWS');
+        assert.equal(request.param('missing', 'fallback'), 'fallback');
     }
 
     {
@@ -185,6 +196,20 @@ async function test_request_body_v7() {
         const parser = request.text();
         request._body_parser_stop(expected);
         await assert.rejects(parser, (error) => error === expected);
+    }
+
+    {
+        const { callbacks, request, response } = create_request({ 'content-length': '1' });
+        request._body_parser_run(response, 8);
+        const expected = new Error('readable listener failure');
+        request.on('data', () => {
+            throw expected;
+        });
+        await new Promise((resolve) => setImmediate(resolve));
+
+        assert.doesNotThrow(() => callbacks.data(array_buffer('x'), 0n));
+        assert.equal(response.error, expected);
+        assert.equal(request.received, true, 'terminal native callbacks must settle after listener errors');
     }
 
     {
@@ -377,7 +402,37 @@ async function test_request_body_v7() {
         assert.equal(request.proxy_ip, '');
     }
 
-    log('REQUEST', 'Verified v7 Body Caching, Preallocation, Streaming, Backpressure, And Ports');
+    {
+        const { native, request } = create_request(
+            { 'x-forwarded-for': ' 203.0.113.9 , 198.51.100.2 ' },
+            { trust_proxy: true }
+        );
+        request._mark_ended();
+        assert.equal(request.ip, '203.0.113.9');
+        assert.deepEqual(request.ips, ['203.0.113.9', '198.51.100.2']);
+        assert.equal(native.remote_address_calls, 1);
+        assert.equal(native.remote_port_calls, 1);
+        assert.equal(native.proxy_address_calls, 1);
+        assert.equal(native.proxy_port_calls, 1);
+    }
+
+    {
+        const { request } = create_request(
+            { 'x-forwarded-for': '   , 198.51.100.2 ' },
+            { trust_proxy: true, remote_ip: '192.0.2.10' }
+        );
+        assert.equal(request.ip, '192.0.2.10', 'an empty forwarded client must use the socket IP');
+    }
+
+    {
+        const headers = JSON.parse('{"__proto__":"request-data","constructor":"header-data"}');
+        const { request } = create_request(headers);
+        assert.equal(Object.getPrototypeOf(request.headers), null);
+        assert.equal(request.headers.__proto__, 'request-data');
+        assert.equal(request.headers.constructor, 'header-data');
+    }
+
+    log('REQUEST', 'Verified v7 Body, Backpressure, And Stable Connection Metadata Lifecycles');
 }
 
 module.exports = { test_request_body_v7 };

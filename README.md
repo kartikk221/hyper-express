@@ -33,6 +33,7 @@ npm i hyper-express
 HyperExpress uses the native uWebSockets.js addon. Its prebuilt binaries support Tier 1 macOS and Windows platforms, and glibc-based Tier 1 Linux distributions. Alpine Linux uses musl instead of glibc; plain Alpine and Alpine with `gcompat` are not supported because the native addon can terminate with `SIGSEGV`. Use a Debian or Ubuntu based Node.js image for reliable container deployments.
 
 - See [`> [Migrating from v6 to v7]`](./docs/Migration-v7.md) for breaking changes and newly exposed APIs.
+- See [`> [Native lifecycle contract]`](./docs/Native-Lifecycle.md) for the audited uWebSockets.js ownership, callback-memory, and option-range rules.
 - See [`> [Examples & Snippets]`](./docs/Examples.md) for small and **easy-to-use snippets** with HyperExpress.
 - See [`> [Server]`](./docs/Server.md) for creating a webserver and working with the **Server** component.
 - See [`> [Router]`](./docs/Router.md) for working with the modular **Router** component.

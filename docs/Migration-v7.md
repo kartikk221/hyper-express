@@ -46,9 +46,15 @@ New WebSocket route options are `close_on_backpressure_limit`, `max_lifetime`, a
 
 New connection metadata includes `Request.port`, `Request.proxy_port`, and `Websocket.remote_port`. Worker composition is available through `Server.get_descriptor()`, `add_child_app_descriptor()`, and `remove_child_app_descriptor()`.
 
+Request connection metadata is now captured at HTTP request entry. This is required because pinned uWebSockets.js invalidates `HttpResponse` after completion and replaces its per-socket HTTP data during WebSocket upgrade; resolving an address lazily after either transition can return an empty value or access a discarded native wrapper. The stable snapshot remains available for the full HyperExpress request/WebSocket lifetime.
+
+Native WebSocket configuration is validated before registration. In particular, `idle_timeout` is `0` or `8..960` seconds, `max_lifetime` is `0..239` minutes, signed-addon byte limits cannot overflow, and compression must be a valid uWebSockets.js preset combination. Ping and close payload limits are enforced rather than relying on native truncation.
+
 ## Server lifecycle
 
 `shutdown()` stops accepting first and drains pending HTTP requests; long-lived WebSockets are not counted. `force_close()` explicitly closes all native sockets. Listen/shutdown/close calls are idempotent, process listeners are removed, and a server can safely listen again after graceful shutdown.
+
+Listen handles are ownership-tracked. HyperExpress will not pass a foreign or already-closed token into `us_listen_socket_close`, and failures inside a listen callback close the token exactly once.
 
 ## TypeScript corrections
 

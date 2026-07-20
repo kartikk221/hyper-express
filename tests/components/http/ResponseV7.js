@@ -121,6 +121,7 @@ function create_response(options = {}) {
         upgrade_arguments: [],
         begin_write_calls: 0,
         on_writable_bindings: 0,
+        statuses: [],
         headers: [],
         offset: 0,
         onAborted(handler) {
@@ -136,7 +137,8 @@ function create_response(options = {}) {
             handler();
             return this;
         },
-        writeStatus() {
+        writeStatus(status) {
+            this.statuses.push(status);
             return this;
         },
         writeHeader(name, value) {
@@ -196,6 +198,35 @@ function create_response(options = {}) {
 
 async function test_response_lifecycle_units() {
     {
+        const { errors, native, response } = create_response();
+        assert.throws(() => response.status(99), /integer from 100 to 999/);
+        assert.throws(() => response.status(200, 'OK\r\nInjected: yes'), /cannot contain CR or LF/);
+        assert.throws(() => response.header('bad header', 'value'), /valid HTTP field name/);
+        assert.throws(() => response.header('x-test', 'value\r\ninjected'), /cannot contain CR or LF/);
+        assert.throws(() => response.header('x-test', 1), /must be strings or arrays of strings/);
+        response.header('content-length', 'not-a-number').send();
+        assert.equal(native.end_calls.length, 0);
+        assert.equal(native.end_without_body_calls.length, 0);
+        assert.match(errors[0].message, /content-length must be a non-negative safe integer/);
+    }
+
+    {
+        const { native, response } = create_response();
+        response.header('x-many', 'first').header('x-many', ['second', 'third']).send();
+        assert.deepEqual(native.headers, [
+            ['x-many', 'first'],
+            ['x-many', 'second'],
+            ['x-many', 'third'],
+        ]);
+    }
+
+    {
+        const { native, response } = create_response();
+        response.status(609).send();
+        assert.deepEqual(native.statuses, ['609']);
+    }
+
+    {
         const temporary_server = new HyperExpress.Server({ auto_close: false });
         let closed = 0;
         temporary_server._file_pool['/cached'] = {
@@ -219,6 +250,12 @@ async function test_response_lifecycle_units() {
         assert.equal(native.end_calls.length, 1);
         assert.equal(app.pending, 1);
         assert.equal(request.ended, 1);
+        assert.equal(response.drain(() => true), response);
+        assert.equal(
+            native.on_writable_bindings,
+            0,
+            'drain() after native completion must be a no-op'
+        );
         assert.deepEqual(events, [
             ['finish', true],
             ['close', true],
@@ -264,6 +301,7 @@ async function test_response_lifecycle_units() {
 
     {
         const { errors, native, response } = create_response();
+        assert.throws(() => response.upgrade('invalid'), /requires an object context/);
         assert.equal(response.upgrade({ invalid: true }), response);
         assert.equal(native.upgrade_calls, 0);
         assert.match(errors[0].message, /cannot upgrade/i);
@@ -289,6 +327,13 @@ async function test_response_lifecycle_units() {
     }
 
     {
+        const { errors, native, response } = create_response();
+        assert.equal(response.drain(null), response);
+        assert.equal(native.on_writable_bindings, 0);
+        assert.match(errors[0].message, /must be a function/i);
+    }
+
+    {
         const { native, response } = create_response();
         assert.equal(response.header('x-flushed', 'yes').begin_write(), response);
         assert.equal(response.initiated, true);
@@ -300,6 +345,7 @@ async function test_response_lifecycle_units() {
     {
         const expected = new Error('atomic rejection');
         const { errors, response } = create_response();
+        assert.throws(() => response.atomic(null), /requires a function/);
         assert.doesNotThrow(() => response.atomic(() => Promise.reject(expected)));
         await Promise.resolve();
         await Promise.resolve();
@@ -317,6 +363,25 @@ async function test_response_lifecycle_units() {
         assert.doesNotThrow(() => response.send('body'));
         assert.equal(errors[0], expected);
         assert.equal(native.end_calls.length, 0);
+    }
+
+    {
+        const { errors, native, response } = create_response();
+        response._cork = true;
+        response.header('x-mutable', ['safe']);
+        response.once('prepare', () => response.getHeader('x-mutable').push('bad\r\nvalue'));
+
+        assert.doesNotThrow(() => response.send('body'));
+        assert.match(errors[0].message, /cannot contain CR or LF/);
+        assert.equal(native.end_calls.length, 0);
+        assert.equal(native.headers.length, 0);
+    }
+
+    {
+        const { native, response } = create_response();
+        response.once('prepare', () => response.header('content-length', '9'));
+        response.send();
+        assert.deepEqual(native.end_without_body_calls, [9]);
     }
 
     {

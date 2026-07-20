@@ -150,6 +150,11 @@ class Router {
         // Make a shallow copy of the options object to avoid mutating the original
         options = Object.assign({}, options);
 
+        if (!pattern.length || pattern.includes('\0'))
+            throw new TypeError(
+                'HyperExpress.Router: Route patterns must be non-empty strings without null bytes.'
+            );
+
         // uWS requires catch-all patterns to begin with a slash
         if (pattern.startsWith('*')) pattern = '/' + pattern;
 
@@ -389,6 +394,11 @@ class Router {
         // Parse a pattern for this use call with a fallback to the local-global scope aka. '/' pattern
         const pattern = arguments[0] && typeof arguments[0] == 'string' ? arguments[0] : '/';
 
+        if (!pattern.length || pattern.includes('\0'))
+            throw new TypeError(
+                'HyperExpress.Router.use(): mount patterns must be non-empty strings without null bytes.'
+            );
+
         // Validate that the pattern value does not contain any wildcard or path parameter prefixes which are not allowed
         if (pattern.indexOf('*') > -1 || pattern.indexOf(':') > -1)
             throw new Error(
@@ -443,8 +453,10 @@ class Router {
      * @returns {this} A Chainable instance with a context pattern set to this router's pattern.
      */
     route(pattern) {
-        if (!pattern || typeof pattern !== 'string')
-            throw new Error('HyperExpress.Router.route(pattern) -> pattern must be a string.');
+        if (typeof pattern !== 'string' || !pattern.length || pattern.includes('\0'))
+            throw new Error(
+                'HyperExpress.Router.route(pattern) -> pattern must be a non-empty string without null bytes.'
+            );
 
         // Bind subsequent route calls to the provided context pattern
         const router = new Router();

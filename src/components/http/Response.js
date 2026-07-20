@@ -6,6 +6,23 @@ const mime_types = require('mime-types');
 const stream = require('stream');
 const Path = require('path');
 
+function validate_header_name(name) {
+    if (typeof name !== 'string' || !/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(name))
+        throw new TypeError('HyperExpress.Response.header(name) requires a valid HTTP field name.');
+}
+
+function validate_header_values(value) {
+    const values = Array.isArray(value) ? value : [value];
+    for (const candidate of values) {
+        if (typeof candidate !== 'string')
+            throw new TypeError(
+                'HyperExpress.Response header values must be strings or arrays of strings.'
+            );
+        if (/\r|\n/.test(candidate))
+            throw new TypeError('HyperExpress.Response header values cannot contain CR or LF characters.');
+    }
+}
+
 const NodeResponse = require('../compatibility/NodeResponse.js');
 const ExpressResponse = require('../compatibility/ExpressResponse.js');
 const { inherit_prototype, array_buffer_to_string } = require('../../shared/operators.js');
@@ -50,7 +67,7 @@ class Response {
      * @private
      * @type {Record<string, string|string[]}
      */
-    _headers = {};
+    _headers = Object.create(null);
 
     /**
      * Contains underlying cookies for the response.
@@ -142,6 +159,7 @@ class Response {
 
         this.completed = true;
         this._aborted = aborted;
+        this._drain_handler = null;
         this._wrapped_request._mark_ended();
 
         if (error) this._wrapped_request._body_parser_stop(error);
@@ -195,6 +213,9 @@ class Response {
      * @returns {Response} Response (Chainable)
      */
     atomic(handler) {
+        if (typeof handler !== 'function')
+            throw new TypeError('HyperExpress.Response.atomic(handler) requires a function.');
+
         if (!this.completed)
             this._raw_response.cork(() => {
                 try {
@@ -221,6 +242,15 @@ class Response {
      * @returns {Response} Response (Chainable)
      */
     status(code, message) {
+        if (!Number.isInteger(code) || code < 100 || code > 999)
+            throw new RangeError('HyperExpress.Response.status(code) requires an integer from 100 to 999.');
+        if (message !== undefined) {
+            if (typeof message !== 'string')
+                throw new TypeError('HyperExpress.Response.status(code, message) requires a string message.');
+            if (/\r|\n/.test(message))
+                throw new TypeError('HyperExpress.Response status messages cannot contain CR or LF characters.');
+        }
+
         // Defer status serialization until response initiation
         this._status_code = code;
         this._status_message = message;
@@ -249,6 +279,9 @@ class Response {
      * @returns {Response} Response (Chainable)
      */
     header(name, value, overwrite) {
+        validate_header_name(name);
+        validate_header_values(value);
+
         name = name.toLowerCase();
         const has_header = Object.prototype.hasOwnProperty.call(this._headers, name);
 
@@ -263,7 +296,9 @@ class Response {
                 }
             } else {
                 // Preserve repeated header values rather than overwriting the first
-                this._headers[name] = [this._headers[name], value];
+                this._headers[name] = Array.isArray(value)
+                    ? [this._headers[name], ...value]
+                    : [this._headers[name], value];
             }
         } else {
             this._headers[name] = value;
@@ -337,6 +372,12 @@ class Response {
     upgrade(context) {
         if (this.completed) return;
 
+        if (
+            context !== undefined &&
+            (context === null || typeof context !== 'object' || Array.isArray(context))
+        )
+            throw new TypeError('HyperExpress.Response.upgrade(context) requires an object context.');
+
         // Only requests created by an upgrade route carry the required native socket context
         if (this._upgrade_socket == null)
             return this.throw(
@@ -355,13 +396,18 @@ class Response {
         }
 
         const headers = this._wrapped_request.headers;
+        const remote_ip =
+            this._wrapped_request._socket_ip ??
+            array_buffer_to_string(this._raw_response.getRemoteAddressAsText());
+        const remote_port =
+            this._wrapped_request._socket_port ?? this._raw_response.getRemotePort();
         this._raw_response.upgrade(
             {
                 context,
                 // uWS may lose its cached peer address while replacing HttpResponseData with
                 // WebSocketData. Capture stable connection metadata before that native upgrade.
-                remote_ip: array_buffer_to_string(this._raw_response.getRemoteAddressAsText()),
-                remote_port: this._raw_response.getRemotePort(),
+                remote_ip,
+                remote_port,
             },
             headers['sec-websocket-key'],
             headers['sec-websocket-protocol'],
@@ -384,15 +430,55 @@ class Response {
         // Allow final status, header and cookie mutations before locking response metadata
         if (this._writable) this.emit('prepare', this._wrapped_request, this);
 
+        // Compatibility setters and prepare listeners can bypass the public helpers. Revalidate
+        // every value immediately before any bytes or metadata cross into the native response.
+        if (
+            this._status_code !== undefined &&
+            (!Number.isInteger(this._status_code) ||
+                this._status_code < 100 ||
+                this._status_code > 999)
+        )
+            throw new RangeError(
+                'HyperExpress.Response statusCode must be an integer from 100 to 999.'
+            );
+        if (
+            this._status_message !== undefined &&
+            (typeof this._status_message !== 'string' || /\r|\n/.test(this._status_message))
+        )
+            throw new TypeError(
+                'HyperExpress.Response statusMessage must be a string without CR or LF characters.'
+            );
+
+        for (const name in this._headers) {
+            validate_header_name(name);
+            validate_header_values(this._headers[name]);
+
+            if (name === 'content-length') {
+                const configured = this._headers[name];
+                const value = Array.isArray(configured)
+                    ? configured[configured.length - 1]
+                    : configured;
+                const numeric = Number(value);
+                if (!/^\d+$/.test(value) || !Number.isSafeInteger(numeric) || numeric < 0)
+                    throw new RangeError(
+                        'HyperExpress.Response content-length must be a non-negative safe integer.'
+                    );
+            }
+        }
+        if (this._cookies) {
+            for (const name in this._cookies) validate_header_values(this._cookies[name]);
+        }
+
         this.initiated = true;
 
         // Resume any body pause so uWS can finish receiving the request
         this._wrapped_request.resume();
 
-        if (this._status_code || this._status_message)
-            this._raw_response.writeStatus(
-                this._status_code + ' ' + (this._status_message || status_codes[this._status_code])
-            );
+        if (this._status_code !== undefined || this._status_message !== undefined) {
+            const code = this._status_code ?? 200;
+            const message = this._status_message ?? status_codes[code] ?? '';
+            this._raw_response.writeStatus(message ? `${code} ${message}` : String(code));
+        }
 
         for (const name in this._headers) {
             // Content-Length is deferred until send() determines body-suppression semantics
@@ -427,6 +513,16 @@ class Response {
      * @param {function(number):boolean} handler Synchronous callback only
      */
     drain(handler) {
+        if (this.completed) return this;
+        if (typeof handler !== 'function') {
+            this.throw(
+                new TypeError(
+                    'HyperExpress: Response.drain(handler) -> handler must be a function.'
+                )
+            );
+            return this;
+        }
+
         // Bind one native writable callback while allowing the active drain handler to change
         const is_first_time = this._drain_handler === null;
 
@@ -561,7 +657,33 @@ class Response {
                 return this.atomic(() => this.send(body, close_connection));
             }
 
+            const custom_length = this._headers['content-length'];
+            const content_length = Array.isArray(custom_length)
+                ? custom_length[custom_length.length - 1]
+                : custom_length;
+            if (content_length !== undefined) {
+                const numeric_length = Number(content_length);
+                if (
+                    (typeof content_length === 'string' && !/^\d+$/.test(content_length)) ||
+                    !Number.isSafeInteger(numeric_length) ||
+                    numeric_length < 0
+                ) {
+                    delete this._headers['content-length'];
+                    return this.throw(
+                        new RangeError(
+                            'HyperExpress.Response content-length must be a non-negative safe integer.'
+                        )
+                    );
+                }
+            }
+
             this._initiate_response();
+
+            // prepare listeners may have changed the deferred content-length header.
+            const prepared_custom_length = this._headers['content-length'];
+            const prepared_content_length = Array.isArray(prepared_custom_length)
+                ? prepared_custom_length[prepared_custom_length.length - 1]
+                : prepared_custom_length;
 
             if (!this._wrapped_request.received) {
                 // uWS must finish receiving the request body before the response can be sent safely
@@ -579,10 +701,6 @@ class Response {
                 return this;
             }
 
-            const custom_length = this._headers['content-length'];
-            const content_length = Array.isArray(custom_length)
-                ? custom_length[custom_length.length - 1]
-                : custom_length;
             const status_code = this._status_code || 200;
             const is_head = this._wrapped_request.method === 'HEAD';
             const status_forbids_body =
@@ -591,8 +709,8 @@ class Response {
             // HEAD and specific status codes must never include response body bytes
             if (is_head || status_forbids_body) {
                 let reported_length;
-                if (content_length !== undefined && (is_head || status_code === 304)) {
-                    reported_length = Number(content_length);
+                if (prepared_content_length !== undefined && (is_head || status_code === 304)) {
+                    reported_length = Number(prepared_content_length);
                 } else if (is_head && body !== undefined) {
                     reported_length = Buffer.byteLength(body);
                 }
@@ -606,8 +724,12 @@ class Response {
                 }
 
                 // Preserve an explicitly declared length when no body bytes are supplied
-            } else if (body === undefined && !this._streaming && content_length !== undefined) {
-                this._raw_response.endWithoutBody(Number(content_length), close_connection);
+            } else if (
+                body === undefined &&
+                !this._streaming &&
+                prepared_content_length !== undefined
+            ) {
+                this._raw_response.endWithoutBody(Number(prepared_content_length), close_connection);
             } else {
                 this._raw_response.end(body, close_connection);
             }

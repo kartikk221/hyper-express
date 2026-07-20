@@ -30,6 +30,8 @@ class Request {
     _remote_proxy_ip;
     _remote_port;
     _remote_proxy_port;
+    _socket_ip;
+    _socket_port;
     _cookies;
     _path_parameters;
     _query_parameters;
@@ -55,7 +57,7 @@ class Request {
      * Returns request headers from incoming request.
      * @returns {Object.<string, string>}
      */
-    headers = {};
+    headers = Object.create(null);
 
     /**
      * Creates a new HyperExpress request instance that wraps a uWS.HttpRequest instance.
@@ -76,7 +78,7 @@ class Request {
 
         const num_path_parameters = route.path_parameters_key.length;
         if (num_path_parameters) {
-            this._path_parameters = {};
+            this._path_parameters = Object.create(null);
             for (let i = 0; i < num_path_parameters; i++) {
                 const parts = route.path_parameters_key[i];
                 this._path_parameters[parts[0]] = raw_request.getParameter(parts[1]);
@@ -107,12 +109,40 @@ class Request {
     }
 
     /**
+     * Captures connection metadata while uWS.HttpResponse is still valid. uWebSockets.js
+     * invalidates the response after end, abort, close, tryEnd completion, or upgrade, so
+     * none of these values may be resolved lazily from the native object.
+     * @private
+     */
+    _capture_connection_metadata() {
+        if (this._socket_ip !== undefined) return false;
+        if (this._request_ended)
+            throw new Error(
+                'HyperExpress.Request connection metadata cannot be captured after the Request/Response has ended.'
+            );
+
+        this._socket_ip = array_buffer_to_string(this._raw_response.getRemoteAddressAsText());
+        this._socket_port = this._raw_response.getRemotePort();
+        this._remote_proxy_ip = array_buffer_to_string(
+            this._raw_response.getProxiedRemoteAddressAsText()
+        );
+        this._remote_proxy_port = this._raw_response.getProxiedRemotePort();
+
+        const x_forwarded_for = this.get('X-Forwarded-For');
+        const trust_proxy = this.route.app._options.trust_proxy;
+        const forwarded_ip = x_forwarded_for?.split(',')[0].trim();
+        this._remote_ip = trust_proxy && forwarded_ip ? forwarded_ip : this._socket_ip;
+        this._remote_port = this._socket_port;
+        return true;
+    }
+
+    /**
      * Pauses only native body intake while leaving Node's Readable demand machinery active.
      * @private
      * @returns {Boolean} Whether native intake transitioned to paused.
      */
     _pause_native() {
-        if (this._paused) return false;
+        if (this._request_ended || this._paused) return false;
         this._paused = true;
         this._raw_response.pause();
         return true;
@@ -137,7 +167,7 @@ class Request {
         // Mirror resume state so uWS receives each transition only once
         if (this._paused) {
             this._paused = false;
-            if (!this.received) this._raw_response.resume();
+            if (!this._request_ended && !this.received) this._raw_response.resume();
             if (this._readable) this._super_resume();
         }
         return this;
@@ -220,9 +250,25 @@ class Request {
 
                 // A second consumer such as collectBody would race buffered, streaming, and
                 // multipart consumers, so onDataV2 remains the single native receiver.
-                this._raw_response.onDataV2((chunk, max_remaining_body_length) =>
-                    this._body_parser_on_chunk(response, chunk, max_remaining_body_length)
-                );
+                this._raw_response.onDataV2((chunk, max_remaining_body_length) => {
+                    try {
+                        this._body_parser_on_chunk(response, chunk, max_remaining_body_length);
+                    } catch (error) {
+                        // Node Readable listeners run synchronously from push(). Contain their
+                        // exceptions so none can unwind through uWS's native body callback.
+                        const received = max_remaining_body_length === 0n;
+                        if (received) this.received = true;
+                        this._body_parser_stop(error);
+                        response.throw(error);
+                        if (received) {
+                            try {
+                                this.emit('received', this._body_received_bytes);
+                            } catch (secondary_error) {
+                                response.throw(secondary_error);
+                            }
+                        }
+                    }
+                });
             }
         }
 
@@ -790,71 +836,37 @@ class Request {
 
     /**
      * Returns remote IP address in string format from incoming request.
-     * Note! You cannot call this method after the response has been sent or ended.
      * @returns {String}
      */
     get ip() {
-        if (this._remote_ip !== undefined) return this._remote_ip;
-
-        // uWS address buffers are unavailable after the request lifecycle ends
-        if (this._request_ended)
-            throw new Error('HyperExpress.Request.ip cannot be consumed after the Request/Response has ended.');
-
-        const x_forwarded_for = this.get('X-Forwarded-For');
-        const trust_proxy = this.route.app._options.trust_proxy;
-        if (trust_proxy && x_forwarded_for) {
-            // The first forwarded address represents the client when proxies are trusted
-            this._remote_ip = x_forwarded_for.split(',')[0];
-        } else {
-            this._remote_ip = array_buffer_to_string(this._raw_response.getRemoteAddressAsText());
-        }
-
+        if (this._remote_ip === undefined) this._capture_connection_metadata();
         return this._remote_ip;
     }
 
     /**
      * Returns remote proxy IP address in string format from incoming request.
-     * Note! You cannot call this method after the response has been sent or ended.
      * @returns {String}
      */
     get proxy_ip() {
-        if (this._remote_proxy_ip !== undefined) return this._remote_proxy_ip;
-
-        // uWS address buffers are unavailable after the request lifecycle ends
-        if (this._request_ended)
-            throw new Error('HyperExpress.Request.proxy_ip cannot be consumed after the Request/Response has ended.');
-
-        this._remote_proxy_ip = array_buffer_to_string(this._raw_response.getProxiedRemoteAddressAsText());
+        if (this._remote_proxy_ip === undefined) this._capture_connection_metadata();
         return this._remote_proxy_ip;
     }
 
     /**
      * Returns the remote TCP port for the incoming request.
-     * Note! You cannot access this property after the request/response lifecycle has ended.
      * @returns {Number}
      */
     get port() {
-        if (this._remote_port !== undefined) return this._remote_port;
-        if (this._request_ended)
-            throw new Error('HyperExpress.Request.port cannot be consumed after the Request/Response has ended.');
-
-        this._remote_port = this._raw_response.getRemotePort();
+        if (this._remote_port === undefined) this._capture_connection_metadata();
         return this._remote_port;
     }
 
     /**
      * Returns the remote TCP port reported by a PROXY Protocol v2 compatible proxy.
-     * Note! You cannot access this property after the request/response lifecycle has ended.
      * @returns {Number}
      */
     get proxy_port() {
-        if (this._remote_proxy_port !== undefined) return this._remote_proxy_port;
-        if (this._request_ended)
-            throw new Error(
-                'HyperExpress.Request.proxy_port cannot be consumed after the Request/Response has ended.'
-            );
-
-        this._remote_proxy_port = this._raw_response.getProxiedRemotePort();
+        if (this._remote_proxy_port === undefined) this._capture_connection_metadata();
         return this._remote_proxy_port;
     }
 

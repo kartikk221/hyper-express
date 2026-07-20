@@ -240,7 +240,7 @@ export class Response<Locals = DefaultResponseLocals> extends Writable {
      * Upgrade socket context for upgrade requests.
      * @returns {uWebsockets.ux_socket_context}
      */
-    get upgrade_socket(): uWebsockets.us_socket_context_t;
+    get upgrade_socket(): uWebsockets.us_socket_context_t | null;
 
     /**
      * Returns a "Server-Sent Events" connection object to allow for SSE functionality.

@@ -12,11 +12,87 @@ const WebsocketRoute = require('./ws/WebsocketRoute.js');
 
 const { wrap_object, to_forward_slashes } = require('../shared/operators.js');
 
+const BOOLEAN_OPTIONS = [
+    'auto_close',
+    'exclusive_port',
+    'fast_abort',
+    'strict_middleware',
+    'trust_proxy',
+    'fast_buffers',
+    'ssl_prefer_low_memory_usage',
+];
+const STRING_OPTIONS = [
+    'cert_file_name',
+    'key_file_name',
+    'passphrase',
+    'dh_params_file_name',
+    'ca_file_name',
+    'ssl_ciphers',
+];
+
+function validate_server_options(options) {
+    for (const name of BOOLEAN_OPTIONS) {
+        if (
+            Object.prototype.hasOwnProperty.call(options, name) &&
+            typeof options[name] !== 'boolean'
+        )
+            throw new TypeError(`HyperExpress.Server option ${name} must be a boolean.`);
+    }
+
+    for (const name of ['max_body_buffer', 'max_body_length']) {
+        if (
+            Object.prototype.hasOwnProperty.call(options, name) &&
+            (!Number.isSafeInteger(options[name]) || options[name] < 0)
+        )
+            throw new RangeError(
+                `HyperExpress.Server option ${name} must be a non-negative safe integer.`
+            );
+    }
+
+    for (const name of STRING_OPTIONS) {
+        if (
+            Object.prototype.hasOwnProperty.call(options, name) &&
+            (typeof options[name] !== 'string' || options[name].includes('\0'))
+        )
+            throw new TypeError(
+                `HyperExpress.Server option ${name} must be a string without null bytes.`
+            );
+    }
+
+    if (
+        Object.prototype.hasOwnProperty.call(options, 'streaming') &&
+        (options.streaming === null ||
+            typeof options.streaming !== 'object' ||
+            Array.isArray(options.streaming))
+    )
+        throw new TypeError('HyperExpress.Server option streaming must be an object.');
+
+    const has_certificate = Object.prototype.hasOwnProperty.call(options, 'cert_file_name');
+    const has_private_key = Object.prototype.hasOwnProperty.call(options, 'key_file_name');
+    if (has_certificate || has_private_key) {
+        if (
+            !has_certificate ||
+            !has_private_key ||
+            typeof options.cert_file_name !== 'string' ||
+            !options.cert_file_name.length ||
+            typeof options.key_file_name !== 'string' ||
+            !options.key_file_name.length
+        )
+            throw new TypeError(
+                'HyperExpress.Server TLS configuration requires non-empty cert_file_name and key_file_name strings.'
+            );
+    }
+}
+
 class Server extends Router {
     #port;
     #hosts;
     #uws_instance;
     #listen_socket;
+    #has_websocket_routes = false;
+    #descriptor;
+    #owned_listen_sockets = new WeakSet();
+    #closed_listen_sockets = new WeakSet();
     #auto_close_handlers = new Map();
     #shutdown_promise;
     #shutdown_resolve;
@@ -67,10 +143,15 @@ class Server extends Router {
      * @param {import('stream').WritableOptions=} options.streaming.writable Global content streaming options for Writable streams.
      */
     constructor(options = {}) {
-        if (options == null || typeof options !== 'object')
+        if (options == null || typeof options !== 'object' || Array.isArray(options))
             throw new Error(
                 'HyperExpress: HyperExpress.Server constructor only accepts an object type for the options parameter.'
             );
+
+        // Snapshot top-level accessors once into a null-prototype data object before validation
+        // or native option translation.
+        options = Object.assign(Object.create(null), options);
+        validate_server_options(options);
 
         super();
         super._is_app(true);
@@ -96,7 +177,7 @@ class Server extends Router {
         this._options = this.#options;
         try {
             const { cert_file_name, key_file_name } = options;
-            this.#options.is_ssl = cert_file_name && key_file_name; // cert and key are required for SSL
+            this.#options.is_ssl = Boolean(cert_file_name && key_file_name);
             if (this.#options.is_ssl) {
                 // uWS expects normalized absolute paths for TLS certificate files
                 this.#options.cert_file_name = to_forward_slashes(path.resolve(cert_file_name));
@@ -178,14 +259,34 @@ class Server extends Router {
         let port;
         let socket_path;
 
-        // Parse the overloaded port or UNIX socket argument
-        if (
-            (typeof first === 'number' && Number.isInteger(first) && first >= 0 && first < 65536) ||
-            (typeof first === 'string' && +first > 0 && +first < 65536)
-        ) {
-            port = typeof first === 'string' ? +first : first;
-        } else if (typeof first == 'string') {
-            socket_path = first;
+        // Parse the overloaded port or UNIX socket argument without allowing malformed numeric
+        // strings to fall through as accidental filesystem paths.
+        if (typeof first === 'number') {
+            if (!Number.isInteger(first) || first < 0 || first >= 65536)
+                throw new RangeError(
+                    'HyperExpress.Server.listen(): TCP ports must be integers from 0 through 65535.'
+                );
+            port = first;
+        } else if (typeof first === 'string') {
+            const trimmed = first.trim();
+            const numeric = Number(trimmed);
+            if (/^\d+$/.test(trimmed)) {
+                if (!Number.isInteger(numeric) || numeric < 0 || numeric >= 65536)
+                    throw new RangeError(
+                        'HyperExpress.Server.listen(): TCP ports must be integers from 0 through 65535.'
+                    );
+                port = numeric;
+            } else if (trimmed && Number.isFinite(numeric)) {
+                throw new RangeError(
+                    'HyperExpress.Server.listen(): TCP port strings must contain decimal digits only.'
+                );
+            } else if (trimmed && !first.includes('\0')) {
+                socket_path = first;
+            } else {
+                throw new TypeError(
+                    'HyperExpress.Server.listen(): Unix socket paths cannot be empty.'
+                );
+            }
         } else
             throw new TypeError(
                 'HyperExpress.Server.listen(): The first argument must be a valid TCP port or Unix socket path.'
@@ -193,20 +294,32 @@ class Server extends Router {
 
         let host = '0.0.0.0';
         let callback;
-        if (second) {
+        if (second !== undefined) {
             // The second argument can be either a callback or a host followed by a callback
             if (typeof second === 'function') {
+                if (third !== undefined)
+                    throw new TypeError(
+                        'HyperExpress.Server.listen(): The third argument is only valid after a hostname.'
+                    );
                 callback = second;
             } else {
-                if (typeof second == 'string') {
+                if (
+                    typeof second === 'string' &&
+                    second.trim().length &&
+                    !second.includes('\0')
+                ) {
                     host = second;
                 } else {
-                    throw new Error(
-                        `HyperExpress.Server.listen(): The second argument must either be a callback function or a string as a hostname.`
+                    throw new TypeError(
+                        'HyperExpress.Server.listen(): The second argument must either be a callback function or a non-empty hostname string.'
                     );
                 }
 
-                if (third && typeof third === 'function') callback = third;
+                if (third !== undefined && typeof third !== 'function')
+                    throw new TypeError(
+                        'HyperExpress.Server.listen(): The third argument must be a callback function.'
+                    );
+                if (third) callback = third;
             }
         }
 
@@ -230,6 +343,7 @@ class Server extends Router {
             const on_listen_socket = (listen_socket) => {
                 if (listen_socket) {
                     try {
+                        reference.#owned_listen_sockets.add(listen_socket);
                         // Freeze and compile routing structures before accepting requests
                         reference._compile();
                         reference.#shutdown_promise = undefined;
@@ -240,14 +354,31 @@ class Server extends Router {
 
                         if (reference.#options.auto_close) reference._bind_auto_close();
 
-                        if (callback) callback(listen_socket);
+                        if (callback) {
+                            const output = callback(listen_socket);
+                            if (output instanceof Error) throw output;
+                            if (output != null && typeof output.then === 'function') {
+                                Promise.resolve(output).then(
+                                    (value) => {
+                                        if (value instanceof Error) {
+                                            reference._stop_listening(listen_socket);
+                                            reject(value);
+                                        } else {
+                                            resolve(listen_socket);
+                                        }
+                                    },
+                                    (error) => {
+                                        reference._stop_listening(listen_socket);
+                                        reject(error);
+                                    }
+                                );
+                                return;
+                            }
+                        }
 
                         resolve(listen_socket);
                     } catch (error) {
-                        uWebSockets.us_listen_socket_close(listen_socket);
-                        reference.#listen_socket = null;
-                        reference.#port = undefined;
-                        reference._unbind_auto_close();
+                        reference._stop_listening(listen_socket);
                         reject(error);
                     }
                 } else {
@@ -292,8 +423,13 @@ class Server extends Router {
     shutdown(listen_socket) {
         if (this.#shutdown_promise) return this.#shutdown_promise;
 
+        const stopped = this._stop_listening(listen_socket);
+        // An explicit stale or foreign token must not transition this server into shutdown while
+        // its actual listener remains active.
+        if (listen_socket && !stopped) return Promise.resolve(false);
+
         this.#shutting_down = true;
-        this.#shutdown_result = this._stop_listening(listen_socket);
+        this.#shutdown_result = stopped;
         this.#shutdown_promise = new Promise((resolve) => (this.#shutdown_resolve = resolve));
         this.#pending_requests_zero_handler = () => this._finish_shutdown();
 
@@ -318,8 +454,14 @@ class Server extends Router {
     /** @private */
     _stop_listening(listen_socket) {
         const socket = listen_socket || this.#listen_socket;
-        if (!socket) return false;
+        if (
+            !socket ||
+            !this.#owned_listen_sockets.has(socket) ||
+            this.#closed_listen_sockets.has(socket)
+        )
+            return false;
 
+        this.#closed_listen_sockets.add(socket);
         uWebSockets.us_listen_socket_close(socket);
         if (!listen_socket || socket === this.#listen_socket) {
             this.#listen_socket = null;
@@ -346,6 +488,7 @@ class Server extends Router {
      * @returns {Boolean} Always true after native close has been invoked.
      */
     force_close() {
+        if (this.#listen_socket) this.#closed_listen_sockets.add(this.#listen_socket);
         this.#uws_instance.close();
         this.#listen_socket = null;
         this.#port = undefined;
@@ -408,6 +551,7 @@ class Server extends Router {
      * @returns {Boolean}
      */
     publish(topic, message, is_binary, compress) {
+        if (!this.#has_websocket_routes) return false;
         return this.#uws_instance.publish(topic, message, is_binary, compress);
     }
 
@@ -418,45 +562,57 @@ class Server extends Router {
      * @returns {Number}
      */
     num_of_subscribers(topic) {
+        if (!this.#has_websocket_routes) return 0;
         return this.#uws_instance.numSubscribers(topic);
     }
 
     /** Returns the native application descriptor for worker distribution. */
     get_descriptor() {
-        return this.#uws_instance.getDescriptor();
+        // The addon allocates a permanent V8 Persistent every time getDescriptor() is called.
+        // The encoded app pointer is stable, so one read avoids an unbounded native-side leak.
+        if (this.#descriptor === undefined) this.#descriptor = this.#uws_instance.getDescriptor();
+        return this.#descriptor;
     }
 
     /** Adds a child application descriptor for worker distribution. */
     add_child_app_descriptor(descriptor) {
+        if (typeof descriptor !== 'number' || !Number.isFinite(descriptor) || descriptor === 0)
+            throw new TypeError(
+                'HyperExpress.Server.add_child_app_descriptor(): descriptor must be a non-zero finite uWebSockets.js AppDescriptor.'
+            );
         this.#uws_instance.addChildAppDescriptor(descriptor);
         return this;
     }
 
     /** Removes a child application descriptor from worker distribution. */
     remove_child_app_descriptor(descriptor) {
+        if (typeof descriptor !== 'number' || !Number.isFinite(descriptor) || descriptor === 0)
+            throw new TypeError(
+                'HyperExpress.Server.remove_child_app_descriptor(): descriptor must be a non-zero finite uWebSockets.js AppDescriptor.'
+            );
         this.#uws_instance.removeChildAppDescriptor(descriptor);
         return this;
     }
 
     /* Server Routes & Middlewares Logic */
 
-    #middlewares = {
+    #middlewares = Object.assign(Object.create(null), {
         '/': [], // This will contain global middlewares
-    };
+    });
 
     #routes = {
-        any: {},
-        get: {},
-        post: {},
-        del: {},
-        head: {},
-        options: {},
-        patch: {},
-        put: {},
-        trace: {},
-        connect: {},
-        upgrade: {},
-        ws: {},
+        any: Object.create(null),
+        get: Object.create(null),
+        post: Object.create(null),
+        del: Object.create(null),
+        head: Object.create(null),
+        options: Object.create(null),
+        patch: Object.create(null),
+        put: Object.create(null),
+        trace: Object.create(null),
+        connect: Object.create(null),
+        upgrade: Object.create(null),
+        ws: Object.create(null),
     };
 
     #incremented_id = 0;
@@ -514,6 +670,7 @@ class Server extends Router {
                     handler,
                     options,
                 });
+                this.#has_websocket_routes = true;
                 break;
             case 'upgrade':
                 // Throw an error if an upgrade route already exists that was not created by WebsocketRoute
@@ -683,29 +840,55 @@ class Server extends Router {
      * @param {uWebSockets.us_socket_context_t=} socket
      */
     _handle_uws_request(route, uws_request, uws_response, socket) {
-        const request = new Request(route, uws_request);
-        request._raw_response = uws_response;
+        let response;
+        try {
+            const request = new Request(route, uws_request);
+            request._raw_response = uws_response;
 
-        const response = new Response(uws_response);
-        response.route = route;
-        response._wrapped_request = request;
-        response._upgrade_socket = socket || null;
+            response = new Response(uws_response);
+            response.route = route;
+            response._wrapped_request = request;
+            response._upgrade_socket = socket || null;
 
-        this.#pending_requests_count++;
+            this.#pending_requests_count++;
 
-        // Account for a request that raced with listen-socket closure before rejecting it.
-        if (this.#shutdown_promise) return response.close();
+            // Capture every connection-derived value before uWS can invalidate this HttpResponse.
+            // This also makes request address getters stable after send, abort, or upgrade.
+            request._capture_connection_metadata();
 
-        // Enter the route lifecycle only when body parsing remains within its configured limit
-        if (request._body_parser_run(response, route.max_body_length)) {
-            route.handle(request, response);
+            // Account for a request that raced with listen-socket closure before rejecting it.
+            if (this.#shutdown_promise) return response.close();
 
-            // Defer future writes through cork when handling continues asynchronously
-            if (!response.completed) response._cork = true;
+            // Enter the route lifecycle only when body parsing remains within its configured limit
+            if (request._body_parser_run(response, route.max_body_length)) {
+                route.handle(request, response);
+
+                // Defer future writes through cork when handling continues asynchronously
+                if (!response.completed) response._cork = true;
+            }
+        } catch (error) {
+            // No exception may cross a callback entered by uWebSockets.js. Once the wrappers exist,
+            // route through normal error handling; constructor failures close the raw response.
+            if (response) {
+                try {
+                    response.throw(error);
+                } catch {
+                    if (!response.completed) response.close();
+                }
+            } else {
+                try {
+                    uws_response.close();
+                } catch {}
+            }
         }
     }
 
     /* Safe Server Getters */
+
+    /** Returns whether this server uses uWebSockets.js SSLApp. */
+    get is_ssl() {
+        return this.#options.is_ssl;
+    }
 
     /**
      * Returns the local server listening port of the server instance.

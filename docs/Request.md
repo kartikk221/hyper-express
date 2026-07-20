@@ -21,6 +21,8 @@ Below is a breakdown of the `Request` component which is an extended `Readable` 
 | `port` | `Number`  | Remote connection port. |
 | `proxy_port` | `Number`  | Remote proxy connection port. |
 
+Connection addresses and ports are captured while the native `uWS.HttpResponse` is valid. They remain stable and readable after the HTTP response ends and are transferred into an upgraded WebSocket before uWebSockets.js replaces its HTTP socket data.
+
 #### Request Methods
 * `sign(String: string, String: secret)`: Signs provided string with provided secret.
     * **Returns** a `String`.
@@ -38,6 +40,7 @@ Below is a breakdown of the `Request` component which is an extended `Readable` 
     * **Note** `default_value` is `{}` by default meaning `json()` is a safe method even if incoming body is invalid json.
 * Body helpers share one retained raw body. Concurrent calls to the same helper share an in-flight Promise; after success, any helper may be called repeatedly and resolves from its value cache, including empty or falsey results.
 * Request remains a lazy Node.js `Readable`: applications may consume the upload through `pipe()`/stream methods instead of body helpers. Native intake is paused at the configured buffering/high-water limits and resumed by Readable demand; native `resume()` is never called after body completion.
+* Exceptions thrown synchronously by `Readable` consumers during native body delivery are routed through the scoped HyperExpress error handler and never escape through a native uWebSockets.js body callback.
 * `multipart(...2 Overloads)`: Parses incoming multipart form based requests allowing for file uploads.
     * **Returns** a `Promise` which is **resolved** once **all** of the fields have been processed.
         * **Note** the handler may return any thenable. Fields are processed through one serialized queue and the returned Promise waits for every field/file handler.

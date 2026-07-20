@@ -11,6 +11,8 @@ export interface ServerConstructorOptions {
     cert_file_name?: string;
     passphrase?: string;
     dh_params_file_name?: string;
+    ca_file_name?: string;
+    ssl_ciphers?: string;
     ssl_prefer_low_memory_usage?: boolean;
     auto_close?: boolean;
     exclusive_port?: boolean;
@@ -125,6 +127,9 @@ export class Server extends Router {
     remove_child_app_descriptor(descriptor: uWebsockets.AppDescriptor): this;
 
     /* Server Properties */
+
+    /** Returns whether this server uses TLS. */
+    get is_ssl(): boolean;
 
     /**
      * Returns the local server listening port of the server instance.

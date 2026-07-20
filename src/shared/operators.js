@@ -10,8 +10,17 @@ function wrap_object(original, target) {
     const target_keys = Object.keys(target);
     for (let index = 0; index < target_keys.length; index++) {
         const target_key = target_keys[index];
+        // Options are data, never object-graph instructions. Blocking these keys prevents a
+        // parsed options object from mutating Object.prototype through recursive merging.
+        if (
+            target_key === '__proto__' ||
+            target_key === 'prototype' ||
+            target_key === 'constructor'
+        )
+            continue;
+
         const target_value = target[target_key];
-        if (typeof target_value == 'object') {
+        if (target_value !== null && typeof target_value == 'object') {
             if (Array.isArray(target_value)) {
                 original[target_key] = target_value; // lgtm [js/prototype-pollution-utility]
                 continue;
@@ -112,10 +121,11 @@ function merge_relative_paths(base_path, new_path) {
 function get_all_property_descriptors(prototype) {
     const descriptors = Object.getOwnPropertyDescriptors(prototype);
 
-    // Include custom ancestors while stopping before the base Object prototype
+    // Include custom ancestors while stopping before the base Object prototype. Apply ancestors
+    // first so the nearest prototype wins, matching ordinary JavaScript property resolution.
     const parent = Object.getPrototypeOf(prototype);
     if (parent && parent.constructor.name !== 'Object') {
-        return Object.assign(descriptors, get_all_property_descriptors(parent));
+        return Object.assign(get_all_property_descriptors(parent), descriptors);
     }
 
     return descriptors;

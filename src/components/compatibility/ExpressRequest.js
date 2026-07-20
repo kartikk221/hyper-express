@@ -91,11 +91,15 @@ class ExpressRequest {
 
     param(name, default_value) {
         // Preserve Express lookup precedence across parameters, body and query values
-        let body = this.body;
+        let body = this.body ?? {};
         let path_parameters = this.path_parameters;
         let query_parameters = this.query_parameters;
 
-        if (null != path_parameters[name] && path_parameters.hasOwnProperty(name)) return path_parameters[name];
+        if (
+            null != path_parameters[name] &&
+            Object.prototype.hasOwnProperty.call(path_parameters, name)
+        )
+            return path_parameters[name];
         if (null != body[name]) return body[name];
         if (null != query_parameters[name]) return query_parameters[name];
 
@@ -143,7 +147,7 @@ class ExpressRequest {
             host = this.get('Host');
         } else {
             // Use the first forwarded value if a proxy supplied a list
-            host = host.split(',')[0];
+            host = host.split(',')[0].trim();
         }
 
         if (!host) return;
@@ -162,7 +166,7 @@ class ExpressRequest {
         const trust_proxy = this.route.app._options.trust_proxy;
         const x_forwarded_for = this.get('X-Forwarded-For');
         if (trust_proxy && x_forwarded_for) {
-            return x_forwarded_for.split(',');
+            return x_forwarded_for.split(',').map((ip) => ip.trim());
         } else {
             const ips = [];
             if (client_ip) ips.push(client_ip);
@@ -176,7 +180,7 @@ class ExpressRequest {
         const trust_proxy = this.route.app._options.trust_proxy;
         const x_forwarded_proto = this.get('X-Forwarded-Proto');
         if (trust_proxy && x_forwarded_proto) {
-            return x_forwarded_proto.split(',')[0];
+            return x_forwarded_proto.split(',')[0].trim();
         } else {
             return this.route.app.is_ssl ? 'https' : 'http';
         }

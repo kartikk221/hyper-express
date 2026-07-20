@@ -71,7 +71,9 @@ const multipart_write: Promise<void> = field.write('/tmp/upload');
 void [accepted, rejected, remote_port, proxy_port, streamed, multipart_write];
 
 const descriptor = server.get_descriptor();
+const uses_tls: boolean = server.is_ssl;
 server.add_child_app_descriptor(descriptor).remove_child_app_descriptor(descriptor);
 server.set_error_handler((req, res, error) => res.status(500).send(error.message));
 server.set_not_found_handler((req, res) => res.status(404).send());
 server.force_close();
+void uses_tls;

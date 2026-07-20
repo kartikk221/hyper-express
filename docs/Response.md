@@ -19,11 +19,13 @@ Below is a breakdown of the `Response` component which is an **extended** `Writa
 * `atomic(Function: callback)`: Alias of uWebsockets's `cork(callback)` method.
     * **Usage:** Wrapping multiple response method calls inside this method can improve performance.
 * `status(Number: code, String?: message)`: Sets the HTTP response status code and message for current request.
+    * **Note** codes must be integers from `100` through `999`; custom messages cannot contain CR or LF bytes.
 * `type(String: mime_type)`: Writes correct protocol `content-type` header for specified mime type.
     * **Example:** `response.type('json')` writes `application/json`
     * **Supported:** MIME types recognized by the [`mime-types`](https://www.npmjs.com/package/mime-types) package.
 * `header(String: name, String|Array<String>: value, Boolean?: overwrite)`: Writes one or multiple response headers.
   * **Note!** values append by default. Pass `true` for `overwrite` to replace previous values. Header lookup is case-insensitive.
+  * **Note** field names and values are validated before entering uWebSockets.js. CR/LF injection and invalid `content-length` values are rejected.
 * `cookie(String: name, String?: value, Number?: expiry, Object?: options, Boolean: sign_cookie)`: Writes a cookie header to set cookie on response.
     * `expiry` specifies the cookie lifetime duration in **milliseconds**.
     * `sign_cookie` is `true` by default.
@@ -53,6 +55,7 @@ Below is a breakdown of the `Response` component which is an **extended** `Writa
     * You should **slice** the chunk using `chunk.slice(offset - Response.write_offset)` to retry the chunk with the `write()` call.
     * This handler may be called **multiple** times with different `offset` values until the chunk is fully written.
   * **Note** this handler must be **synchronous** only.
+  * **Note** calls after completion are no-ops and never access the discarded native `HttpResponse`.
 * `begin_write()`: Flushes the status and headers with the pinned uWebSockets.js `beginWrite()` API and returns the current `Response`.
   * **Caution:** this is exact upstream delegation. uWebSockets.js v20.69.0 currently inserts an extra CRLF when its ordinary body-write path follows `beginWrite()`, which some HTTP clients reject. Do not combine `begin_write()` with `write()`, `stream()`, or `send()` until upstream resolves that native behavior.
 * `stream(ReadableStream: readable, Number?: total_size)`: Pipes the provided readable stream as body and sends response.

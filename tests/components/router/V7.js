@@ -28,6 +28,30 @@ async function test_registration_validation() {
         () => app.use('/invalid-use-array', [() => {}, null]),
         /middleware arrays may only contain functions/i
     );
+    assert.throws(
+        () => app.get('/invalid-limit', { max_body_length: Number.NaN }, () => {}),
+        /max_body_length must be a non-negative safe integer/
+    );
+    assert.throws(
+        () => app.get('/invalid-streaming', { streaming: null }, () => {}),
+        /streaming must be an object/
+    );
+    assert.throws(
+        () => app.get('', () => {}),
+        /patterns must be non-empty strings without null bytes/
+    );
+    assert.throws(
+        () => app.get('/invalid\0path', () => {}),
+        /patterns must be non-empty strings without null bytes/
+    );
+    assert.throws(
+        () => app.use('/invalid\0mount', () => {}),
+        /mount patterns must be non-empty strings without null bytes/
+    );
+    assert.throws(
+        () => app.route('/invalid\0chain'),
+        /non-empty string without null bytes/
+    );
 
     app.get('/zero-limit', { max_body_length: 0 }, (request, response) => response.send());
     app.connect('/connect', (request, response) => response.send());

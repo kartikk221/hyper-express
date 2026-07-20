@@ -5,6 +5,8 @@ interface HostOptions {
     cert_file_name?: string,
     key_file_name?: string,
     dh_params_file_name?: string,
+    ca_file_name?: string,
+    ssl_ciphers?: string,
     ssl_prefer_low_memory_usage?: boolean,
 }
 

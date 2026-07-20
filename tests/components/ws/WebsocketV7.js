@@ -203,7 +203,12 @@ async function test_websocket_units() {
         assert.equal(raw.remote_port_calls, 1, 'stable native port data must be read only once');
         assert.equal(ws.ip, '127.0.0.1');
         assert.equal(raw.remote_address_calls, 1, 'stable native address data must be read only once');
+        assert.throws(() => ws.atomic(null), /requires a function/);
         assert.equal(ws.atomic(() => Promise.reject(new Error('atomic failure'))), ws);
+        assert.throws(() => ws.ping(Buffer.alloc(126)), /cannot exceed 125 bytes/);
+        assert.throws(() => ws.close(1005), /valid WebSocket close code/);
+        assert.throws(() => ws.close(2000), /valid WebSocket close code/);
+        assert.throws(() => ws.close(1000, Buffer.alloc(124)), /cannot exceed 123 bytes/);
         await Promise.resolve();
         await Promise.resolve();
         assert.equal(errors[0].message, 'atomic failure');
@@ -247,6 +252,117 @@ async function test_websocket_units() {
         assert.equal(explicit.closeOnBackpressureLimit, false);
         assert.equal(explicit.maxLifetime, 0);
         assert.equal(explicit.sendPingsAutomatically, false);
+
+        assert.throws(
+            () => capture_native_route_options({ idle_timeout: 7 }),
+            /idle_timeout must be 0 or an integer from 8 through 960/
+        );
+        assert.throws(
+            () => capture_native_route_options({ max_payload_length: -1 }),
+            /max_payload_length must be an integer/
+        );
+        assert.throws(
+            () => capture_native_route_options({ max_backpressure: 2 ** 31 }),
+            /max_backpressure must be an integer/
+        );
+        assert.throws(
+            () => capture_native_route_options({ max_lifetime: 240 }),
+            /max_lifetime must be 0 or an integer from 1 through 239/
+        );
+        assert.throws(
+            () => capture_native_route_options({ send_pings_automatically: 1 }),
+            /send_pings_automatically must be a boolean/
+        );
+        assert.throws(
+            () => capture_native_route_options({ compression: 2 }),
+            /must combine valid uWebSockets\.js compressor and decompressor presets/
+        );
+        assert.throws(
+            () => capture_native_route_options({ compression: 2 ** 32 }),
+            /must combine valid uWebSockets\.js compressor and decompressor presets/
+        );
+        const combined_compression =
+            HyperExpress.compressors.DEDICATED_COMPRESSOR_4KB |
+            HyperExpress.compressors.DEDICATED_DECOMPRESSOR_4KB;
+        assert.equal(
+            capture_native_route_options({ compression: combined_compression }).compression,
+            combined_compression
+        );
+    }
+
+    {
+        const native_options = capture_native_route_options({ message_type: 'Buffer' });
+        const raw = new FakeSocket();
+        native_options.open(raw);
+        const values = {};
+        const poly = raw.poly;
+        poly.on('message', (message) => (values.message = message));
+        poly.on('dropped', (message) => (values.dropped = message));
+        poly.on('ping', (message) => (values.ping = message));
+        poly.on('pong', (message) => (values.pong = message));
+        poly.on('subscription', (topic) => (values.topic = topic));
+        poly.on('close', (code, message) => (values.close = [code, message]));
+
+        for (const event of ['message', 'dropped', 'ping', 'pong']) {
+            const source = new Uint8Array(array_buffer(event));
+            if (event === 'message' || event === 'dropped')
+                native_options[event](raw, source.buffer, true);
+            else native_options[event](raw, source.buffer);
+            source.fill('z'.charCodeAt(0));
+            assert.equal(values[event].toString(), event);
+        }
+
+        const topic = new Uint8Array(array_buffer('stable/topic'));
+        native_options.subscription(raw, topic.buffer, 1, 0);
+        topic.fill('z'.charCodeAt(0));
+        assert.equal(values.topic, 'stable/topic');
+
+        const reason = new Uint8Array(array_buffer('complete'));
+        native_options.close(raw, 1000, reason.buffer);
+        reason.fill('z'.charCodeAt(0));
+        assert.equal(values.close[0], 1000);
+        assert.equal(values.close[1].toString(), 'complete');
+        assert.equal(raw.poly, undefined);
+        assert.equal(poly.closed, true);
+    }
+
+    {
+        const route = Object.create(WebsocketRoute.prototype);
+        route.handler = (ws) => {
+            ws.close();
+            throw new Error('closed during open');
+        };
+        const raw = new FakeSocket();
+        raw.end = () => {
+            raw.poly._destroy();
+            delete raw.poly;
+        };
+        assert.doesNotThrow(() => route._on_open(raw));
+    }
+
+    {
+        const route = Object.create(WebsocketRoute.prototype);
+        route.handler = () => {};
+        const raw = new FakeSocket();
+        raw.getRemoteAddressAsText = () => {
+            throw new Error('native address failure');
+        };
+        raw.end = () => route._on_close(raw, 1011, array_buffer('Internal server error'));
+
+        assert.doesNotThrow(() => route._on_open(raw));
+        assert.equal(raw.poly, undefined);
+    }
+
+    {
+        const native_options = capture_native_route_options({ message_type: 'String' });
+        const raw = new FakeSocket();
+        native_options.open(raw);
+        raw.poly.emit = () => {
+            throw new Error('overwritten emit failure');
+        };
+
+        assert.doesNotThrow(() => native_options.message(raw, array_buffer('value'), false));
+        assert.deepEqual(raw.ends, [[1011, 'Internal server error']]);
     }
 
     {

@@ -22,6 +22,11 @@ server.hosts.on('missing', (hostname) => {
             });
     }
 });
+
+server.hosts.on('error', (error) => {
+    // Exceptions and rejected thenables from a missing-host listener are contained here.
+    console.error(error);
+});
 ```
 
 #### HostManager Properties
@@ -37,6 +42,11 @@ server.hosts.on('missing', (hostname) => {
         * `cert_file_name`[`String`]: Path to SSL certificate file to be used for SSL/TLS.
         * `key_file_name`[`String`]: Path to SSL private key file to be used for SSL/TLS.
         * `dh_params_file_name`[`String`]: Path to file containing Diffie-Hellman parameters.
+        * `ca_file_name`[`String`]: Path to a certificate-authority file.
+        * `ssl_ciphers`[`String`]: OpenSSL cipher configuration.
         * `ssl_prefer_low_memory_usage`[`Boolean`]: Whether to prefer low memory usage over high performance.
+        * **Note** certificate and private-key paths must be supplied together. The JavaScript registry is updated only after the native SNI operation succeeds.
 * `remove(hostname: string)`: Un-Registers the unique host options to use for the specified hostname for incoming requests.
     * **Returns** the self `HostManager` instance.
+
+`missing` listeners execute from a native uWebSockets.js callback and should complete synchronously. HyperExpress contains thrown exceptions and rejected thenables and forwards them to the optional `error` event so they cannot unwind through C++.
